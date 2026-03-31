@@ -2,19 +2,24 @@ package chapter01;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 
 
 public class FruitBasket implements Iterable<Fruit> {
     // private Fruit[] fruits;
-    private ArrayList<Fruit> fruits;
+    // private ArrayList<Fruit> fruits;
+    private List<Fruit> fruits;
     // private int lastIndex = 0;
 
     // public FruitBasket(int maxNumber) {
     // this.fruits = new Fruit[maxNumber];
     // }
-    public FruitBasket(ArrayList<Fruit> fruits) {
-        this.fruits = fruits;
+    // public FruitBasket(ArrayList<Fruit> fruits) {
+    // this.fruits = fruits;
+    // }
+    public FruitBasket(int initialsize) {
+        this.fruits = new ArrayList<>(initialsize);
     }
 
 
@@ -28,9 +33,9 @@ public class FruitBasket implements Iterable<Fruit> {
     // this.fruits[lastIndex] = fruit;
     // lastIndex++;
     // }
-    public void addFruit(Fruit fruit) {
-        this.fruits.add(fruit);
-        // lastIndex++;
+    public void appendFruit(Fruit fruit) {
+        // this.fruits.add(fruit);
+        fruits.add(fruit);
     }
 
     public int getLength() {
