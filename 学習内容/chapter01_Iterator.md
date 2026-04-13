@@ -390,7 +390,7 @@ List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードは�
 | 実装内部                           | ArrayList |
 | パフォーマンス重視 or 低レベル処理 | 配列      |
 
-実際に`ArrayList`のソースコードを見ると、クラス宣言で`implements List<E>`と記述されています。
+ところで、なぜ`List`型の変数に`ArrayList`のインスタンスを代入できるのでしょうか。実際に`ArrayList`のソースコードを見ると、クラス宣言で`implements List<E>`と記述されています。
 
 ```Java
 // ArrayListのクラス宣言（抜粋）
@@ -428,7 +428,7 @@ for (Fruit fruit : fruits) {
 }
 ```
 
-一見問題ない実装に見えるが、
+一見問題ない実装に見えますが、
 
 ```Java
 fruits.remove(fruit);
