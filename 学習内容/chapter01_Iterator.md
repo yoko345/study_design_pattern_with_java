@@ -174,12 +174,16 @@ public interface Iterable<T> {
 }
 ```
 
+> 引用元: OpenJDK [Iterable.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/lang/Iterable.java)
+
 ```Java
 public interface Iterator<E> {
     boolean hasNext();
     E next();
 }
 ```
+
+> 引用元: OpenJDK [Iterator.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Iterator.java)
 
 | 名前          | 説明                                   |
 | ------------- | -------------------------------------- |
@@ -385,6 +389,19 @@ List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードは�
 | API設計（メソッドの引数・戻り値）  | List      |
 | 実装内部                           | ArrayList |
 | パフォーマンス重視 or 低レベル処理 | 配列      |
+
+実際に`ArrayList`のソースコードを見ると、クラス宣言で`implements List<E>`と記述されています。
+
+```Java
+// ArrayListのクラス宣言（抜粋）
+public class ArrayList<E> extends AbstractList<E>
+        implements List<E>, RandomAccess, Cloneable, java.io.Serializable
+```
+
+> 引用元: OpenJDK [ArrayList.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/ArrayList.java)
+
+`implements List<E>` という部分が「ArrayListはListインタフェースの実装クラスである」ことを明示しています。
+つまり、`ArrayList`は`List`型の変数に代入できるため、`List<Fruit> fruitBasket = new ArrayList<>()`という宣言が成り立ちます。
 
 この「依存する先をインタフェースにする」という考え方は、**DIP（依存性逆転の原則）** と呼ばれる設計原則のひとつとなります。<br>
 具体的な実装クラス（`ArrayList`や`LinkedList`）ではなく、抽象（`List`インタフェース）に依存することで、実装が変わっても呼び出し元への影響をなくせます。
