@@ -1,19 +1,20 @@
 # Iterator（処理を繰り返す）パターン
 
 繰り返し処理に関して以下の経験はないでしょうか？<br>
-`for`文の中身が処理対象のデータ構造に依存している関係で、後からリファクタリングを行おうとした際、繰り返し処理以外の部分も修正しないといけなくなりました。<br>
+`for`文の中身が処理対象のデータ構造に依存している関係で、後からリファクタリングを行おうとした際、繰り返し処理以外の部分も修正しないといけなった。<br>
 <br>
-この記事では、その問題を解決する「Iteratorパターン」を具体例を通して学びます。<br>
-<br>
-**【具体例】**<br>
+この記事では、このような問題を解決する「Iteratorパターン」を具体例を通して学びます。<br>
+
+### 【具体例】
+
 フルーツバスケットに「りんご（100円）」「バナナ（300円）」「いちご（500円）」があるとします。<br>
-繰り返し文より「名前：果物名, 価格：金額」の表記で各フルーツの情報を出力したいと思います。
+繰り返し文により「名前：果物名, 価格：金額」の表記で各フルーツの情報を出力してください。
 
 ## forループで繰り返し処理をする
 
-今回の具体例では、果物の名前と金額の情報を保持している必要があるので、以下のように`Fruit`クラスを作成します。
+今回の具体例では、果物の名前と金額の情報を出力する必要があるので、`Fruit`クラスを事前に作成しておきます。
 
-```Java
+```Java:Fruit.java
 public class Fruit {
     private String name;
     private int price;
@@ -29,9 +30,10 @@ public class Fruit {
 }
 ```
 
-では、準備ができたので、繰り返し処理の実装を行うと以下のようになります。
+準備ができたので、繰り返し処理の実装を行いましょう。<br>
+以下のようになると思います。
 
-```Java
+```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -59,10 +61,10 @@ public class Main {
 
 ## 実装が変わると繰り返し文も変わる
 
-冒頭の経験の1つに、後から「キュウイ（150円）」を追加したくなったとします。<br>
-下記のような実装をしたくなると思います。
+冒頭の経験のなかで例えば、後から「キュウイ（150円）」を追加したくなったとします。<br>
+その場合、下記のような実装をしたくなると思います。
 
-```Java
+```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -79,15 +81,18 @@ public class Main {
 }
 ```
 
-しかし、配列は**固定長**のため、サイズを超えて追加しようとすると`ArrayIndexOutOfBoundsException`が発生します。
+しかし、配列は**固定長**のため、上記のようにサイズを超えて追加しようとすると`ArrayIndexOutOfBoundsException`が発生します。
 
 ここで「配列の代わりに`List`を使えばよいのでは？」と思うかもしれません。
 
-```Java
+```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
-        List<Fruit> fruitBasket =
-                Arrays.asList(new Fruit("りんご", 100), new Fruit("バナナ", 300), new Fruit("いちご", 500));
+        List<Fruit> fruitBasket = Arrays.asList(
+            new Fruit("りんご", 100),
+            new Fruit("バナナ", 300),
+            new Fruit("いちご", 500)
+        );
 
         fruitBasket.add(new Fruit("キュウイ", 150));
 
@@ -98,33 +103,15 @@ public class Main {
 }
 ```
 
-しかし、`Arrays.asList`で生成したリストも**固定長**のため、
+しかし、`Arrays.asList`で生成したリストも**固定長**のため、`fruitBasket.add(new Fruit("キュウイ", 150));`の部分で`UnsupportedOperationException`が発生します。[^1]
 
-```Java
-fruitBasket.add(new Fruit("キュウイ", 150));
-```
+そこで**可変長**の`ArrayList`[^2]を使うことで要素の追加ができるようになります。<br>
+このことは、下記の実装から分かります。
 
-の部分で`UnsupportedOperationException`が発生します。
-
-### 補足：配列・Listインタフェース・ArrayListの違い
-
-なぜ`List`でも固定長になってしまうのか。それぞれの違いを整理しておきましょう。
-
-|           |                                                                    |
-| --------- | ------------------------------------------------------------------ |
-| 配列      | Java言語に組み込まれている<br>クラスではなく「特別な構造」         |
-| List      | 「こういう操作ができます」という仕様だけを定義したもので中身はない |
-| ArrayList | Listを実装したクラスで、実体（オブジェクト）が生成される           |
-
-`Arrays.asList`が返すのは`List`の実装の一種だが、内部は配列をラップしたものなので追加・削除ができません。<br>
-**可変長**にするには、`ArrayList`を使う必要があります。
-
-そこで**可変長**の`ArrayList`を使うと要素を追加できることが下記の実装から分かります。
-
-```Java
+```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
-        ArrayList<Fruit> fruitBasket = new ArrayList<>();
+        ArrayList<Fruit> fruitBasket = new ArrayList<>(); // ※2
 
         fruitBasket.add(new Fruit("りんご", 100));
         fruitBasket.add(new Fruit("バナナ", 300));
@@ -147,26 +134,31 @@ public class Main {
 名前：キュウイ, 価格：150
 ```
 
-### 本質的な問題：繰り返し文が実装に依存している
+### 繰り返し文が実装に依存している
 
-`ArrayList`への変更で要素追加の問題は解決しました。<br>
-しかし、**繰り返し文も修正が必要になった**点に注目してください。
+後から「キュウイ（150円）」を追加するという実装は、`ArrayList`への変更で解決できました。<br>
+しかし実装の中身を見てみると、**繰り返し文も修正が必要になった**ことがわかります。
 
 | 実装      | 繰り返し文での要素取得 |
 | --------- | ---------------------- |
 | 配列      | `fruitBasket[i]`       |
 | ArrayList | `fruitBasket.get(i)`   |
 
-つまり、`fruitBasket`の実装を変えるたびに繰り返し文も変更しなければなりません。<br>
+つまり、`fruitBasket`の実装を変えるたびに繰り返し文も変更しなければならないということです。<br>
 これは**再利用性が低い**状態であると言えます。
 
----
+<br>
 
 ## Iteratorパターンによる解決
 
 この問題を解決するのが**Iteratorパターン**となります。
 
 まずは前提となるインタフェースを確認しておきましょう。
+
+| 名前          | 説明                                   |
+| ------------- | -------------------------------------- |
+| Iterable\<T\> | T型が集まったもの                      |
+| Iterator\<E\> | 1つ1つの要素の処理を繰り返すためのもの |
 
 ```Java
 public interface Iterable<T> {
@@ -185,15 +177,11 @@ public interface Iterator<E> {
 
 > 引用元: OpenJDK [Iterator.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Iterator.java)
 
-| 名前          | 説明                                   |
-| ------------- | -------------------------------------- |
-| Iterable\<T\> | T型が集まったもの                      |
-| Iterator\<E\> | 1つ1つの要素の処理を繰り返すためのもの |
-
 これらを使って`FruitBasket`クラスと`FruitBasketIterator`クラスを実装します。
 
-```Java
+```Java:FruitBasket.java
 public class FruitBasket implements Iterable<Fruit> {
+
     private Fruit[] fruits;
     private int lastIndex = 0;
 
@@ -221,7 +209,7 @@ public class FruitBasket implements Iterable<Fruit> {
 }
 ```
 
-```Java
+```Java:FruitBasketIterator.java
 public class FruitBasketIterator implements Iterator<Fruit> {
 
     private FruitBasket fruitBasket;
@@ -246,17 +234,20 @@ public class FruitBasketIterator implements Iterator<Fruit> {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
+
         Fruit fruit = fruitBasket.getFruitAt(index);
         index++;
+
         return fruit;
     }
 }
 ```
 
-```Java
+```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
+
         fruitBasket.appendFruit(new Fruit("りんご", 100));
         fruitBasket.appendFruit(new Fruit("バナナ", 300));
         fruitBasket.appendFruit(new Fruit("いちご", 500));
@@ -270,25 +261,54 @@ public class Main {
 }
 ```
 
-繰り返し文の中に登場するのが、`Iterator`インタフェースのメソッドだけになりました。
+出力結果
+
+```
+名前：りんご, 価格：100
+名前：バナナ, 価格：300
+名前：いちご, 価格：500
+```
+
+実装コードを見ると、繰り返し文の中に登場するのが`Iterator`インタフェースのメソッドだけになっていることがわかります。
 
 - `hasNext()`
 - `next()`
 
 これにより、**繰り返し文が`FruitBasket`の内部実装に依存しなくなりました**。
 
----
-
 ## 実装が変わっても繰り返し文は変わらない
 
-`FruitBasket`の内部実装を配列から`ArrayList`に変えてみましょう。
+改めて「キュウイ（150円）」を追加したくなったとしましょう。
 
-```Java
+```Java:Main.java
+public class Main {
+    public static void main(String[] args) throws Exception {
+        FruitBasket fruitBasket = new FruitBasket(3);
+
+        fruitBasket.appendFruit(new Fruit("りんご", 100));
+        fruitBasket.appendFruit(new Fruit("バナナ", 300));
+        fruitBasket.appendFruit(new Fruit("いちご", 500));
+        fruitBasket.appendFruit(new Fruit("キュウイ", 150)); // ←ここを追加
+
+        Iterator<Fruit> iterator = fruitBasket.iterator();
+        while (iterator.hasNext()) {
+            Fruit fruit = iterator.next();
+            System.out.println(fruit.getFruitInfo());
+        }
+    }
+}
+```
+
+しかし、実装を見て分かるように`ArrayIndexOutOfBoundsException`が発生します。
+
+そこで、`FruitBasket`の内部実装を配列から`ArrayList`[^2]に変えてみましょう。
+
+```Java:FruitBasket.java
 public class FruitBasket implements Iterable<Fruit> {
     private List<Fruit> fruits;
 
     public FruitBasket(int initialSize) {
-        this.fruits = new ArrayList<>(initialSize);
+        this.fruits = new ArrayList<>(initialSize); // ※2
     }
 
     public Fruit getFruitAt(int index) {
@@ -310,7 +330,35 @@ public class FruitBasket implements Iterable<Fruit> {
 }
 ```
 
-`FruitBasket`の実装は変わったが、**`Main`クラスの繰り返し文はまったく変更していません**。
+```Java:Main.java
+public class Main {
+    public static void main(String[] args) throws Exception {
+        FruitBasket fruitBasket = new FruitBasket(3);
+
+        fruitBasket.appendFruit(new Fruit("りんご", 100));
+        fruitBasket.appendFruit(new Fruit("バナナ", 300));
+        fruitBasket.appendFruit(new Fruit("いちご", 500));
+        fruitBasket.appendFruit(new Fruit("キュウイ", 150));
+
+        Iterator<Fruit> iterator = fruitBasket.iterator();
+        while (iterator.hasNext()) {
+            Fruit fruit = iterator.next();
+            System.out.println(fruit.getFruitInfo());
+        }
+    }
+}
+```
+
+出力結果
+
+```
+名前：りんご, 価格：100
+名前：バナナ, 価格：300
+名前：いちご, 価格：500
+名前：キュウイ, 価格：150
+```
+
+上記を見て分かるように、`FruitBasket`の実装は変わりましたが、**`Main`クラスの繰り返し文はまったく変更されていない**ことがわかります。
 
 ```Java
 Iterator<Fruit> iterator = fruitBasket.iterator();
@@ -320,12 +368,9 @@ while (iterator.hasNext()) {
 }
 ```
 
-これが**再利用可能なコード**の意味となります。<br>
-`FruitBasket`の内部実装がどのように変わっても、繰り返しを行う側のコードは修正せずに済みます。
+このように、`FruitBasket`の内部実装がどのように変わっても、繰り返しを行う側のコードは修正せずに済むため、**再利用可能なコード**となります。<br>
 
----
-
-## 【補足】拡張for文との関係
+## 拡張for文との関係
 
 先ほどの`while`ループは、拡張for文で書き換えることができます。
 
@@ -337,16 +382,18 @@ while (iterator.hasNext()) {
 }
 ```
 
+上記のコードは下記のように書き換えられます。
+
 ```Java
 for (Fruit fruit : fruitBasket) {
     System.out.println(fruit.getFruitInfo());
 }
 ```
 
-逆に言えば、拡張for文はコンパイル時に上記の`while`ループに変換されて実行されます。<br>
-`Iterable<T>`を実装したクラスであれば、拡張for文が使えるということです。
+逆に、拡張`for`文はコンパイル時に上記の`while`文に変換されて実行されます。<br>
+このように、`Iterable<T>`を実装したクラスであれば、拡張`for`文が使えるということです。
 
-なお、**配列**に対して拡張for文を使った場合は、`Iterator`ではなく通常の`for`ループに変換されます。
+ちなみに、**配列**に対して拡張`for`文を使った場合は、`Iterator`ではなく通常の`for`ループに変換されます。
 
 ```Java
 for (int i = 0; i < fruitBasket.length; i++) {
@@ -354,15 +401,48 @@ for (int i = 0; i < fruitBasket.length; i++) {
 }
 ```
 
+<br>
+
+## まとめ
+
+今回の記事で学んだことは以下となります。
+
+- 繰り返し文がデータ構造の実装に依存すると、実装を変えるたびに繰り返し文も修正が必要になる
+- Iteratorパターンを使うことで、繰り返し文を`Iterator`インタフェースのみに依存させられる
+- 結果として、データ構造の内部実装が変わっても繰り返しを行う側のコードは変更不要になる
+    - 再利用可能なコードとなる
+
 ---
 
-本記事の内容はここまでとなります。<br>
-以降は「もう少し深く知りたい」という方向けの補足です。
-実務でよく遭遇する落とし穴や、今回学んだパターンが繋がる設計原則について触れています。
+本記事の内容はここまでとなります。
+
+以降は「もう少し深く知りたい」という方向けの補足となります。<br>
+実務でよく遭遇する落とし穴や、今回学んだパターンに繋がる設計原則について触れています。
 
 ---
 
-## 【深堀り①】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）
+[^1]: なぜ`List`でも固定長になってしまうのか → 【深堀り①】配列・Listインタフェース・ArrayListの違い
+
+[^2]: `ArrayList<>`ではなく`List<>`での宣言を推奨しています → 【深堀り②】`List<>`で宣言する理由 ― DIP（依存性逆転の原則）
+
+---
+
+## 【深堀り①】配列・Listインタフェース・ArrayListの違い
+
+なぜ`Arrays.asList`で生成したリストが固定長になってしまうのか？<br>
+それぞれの違いを整理しておきましょう。
+
+|           |                                                                    |
+| --------- | ------------------------------------------------------------------ |
+| 配列      | Java言語に組み込まれている<br>クラスではなく「特別な構造」         |
+| List      | 「こういう操作ができます」という仕様だけを定義したもので中身はない |
+| ArrayList | Listを実装したクラスで、実体（オブジェクト）が生成される           |
+
+`Arrays.asList`が返すのは`List`の実装の一種なのですが、内部は配列をラップしたものなので追加・削除ができません。
+
+---
+
+## 【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）
 
 `ArrayList<Fruit> fruitBasket`ではなく`List<Fruit> fruitBasket`と宣言する方が良いとされています。
 
@@ -375,7 +455,8 @@ ArrayList<Fruit> fruitBasket = new ArrayList<>();
 ```
 
 【理由】<br>
-**差し替え可能にする**ためです。<br>
+**差し替え可能にする**ためです。
+
 これにより、後から`LinkedList`など別の実装に変えても呼び出し元を修正せずに済みます。
 
 ```Java
@@ -390,7 +471,9 @@ List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードは�
 | 実装内部                           | ArrayList |
 | パフォーマンス重視 or 低レベル処理 | 配列      |
 
-ところで、なぜ`List`型の変数に`ArrayList`のインスタンスを代入できるのでしょうか。実際に`ArrayList`のソースコードを見ると、クラス宣言で`implements List<E>`と記述されています。
+ところで、なぜ`List`型の変数に`ArrayList`のインスタンスを代入できるのでしょうか？
+
+実際に`ArrayList`のソースコードを見てみましょう。
 
 ```Java
 // ArrayListのクラス宣言（抜粋）
@@ -400,7 +483,8 @@ public class ArrayList<E> extends AbstractList<E>
 
 > 引用元: OpenJDK [ArrayList.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/ArrayList.java)
 
-`implements List<E>` という部分が「ArrayListはListインタフェースの実装クラスである」ことを明示しています。
+上記を見ると、クラス宣言で`implements List<E>`と記述されています。
+この`implements List<E>` という部分が「ArrayListはListインタフェースの実装クラスである」ことを明示しています。<br>
 つまり、`ArrayList`は`List`型の変数に代入できるため、`List<Fruit> fruitBasket = new ArrayList<>()`という宣言が成り立ちます。
 
 この「依存する先をインタフェースにする」という考え方は、**DIP（依存性逆転の原則）** と呼ばれる設計原則のひとつとなります。<br>
@@ -411,33 +495,30 @@ public class ArrayList<E> extends AbstractList<E>
 
 ---
 
-## 【深堀り②】`ConcurrentModificationException` の罠
+## 【深堀り③】`ConcurrentModificationException` の罠
 
 以下の実装を見てみましょう。
 
 ```Java
 List<Fruit> fruits = new ArrayList<>();
+
 fruits.add(new Fruit("りんご", 100));
 fruits.add(new Fruit("バナナ", 300));
 fruits.add(new Fruit("いちご", 500));
 
 for (Fruit fruit : fruits) {
     if (fruit.getFruitInfo().contains("バナナ")) {
-        fruits.remove(fruit); // ConcurrentModificationException が発生
+        fruits.remove(fruit);
     }
 }
 ```
 
-一見問題ない実装に見えますが、
-
-```Java
-fruits.remove(fruit);
-```
-
-の部分で`ConcurrentModificationException`が発生します。<br>
+一見問題ない実装に見えますが、`fruits.remove(fruit);`の部分で`ConcurrentModificationException`が発生します。<br>
 これは実務でよく踏むバグで、Iterator反復中にコレクションを変更すると例外が発生するので注意しましょう。
 
-## 【深堀り③】GoFデザインパターンとの位置づけ
+---
 
-今回は使ったIteratorパターンは GoFの23パターンのうち「振る舞いパターン」に分類されるものとなります。<br>
+## 【深堀り④】GoFデザインパターンとの位置づけ
+
+今回使ったIteratorパターンは GoFの23パターンのうち「振る舞いパターン」に分類されるものとなります。<br>
 詳しくは「GoF」で検索してみてください。
