@@ -7,7 +7,7 @@
 この記事では、このような問題を解決する「Iteratorパターン」を具体例を通して学びます。
 
 > **【具体例】**<br>
-> フルーツバスケットに「りんご（100円）」「バナナ（300円）」「いちご（500円）」があるとします。
+> フルーツバスケットに「りんご（150円）」「バナナ（200円）」「いちご（500円）」があるとします。
 > 繰り返し文により「名前：果物名, 価格：金額」の表記で各フルーツの情報を出力してください。
 
 ## forループで繰り返し処理をする
@@ -37,8 +37,8 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
 
-        fruitBasket[0] = new Fruit("りんご", 100);
-        fruitBasket[1] = new Fruit("バナナ", 300);
+        fruitBasket[0] = new Fruit("りんご", 150);
+        fruitBasket[1] = new Fruit("バナナ", 200);
         fruitBasket[2] = new Fruit("いちご", 500);
 
         for (int i = 0; i < fruitBasket.length; i++) {
@@ -51,24 +51,24 @@ public class Main {
 **出力結果**
 
 ```
-名前：りんご, 価格：100
-名前：バナナ, 価格：300
+名前：りんご, 価格：150
+名前：バナナ, 価格：200
 名前：いちご, 価格：500
 ```
 
 ## 実装が変わると繰り返し文も変わる
 
-冒頭の経験のなかで例えば、後から「キュウイ（150円）」を追加したくなったとします。その場合、下記のような実装をしたくなると思います。
+冒頭の経験のなかで例えば、後から「キウイ（130円）」を追加したくなったとします。その場合、下記のような実装をしたくなると思います。
 
 ```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
 
-        fruitBasket[0] = new Fruit("りんご", 100);
-        fruitBasket[1] = new Fruit("バナナ", 300);
+        fruitBasket[0] = new Fruit("りんご", 150);
+        fruitBasket[1] = new Fruit("バナナ", 200);
         fruitBasket[2] = new Fruit("いちご", 500);
-        fruitBasket[3] = new Fruit("キュウイ", 150); // ←ここを追加
+        fruitBasket[3] = new Fruit("キウイ", 130); // ←ここを追加
 
         for (int i = 0; i < fruitBasket.length; i++) {
             System.out.println(fruitBasket[i].getFruitInfo());
@@ -85,12 +85,12 @@ public class Main {
 public class Main {
     public static void main(String[] args) throws Exception {
         List<Fruit> fruitBasket = Arrays.asList(
-            new Fruit("りんご", 100),
-            new Fruit("バナナ", 300),
+            new Fruit("りんご", 150),
+            new Fruit("バナナ", 200),
             new Fruit("いちご", 500)
         );
 
-        fruitBasket.add(new Fruit("キュウイ", 150));
+        fruitBasket.add(new Fruit("キウイ", 130));
 
         for (int i = 0; i < fruitBasket.size(); i++) {
             System.out.println(fruitBasket.get(i).getFruitInfo());
@@ -102,7 +102,7 @@ public class Main {
 しかし、`Arrays.asList`で生成したリストも**固定長**のため、
 
 ```
-fruitBasket.add(new Fruit("キュウイ", 150));
+fruitBasket.add(new Fruit("キウイ", 130));
 ```
 
 の部分で`UnsupportedOperationException`が発生します。[^1]
@@ -114,10 +114,10 @@ public class Main {
     public static void main(String[] args) throws Exception {
         ArrayList<Fruit> fruitBasket = new ArrayList<>(); // ※2
 
-        fruitBasket.add(new Fruit("りんご", 100));
-        fruitBasket.add(new Fruit("バナナ", 300));
+        fruitBasket.add(new Fruit("りんご", 150));
+        fruitBasket.add(new Fruit("バナナ", 200));
         fruitBasket.add(new Fruit("いちご", 500));
-        fruitBasket.add(new Fruit("キュウイ", 150));
+        fruitBasket.add(new Fruit("キウイ", 130));
 
         for (int i = 0; i < fruitBasket.size(); i++) {
             System.out.println(fruitBasket.get(i).getFruitInfo());
@@ -129,15 +129,15 @@ public class Main {
 **出力結果**
 
 ```
-名前：りんご, 価格：100
-名前：バナナ, 価格：300
+名前：りんご, 価格：150
+名前：バナナ, 価格：200
 名前：いちご, 価格：500
-名前：キュウイ, 価格：150
+名前：キウイ, 価格：130
 ```
 
 ## 繰り返し文が実装に依存している
 
-後から「キュウイ（150円）」を追加するという実装は、`ArrayList`への変更で解決できました。
+後から「キウイ（130円）」を追加するという実装は、`ArrayList`への変更で解決できました。
 
 しかし実装の中身を見てみると、**繰り返し文も修正が必要になった**ことがわかります。
 
@@ -248,8 +248,8 @@ public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
 
-        fruitBasket.appendFruit(new Fruit("りんご", 100));
-        fruitBasket.appendFruit(new Fruit("バナナ", 300));
+        fruitBasket.appendFruit(new Fruit("りんご", 150));
+        fruitBasket.appendFruit(new Fruit("バナナ", 200));
         fruitBasket.appendFruit(new Fruit("いちご", 500));
 
         Iterator<Fruit> iterator = fruitBasket.iterator();
@@ -264,8 +264,8 @@ public class Main {
 **出力結果**
 
 ```
-名前：りんご, 価格：100
-名前：バナナ, 価格：300
+名前：りんご, 価格：150
+名前：バナナ, 価格：200
 名前：いちご, 価格：500
 ```
 
@@ -278,17 +278,17 @@ public class Main {
 
 ## 実装が変わっても繰り返し文は変わらない
 
-改めて「キュウイ（150円）」を追加したくなったとしましょう。
+改めて「キウイ（130円）」を追加したくなったとしましょう。
 
 ```Java:Main.java
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
 
-        fruitBasket.appendFruit(new Fruit("りんご", 100));
-        fruitBasket.appendFruit(new Fruit("バナナ", 300));
+        fruitBasket.appendFruit(new Fruit("りんご", 150));
+        fruitBasket.appendFruit(new Fruit("バナナ", 200));
         fruitBasket.appendFruit(new Fruit("いちご", 500));
-        fruitBasket.appendFruit(new Fruit("キュウイ", 150)); // ←ここを追加
+        fruitBasket.appendFruit(new Fruit("キウイ", 130)); // ←ここを追加
 
         Iterator<Fruit> iterator = fruitBasket.iterator();
         while (iterator.hasNext()) {
@@ -335,10 +335,10 @@ public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
 
-        fruitBasket.appendFruit(new Fruit("りんご", 100));
-        fruitBasket.appendFruit(new Fruit("バナナ", 300));
+        fruitBasket.appendFruit(new Fruit("りんご", 150));
+        fruitBasket.appendFruit(new Fruit("バナナ", 200));
         fruitBasket.appendFruit(new Fruit("いちご", 500));
-        fruitBasket.appendFruit(new Fruit("キュウイ", 150));
+        fruitBasket.appendFruit(new Fruit("キウイ", 130));
 
         Iterator<Fruit> iterator = fruitBasket.iterator();
         while (iterator.hasNext()) {
@@ -352,10 +352,10 @@ public class Main {
 **出力結果**
 
 ```
-名前：りんご, 価格：100
-名前：バナナ, 価格：300
+名前：りんご, 価格：150
+名前：バナナ, 価格：200
 名前：いちご, 価格：500
-名前：キュウイ, 価格：150
+名前：キウイ, 価格：130
 ```
 
 上記を見て分かるように、`FruitBasket`の実装は変わりましたが、**`Main`クラスの繰り返し文はまったく変更されていない**ことがわかります。
@@ -494,8 +494,8 @@ List<Fruit> fruitBasket = new ArrayList<>()
 ```Java
 List<Fruit> fruits = new ArrayList<>();
 
-fruits.add(new Fruit("りんご", 100));
-fruits.add(new Fruit("バナナ", 300));
+fruits.add(new Fruit("りんご", 150));
+fruits.add(new Fruit("バナナ", 200));
 fruits.add(new Fruit("いちご", 500));
 
 for (Fruit fruit : fruits) {
