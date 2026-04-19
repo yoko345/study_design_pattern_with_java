@@ -1,0 +1,5 @@
+#written by FileProperties
+#Sun Apr 19 15:29:20 JST 2026
+width=1024
+height=512
+depth=32
