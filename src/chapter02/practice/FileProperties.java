@@ -19,7 +19,9 @@ public class FileProperties implements FileIO {
 
     @Override
     public void readFromFile(String fileName) throws IOException {
-        property.load(new FileReader(getBasePath().append(fileName).toString()));
+        try (FileReader reader = new FileReader(getBasePath().append(fileName).toString())) {
+            property.load(reader);
+        }
     }
 
     @Override
@@ -29,8 +31,9 @@ public class FileProperties implements FileIO {
 
     @Override
     public void writeToFile(String fileName) throws IOException {
-        property.store(new FileWriter(getBasePath().append(fileName).toString()),
-                "written by FileProperties");
+        try (FileWriter writer = new FileWriter(getBasePath().append(fileName).toString())) {
+            property.store(writer, "written by FileProperties");
+        }
     }
 
     private StringBuilder getBasePath() {
