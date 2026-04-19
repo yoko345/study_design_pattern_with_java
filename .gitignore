@@ -4,6 +4,7 @@
 *.class
 *.log
 *.ctxt
+bin/
 
 # =========================
 # Package Files
