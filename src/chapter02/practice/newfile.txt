@@ -1,5 +1,5 @@
 #written by FileProperties
-#Sun Apr 19 15:29:20 JST 2026
-width=1024
-height=512
+#Sun Apr 19 16:28:21 JST 2026
 depth=32
+height=512
+width=1024
