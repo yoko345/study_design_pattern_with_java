@@ -340,10 +340,8 @@ SamplePayで 3000円 決済します
 確かに、今回の例では、どちらの実装でも正しく動作するため、使い分けの必要性が感じられないかもしれません。
 しかし実務では、現時点で動くかどうかだけでなく、将来の変更を見越した選択が重要となります。
 
-継承を使った場合、Javaの単一継承の制約により、`SamplePayAdapter`は`SamplePayClient`以外のクラスを継承できなくなります。
-例えば将来「全決済クラスに共通のログ処理を追加したい」といった要件がきたとしましょう。
-継承を使ったパターンでは、単一継承の制約のためログ処理を行うクラスを`extends`できません。
-そのため、下記のように`AppLogger`は`SamplePayAdapter`の内部にて`new`でインスタンス化することになります。
+例えば「全決済クラスに共通のログ処理（`AppLogger`クラス）を追加したい」という要件がきたとしましょう。
+継承を使ったパターンでは、`SamplePayAdapter`がすでに`SamplePayClient`を`extends`しているため、Javaの単一継承の制約から`AppLogger`クラスをさらに`extends`できません。そのため、`new`でインスタンス化することになります。
 
 ```Java:SamplePayAdapter.java
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
@@ -352,7 +350,8 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
     @Override
     public void pay(int amount) {
-        ...
+        logger.log("決済処理: " + amount + "円");
+        charge(amount);
     }
 
     @Override
@@ -362,12 +361,7 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 }
 ```
 
-もし他の決済クラスが`AppLogger`を`extends`で継承している場合、`SamplePayAdapter`だけが異なる方法で実装することになり、クラスごとに実装方法の統一性が失われてしまいます。
-
-加えて他の観点では、継承を使う場合は親クラスの内部的な振る舞いを詳しく理解している必要があります。`SamplePayClient`のような外部クラスを継承した場合、自社で把握できないバージョンアップにより内部実装が変わると、`SamplePayAdapter`で予期しない動作が起きるリスクがあります。
-
-一方、委譲を使った場合は、追加クラスが増えても呼び出し方が統一されるため、実装の意図が明確なままになります。
-また、テストの範囲も「追加したクラスのみ」と明確になるため、保守・運用コストを抑えることができます。
+一方、委譲を使ったパターンでは、`SamplePayClient`も`AppLogger`もどちらも`new`でインスタンス化する形で統一されます。
 
 ```Java:SamplePayAdapter.java
 public class SamplePayAdapter implements PaymentProcessor {
@@ -389,8 +383,14 @@ public class SamplePayAdapter implements PaymentProcessor {
 }
 ```
 
-`SamplePayClient`も`AppLogger`もどちらも`new`でインスタンス化する形で統一されます。
-他の決済クラスも同様に`new`でインスタンス化するため、継承を使った場合のような実装方法の差が生まれません。
+2つのコードを比較すると、以下のような違いがあります。
+
+| 観点 | 継承を使ったパターン | 委譲を使ったパターン |
+|---|---|---|
+| メソッドの呼び出し方 | `SamplePayClient`はextendsによりメソッド直接呼び出し、`AppLogger`は変数経由となり呼び出し方に差が生まれる | すべて`new`でインスタンス化するため呼び出し方が統一され、実装の意図が明確 |
+| 他の決済クラスとの統一性 | 他クラスが`AppLogger`をextendsで継承している場合、`SamplePayAdapter`だけ異なる実装になる | 全クラスを`new`でインスタンス化する実装にすることで統一性が保たれる |
+| 外部クラスの内部実装への依存度 | 内部の振る舞いを詳しく理解する必要があり、把握できないバージョンアップで予期しない動作が起きるリスクがある | 使用するメソッドのみ把握すれば良く、バージョンアップによる影響範囲も狭い |
+| テスト範囲 | 変更箇所が広がりやすく、既存コードの再テストも必要 | 追加クラスのみとなり明確で、保守・運用コストを抑えられる |
 
 以上のことから、基本的には「委譲を使ったAdapterパターン」で実装することで、将来の変更に対して柔軟に対応できるようになります。
 
