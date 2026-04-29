@@ -72,7 +72,7 @@ public class CreditCardPayment implements PaymentProcessor {
 
 SamplePay社が提供する外部クラスです。
 社外のコードのため、変更できません。
-下記を見て分かるように、既存サービスのインタフェースである `PaymentProcessor` とメソッド名が異なるため、そのままでは組み込めない状態です。
+下記を見て分かるように、既存サービスのインターフェースである `PaymentProcessor` とメソッド名が異なるため、そのままでは組み込めない状態です。
 
 | メソッド                  | 動作                                    |
 | ------------------------- | --------------------------------------- |
@@ -108,9 +108,9 @@ public class Main {
 ## 好ましくない実装①
 
 既存コードの仕様より「SamplePay社が提供する外部クラス」は変更ができないことが記載されています。
-しかしもし、この要件を見落としてしまったら以下のように実装を行ってしまうと考えられます。
+しかし、もしこの要件を見落としてしまったら以下のように実装を行ってしまうと考えられます。
 
-PaymentProcessor（インターフェース）を実現する必要があるので、下記のようにすると思います。
+`PaymentProcessor`インターフェースを実現する必要があるので、下記のようにすると思います。
 
 ```Java
 public class SamplePayClient implements PaymentProcessor {
@@ -123,8 +123,8 @@ public class SamplePayClient implements PaymentProcessor {
 - `void pay(int amount)`
 - `String getPaymentMethod()`
 
-一方、`SamplePayClient`クラスには上記のメソッドは存在しないため、追加でオーバーライドする必要があります。
-以上から最終的に、以下のような実装になると思います。
+ただし、`SamplePayClient`クラスには上記のメソッドは存在しないので、追加でオーバーライドする必要があります。
+最終的に、以下のような実装になると思います。
 
 ```Java:SamplePayClient.java
 public class SamplePayClient implements PaymentProcessor {
@@ -240,9 +240,9 @@ SamplePayで 3000円 決済します
 
 では、`PaymentProcessor`という共通の型を実現しつつ、`SamplePayClient`クラスに変更を加えずに実装するにはどうすればよいのでしょうか？
 
-この問題を解決するのが「Adapterパターン」となります。
+この問題を解決するのが「Adapterパターン」です。
 
-実装したコードは下記となります。
+では、具体的な実装コードを見てみましょう。
 
 ```Java:SamplePayAdapter.java
 public class SamplePayAdapter implements PaymentProcessor {
