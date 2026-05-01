@@ -317,7 +317,7 @@ public class Main {
 
 加えて、以下のメリットも得られます。
 
-- 統一して `PaymentProcessor` インターフェースのメソッドが呼び出せる
+- `PaymentProcessor` インターフェースのメソッドの呼び出しが統一される
 - `Main` クラスには `SamplePayClient` クラスのメソッドが一切登場せず、外部クラスの存在は `SamplePayAdapter` クラスの内部に隠される
 - 将来 `SamplePayAdapter` クラスの内部実装が変わっても、`Main` クラスの修正は不要
 - 既存コードはすでにテスト済みのため、再テストは不要
