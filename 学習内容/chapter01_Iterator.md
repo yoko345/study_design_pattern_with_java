@@ -484,7 +484,7 @@ List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードは�
 
 ところで、なぜ `List` 型の変数に `ArrayList` のインスタンスを代入できるのでしょうか？
 
-実際に`ArrayList`のソースコードを見てみましょう。
+実際に `ArrayList` のソースコードを見てみましょう。
 
 ```Java
 // ArrayListのクラス宣言（抜粋）
