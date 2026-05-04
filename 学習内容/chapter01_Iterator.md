@@ -1,36 +1,36 @@
-# Iteratorパターン ― 繰り返し文を実装に依存させない
+# Iterator パターン ― 繰り返し文を実装に依存させない
 
 繰り返し処理に関して以下の経験はないでしょうか？
 
-`for`文の中身が処理対象のデータ構造に依存している関係で、後からリファクタリングを行おうとした際、繰り返し処理以外の部分も修正しないといけなかった。
+`for` 文の中身が処理対象のデータ構造に依存している関係で、後からリファクタリングを行おうとした際、繰り返し処理以外の部分も修正しないといけなかった。
 
-この記事では、このような問題を解決する「Iteratorパターン」を具体例を通して学びます。
+この記事では、このような問題を解決する「Iterator パターン」を具体例を通して学びます。
 
 ## 目次
 
 - [【具体例】](#具体例)
-- [forループで繰り返し処理をする](#forループで繰り返し処理をする)
+- [`for` ループで繰り返し処理をする](#for-ループで繰り返し処理をする)
 - [実装が変わると繰り返し文も変わる](#実装が変わると繰り返し文も変わる)
 - [繰り返し文が実装に依存している](#繰り返し文が実装に依存している)
-- [Iteratorパターンによる解決](#iteratorパターンによる解決)
+- [Iterator パターンによる解決](#iterator-パターンによる解決)
 - [実装が変わっても繰り返し文は変わらない](#実装が変わっても繰り返し文は変わらない)
-- [拡張for文との関係](#拡張for文との関係)
+- [拡張 `for` 文との関係](#拡張-for-文との関係)
 - [まとめ](#まとめ)
-- [【深堀り①】配列・`List`インタフェース・`ArrayList`の違い](#深堀り1)
+- [【深堀り①】配列・`List` インタフェース・`ArrayList` の違い](#深堀り1)
 - [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)
 - [【深堀り③】`ConcurrentModificationException` の罠](#深堀り3)
-- [【深堀り④】GoFデザインパターンとの位置づけ](#深堀り4)
+- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
 
 ---
 
 ## 【具体例】
 
-> フルーツバスケットに「りんご（150円）」「バナナ（200円）」「いちご（500円）」があるとします。
+> フルーツバスケットに「りんご（150 円）」「バナナ（200 円）」「いちご（500 円）」があるとします。
 > 繰り返し文により「名前：果物名, 価格：金額」の表記で各フルーツの情報を出力してください。
 
-## forループで繰り返し処理をする
+## `for` ループで繰り返し処理をする
 
-今回の具体例では、果物の名前と金額の情報を出力する必要があるので、`Fruit`クラスを事前に作成しておきます。
+今回の具体例では、果物の名前と金額の情報を出力する必要があるので、`Fruit` クラスを事前に作成しておきます。
 
 ```Java:Fruit.java
 public class Fruit {
@@ -76,7 +76,7 @@ public class Main {
 
 ## 実装が変わると繰り返し文も変わる
 
-冒頭の経験のなかで例えば、後から「キウイ（130円）」を追加したくなったとします。その場合、下記のような実装をしたくなると思います。
+冒頭の経験のなかで例えば、後から「キウイ（130 円）」を追加したくなったとします。その場合、下記のような実装をしたくなると思います。
 
 ```Java:Main.java
 public class Main {
@@ -95,9 +95,9 @@ public class Main {
 }
 ```
 
-しかし、配列は**固定長**のため、上記のようにサイズを超えて追加しようとすると`ArrayIndexOutOfBoundsException`が発生します。
+しかし、配列は**固定長**のため、上記のようにサイズを超えて追加しようとすると `ArrayIndexOutOfBoundsException` が発生します。
 
-ここで「配列の代わりに`List`を使えばよいのでは？」と思うかもしれません。
+ここで「配列の代わりに `List` を使えばよいのでは？」と思うかもしれません。
 
 ```Java:Main.java
 public class Main {
@@ -117,15 +117,15 @@ public class Main {
 }
 ```
 
-しかし、`Arrays.asList`で生成したリストも**固定長**のため、
+しかし、`Arrays.asList` で生成したリストも**固定長**のため、
 
 ```
 fruitBasket.add(new Fruit("キウイ", 130));
 ```
 
-の部分で`UnsupportedOperationException`が発生します。[^1]
+の部分で `UnsupportedOperationException` が発生します。[^1]
 
-そこで**可変長**の`ArrayList`[^2]を使うことで要素の追加ができるようになります。このことは、下記の実装から分かります。
+そこで**可変長**の `ArrayList` [^2]を使うことで要素の追加ができるようになります。このことは、下記の実装から分かります。
 
 ```Java:Main.java
 public class Main {
@@ -155,7 +155,7 @@ public class Main {
 
 ## 繰り返し文が実装に依存している
 
-後から「キウイ（130円）」を追加するという実装は、`ArrayList`への変更で解決できました。
+後から「キウイ（130 円）」を追加するという実装は、`ArrayList` への変更で解決できました。
 
 しかし実装の中身を見てみると、**繰り返し文も修正が必要になった**ことがわかります。
 
@@ -164,19 +164,19 @@ public class Main {
 | 配列        | `fruitBasket[i]`       |
 | `ArrayList` | `fruitBasket.get(i)`   |
 
-つまり、`fruitBasket`の実装を変えるたびに繰り返し文も変更しなければならないということです。
+つまり、`fruitBasket` の実装を変えるたびに繰り返し文も変更しなければならないということです。
 これは**再利用性が低い**状態であると言えます。
 
-## Iteratorパターンによる解決
+## Iterator パターンによる解決
 
-この問題を解決するのが**Iteratorパターン**となります。
+この問題を解決するのが **Iterator パターン**となります。
 
 まずは前提となるインタフェースを確認しておきましょう。
 
-| 名前          | 説明                                   |
-| ------------- | -------------------------------------- |
-| `Iterable<T>` | T型が集まったもの                      |
-| `Iterator<E>` | 1つ1つの要素の処理を繰り返すためのもの |
+| 名前          | 説明                                      |
+| ------------- | ----------------------------------------- |
+| `Iterable<T>` | T 型が集まったもの                        |
+| `Iterator<E>` | 1 つ 1 つの要素の処理を繰り返すためのもの |
 
 ```Java
 public interface Iterable<T> {
@@ -195,7 +195,7 @@ public interface Iterator<E> {
 
 > 引用元: OpenJDK [Iterator.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Iterator.java)
 
-これらを使って`FruitBasket`クラスと`FruitBasketIterator`クラスを実装します。
+これらを使って `FruitBasket` クラスと `FruitBasketIterator` クラスを実装します。
 
 ```Java:FruitBasket.java
 public class FruitBasket implements Iterable<Fruit> {
@@ -287,16 +287,16 @@ public class Main {
 名前：いちご, 価格：500
 ```
 
-実装コードを見ると、繰り返し文の中に登場するのが`Iterator`インタフェースのメソッドだけになっていることがわかります。
+実装コードを見ると、繰り返し文の中に登場するのが `Iterator` インタフェースのメソッドだけになっていることがわかります。
 
 - `hasNext()`
 - `next()`
 
-これにより、**繰り返し文が`FruitBasket`の内部実装に依存しなくなりました**。
+これにより、**繰り返し文が `FruitBasket` の内部実装に依存しなくなりました**。
 
 ## 実装が変わっても繰り返し文は変わらない
 
-改めて「キウイ（130円）」を追加したくなったとしましょう。
+改めて「キウイ（130 円）」を追加したくなったとしましょう。
 
 ```Java:Main.java
 public class Main {
@@ -317,9 +317,9 @@ public class Main {
 }
 ```
 
-しかし、実装を見て分かるように`ArrayIndexOutOfBoundsException`が発生します。
+しかし、実装を見て分かるように `ArrayIndexOutOfBoundsException` が発生します。
 
-そこで、`FruitBasket`の内部実装を配列から`ArrayList`[^2]に変えてみましょう。
+そこで、`FruitBasket` の内部実装を配列から `ArrayList` [^2]に変えてみましょう。
 
 ```Java:FruitBasket.java
 public class FruitBasket implements Iterable<Fruit> {
@@ -376,7 +376,7 @@ public class Main {
 名前：キウイ, 価格：130
 ```
 
-上記を見て分かるように、`FruitBasket`の実装は変わりましたが、**`Main`クラスの繰り返し文はまったく変更されていない**ことがわかります。
+上記を見て分かるように、`FruitBasket` の実装は変わりましたが、**`Main` クラスの繰り返し文はまったく変更されていない**ことがわかります。
 
 ```Java
 Iterator<Fruit> iterator = fruitBasket.iterator();
@@ -386,11 +386,11 @@ while (iterator.hasNext()) {
 }
 ```
 
-このように、`FruitBasket`の内部実装がどのように変わっても、繰り返しを行う側のコードは修正せずに済むため、**再利用可能なコード**となります。
+このように、`FruitBasket` の内部実装がどのように変わっても、繰り返しを行う側のコードは修正せずに済むため、**再利用可能なコード**となります。
 
-## 拡張for文との関係
+## 拡張 `for` 文との関係
 
-先ほどの`while`ループは、拡張`for`文で書き換えることができます。
+先ほどの `while` ループは、拡張 `for` 文で書き換えることができます。
 
 ```Java
 Iterator<Fruit> iterator = fruitBasket.iterator();
@@ -408,9 +408,9 @@ for (Fruit fruit : fruitBasket) {
 }
 ```
 
-逆に、拡張`for`文はコンパイル時に上記の`while`文に変換されて実行されます。このように、`Iterable<T>`を実装したクラスであれば、拡張`for`文が使えるということです。
+逆に、拡張 `for` 文はコンパイル時に上記の `while` 文に変換されて実行されます。このように、`Iterable<T>` を実装したクラスであれば、拡張 `for` 文が使えるということです。
 
-ちなみに、**配列**に対して拡張`for`文を使った場合は、`Iterator`ではなく通常の`for`文に変換されます。
+ちなみに、**配列**に対して拡張 `for` 文を使った場合は、`Iterator` ではなく通常の `for` 文に変換されます。
 
 ```Java
 for (int i = 0; i < fruitBasket.length; i++) {
@@ -423,7 +423,7 @@ for (int i = 0; i < fruitBasket.length; i++) {
 今回の記事で学んだことは以下となります。
 
 - 繰り返し文がデータ構造の実装に依存すると、実装を変えるたびに繰り返し文も修正が必要になる
-- Iteratorパターンを使うことで、繰り返し文を`Iterator`インタフェースのみに依存させられる
+- Iterator パターンを使うことで、繰り返し文を `Iterator` インタフェースのみに依存させられる
 - 結果として、データ構造の内部実装が変わっても繰り返しを行う側のコードは変更不要になる
     - 再利用可能なコードとなる
 
@@ -433,30 +433,30 @@ for (int i = 0; i < fruitBasket.length; i++) {
 
 ---
 
-[^1]: なぜ`List`でも固定長になってしまうのか → 【深堀り①】配列・`List`インタフェース・`ArrayList`の違い
+[^1]: なぜ `List` でも固定長になってしまうのか → 【深堀り①】配列・`List` インタフェース・`ArrayList` の違い
 
-[^2]: `ArrayList<>`ではなく`List<>`での宣言を推奨しています → 【深堀り②】`List<>`で宣言する理由 ― DIP（依存性逆転の原則）
+[^2]: `ArrayList<>` ではなく `List<>` での宣言を推奨しています → 【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）
 
 <a id="深堀り1"></a>
 
-## 【深堀り①】配列・`List`インタフェース・`ArrayList`の違い
+## 【深堀り①】配列・`List` インタフェース・`ArrayList` の違い
 
-なぜ`Arrays.asList`で生成したリストが固定長になってしまうのか？<br>
+なぜ `Arrays.asList` で生成したリストが固定長になってしまうのか？<br>
 それぞれの違いを整理しておきましょう。
 
 |             |                                                                    |
 | ----------- | ------------------------------------------------------------------ |
-| 配列        | Java言語に組み込まれている<br>クラスではなく「特別な構造」         |
+| 配列        | Java 言語に組み込まれている<br>クラスではなく「特別な構造」        |
 | `List`      | 「こういう操作ができます」という仕様だけを定義したもので中身はない |
-| `ArrayList` | `List`を実装したクラスで、実体（オブジェクト）が生成される         |
+| `ArrayList` | `List` を実装したクラスで、実体（オブジェクト）が生成される        |
 
-`Arrays.asList`が返すのは`List`の実装の一種なのですが、内部は配列をラップしたものなので追加・削除ができません。
+`Arrays.asList` が返すのは `List` の実装の一種なのですが、内部は配列をラップしたものなので追加・削除ができません。
 
 <a id="深堀り2"></a>
 
 ## 【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）
 
-`ArrayList<Fruit> fruitBasket`ではなく`List<Fruit> fruitBasket`と宣言する方が良いとされています。
+`ArrayList<Fruit> fruitBasket` ではなく `List<Fruit> fruitBasket` と宣言する方が良いとされています。
 
 ```Java
 // 推奨
@@ -468,7 +468,7 @@ ArrayList<Fruit> fruitBasket = new ArrayList<>();
 
 **理由：** 差し替え可能にするためです。
 
-これにより、後から`LinkedList`など別の実装に変えても呼び出し元を修正せずに済みます。
+これにより、後から `LinkedList` など別の実装に変えても呼び出し元を修正せずに済みます。
 
 ```Java
 List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードはそのまま
@@ -478,11 +478,11 @@ List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードは�
 
 | 場面                               | 選択        |
 | ---------------------------------- | ----------- |
-| API設計（メソッドの引数・戻り値）  | `List`      |
+| API 設計（メソッドの引数・戻り値） | `List`      |
 | 実装内部                           | `ArrayList` |
 | パフォーマンス重視 or 低レベル処理 | 配列        |
 
-ところで、なぜ`List`型の変数に`ArrayList`のインスタンスを代入できるのでしょうか？
+ところで、なぜ `List` 型の変数に `ArrayList` のインスタンスを代入できるのでしょうか？
 
 実際に`ArrayList`のソースコードを見てみましょう。
 
@@ -494,9 +494,9 @@ public class ArrayList<E> extends AbstractList<E>
 
 > 引用元: OpenJDK [ArrayList.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/ArrayList.java)
 
-上記を見ると、クラス宣言で`implements List<E>`と記述されています。
-この部分が「`ArrayList`は`List`インタフェースの実装クラスである」ことを明示しています。
-つまり、`ArrayList`は`List`型の変数に代入できるため、
+上記を見ると、クラス宣言で `implements List<E>` と記述されています。
+この部分が「`ArrayList` は `List` インタフェースの実装クラスである」ことを明示しています。
+つまり、`ArrayList` は `List` 型の変数に代入できるため、
 
 ```
 List<Fruit> fruitBasket = new ArrayList<>()
@@ -505,9 +505,9 @@ List<Fruit> fruitBasket = new ArrayList<>()
 という宣言が成り立ちます。
 
 この「依存する先をインタフェースにする」という考え方は、**DIP（依存性逆転の原則）** と呼ばれる設計原則のひとつとなります。
-具体的な実装クラス（`ArrayList`や`LinkedList`）ではなく、抽象（`List`インタフェース）に依存することで、実装が変わっても呼び出し元への影響をなくせます。
+具体的な実装クラス（`ArrayList` や `LinkedList`）ではなく、抽象（`List` インタフェース）に依存することで、実装が変わっても呼び出し元への影響をなくせます。
 
-この原則は、今回学んだIteratorパターンにも同じ考え方が現れています。繰り返し文が`FruitBasket`の具体的な実装（配列か`ArrayList`か）ではなく、`Iterator`インタフェースの`hasNext()`・`next()`に依存しているのは、まさにDIPの実践となります。
+この原則は、今回学んだ Iterator パターンにも同じ考え方が現れています。繰り返し文が `FruitBasket` の具体的な実装（配列か `ArrayList` か）ではなく、`Iterator` インタフェースの `hasNext()`・`next()` に依存しているのは、まさに DIP の実践となります。
 
 <a id="深堀り3"></a>
 
@@ -529,11 +529,11 @@ for (Fruit fruit : fruits) {
 }
 ```
 
-一見問題ない実装に見えますが、`fruits.remove(fruit);`の部分で`ConcurrentModificationException`が発生します。これは実務でよく踏むバグで、`Iterator`による反復中にコレクションを変更すると例外が発生するので注意しましょう。
+一見問題ない実装に見えますが、`fruits.remove(fruit);` の部分で `ConcurrentModificationException` が発生します。これは実務でよく踏むバグで、`Iterator` による反復中にコレクションを変更すると例外が発生するので注意しましょう。
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】GoFデザインパターンとの位置づけ
+## 【深堀り④】GoF デザインパターンとの位置づけ
 
-今回使ったIteratorパターンは、GoF（Gang of Four）の23のデザインパターンのうち「振る舞いパターン」に分類されます。<br>
+今回使った Iterator パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「振る舞いパターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
