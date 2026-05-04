@@ -362,7 +362,7 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 サンプルPayで 3000円 決済します
 ```
 
-`SamplePayAdapter` クラスが `SamplePayClient` を継承しているため、親クラスである `SamplePayClient` のメソッドを直接呼んでいることがわかります。<br>
+`SamplePayAdapter` クラスが `SamplePayClient` を継承しているため、スーパークラスである `SamplePayClient` のメソッドを直接呼んでいることがわかります。<br>
 この実装でも正しい実装①のメリットと同様のメリットが得られます。
 
 ## 「委譲を使ったAdapterパターン」と「継承を使ったAdapterパターン」の使い分け
