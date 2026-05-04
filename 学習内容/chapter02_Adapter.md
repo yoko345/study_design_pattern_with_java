@@ -110,7 +110,9 @@ public class SamplePayClient {
 }
 ```
 
-- Main（実行クラス）
+<br>
+
+- `Main`（実行クラス）
 
 ```Java:Main.java
 public class Main {
