@@ -494,5 +494,5 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
 ## 【深堀り④】GoFデザインパターンとの位置づけ
 
-今回使ったAdapterパターンは、GoFの23パターンのうち「構造パターン」に分類されるものとなります。<br>
+今回使ったAdapterパターンは、GoF（Gang of Four）の23のデザインパターンのうち「構造パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
