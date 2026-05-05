@@ -4,10 +4,12 @@ import chapter04.framework.Product;
 
 public class IDCard extends Product {
     private String owner;
+    private int productNumber;
 
-    IDCard(String owner) {
+    IDCard(String owner, int productNumber) {
         System.out.println(owner + "のカードを作ります。");
         this.owner = owner;
+        this.productNumber = productNumber;
     }
 
     @Override
@@ -17,6 +19,6 @@ public class IDCard extends Product {
 
     @Override
     public String toString() {
-        return "[ IDCard：" + owner + " ]";
+        return "[ IDCard" + productNumber + "：" + owner + " ]";
     }
 }

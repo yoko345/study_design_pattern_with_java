@@ -6,8 +6,8 @@ import chapter04.framework.Product;
 public class IDCardFactory extends Factory {
 
     @Override
-    protected Product createProduct(String owner) {
-        return new IDCard(owner);
+    protected Product createProduct(String owner, int productNumber) {
+        return new IDCard(owner, productNumber);
     }
 
     @Override
