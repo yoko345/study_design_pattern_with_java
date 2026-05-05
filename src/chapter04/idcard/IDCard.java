@@ -7,7 +7,7 @@ public class IDCard extends Product {
     private int productNumber;
 
     IDCard(String owner, int productNumber) {
-        System.out.println(owner + "のカードを作ります。");
+        System.out.println(owner + "のカードを" + productNumber + "番で作ります。");
         this.owner = owner;
         this.productNumber = productNumber;
     }
