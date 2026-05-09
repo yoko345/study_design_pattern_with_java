@@ -688,7 +688,7 @@ Factory Method パターンでは、[正しい実装](#正しい実装)で見た
 
 ## 【深堀り③】static Factory Method との違い
 
-[【深堀り①】Template Method パターンとの関係](#深堀り1)で、「Template Method パターンをインスタンス生成の場面に適用したものが Factory Method パターン」という話をしました。Javaではインスタンスを生成するために、クラスメソッドを用いることがあります。このようなインスタンス生成のためのクラスメソッドのことを「**static Factory Method**」といいます。
+[【深堀り①】Template Method パターンとの関係](#深堀り1)で、「Template Method パターンをインスタンス生成の場面に適用したものが Factory Method パターン」という話をしました。Java ではインスタンスを生成するために、クラスメソッドを用いることがあります。このようなインスタンス生成のためのクラスメソッドのことを「**static Factory Method**」といいます。
 
 ここでは、static Factory Method と Factory Method パターンの違いに関して学びます。
 
