@@ -2,13 +2,13 @@
 
 次のようなコードを書いた経験はありませんか？
 
-> この処理は A 用だから new ClassA()、これは B 用だから new ClassB()……と大量の条件ブロックを記述した
+> この処理は A 用だから `new ClassA()`、これは B 用だから `new ClassB()`、… と大量の条件ブロックを記述した
 
 また、次のようなコードを引き継いだ経験はありませんか？
 
-> new 具体クラス() が呼び出し元のあちこちに散らばっている
+> 呼び出し元のいろいろな所に `new 具体クラス()` が散らばっている
 
-この記事では、社員入館管理システムに来訪者カード機能を追加するシナリオを通して、Factory Method パターンがこの問題をどのように解決するかを学びます。
+この記事では、社員入退館管理システムに来訪者カード機能を追加するシナリオを通して、Factory Method パターンがこの問題をどのように解決するかを学びます。
 
 ## 目次
 
@@ -23,7 +23,7 @@
     - [DIP（依存性逆転の原則）](#dip依存性逆転の原則)
     - [OCP（開放閉鎖原則）](#ocp開放閉鎖原則)
 - [【深堀り③】static Factory Method との違い](#深堀り3)
-- [【深堀り④】文字列連結時の `toString()` 自動呼び出し](#深堀り4)
+- [【深堀り④】文字列連結時の `toString` メソッド自動呼び出し](#深堀り4)
 - [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
@@ -37,11 +37,11 @@
 > ある日、総務部から「来訪者の入退館管理も追加してほしい」という依頼が来ました。<br>
 > あなたは以下を担当します。
 >
-> - 来訪者 1 名に対して 1 枚の来訪者用カードを発行し、発行時にコンソールへ出力する
-> - 発行した来訪者用カードを登録し、コンソールへ出力する<br>
->   ※登録時は本来、DB に登録するのが一般的だが、本記事では Factory Method パターンの解説に集中するため、コンソールへの出力のみとする
+> - 来訪者 1 名に対して 1 枚の来訪者カードを発行し、発行時にコンソールへ出力する
+> - 発行した来訪者カードを登録し、コンソールへ出力する
 
-※実際の入退館管理では退館処理も必要ですが、本記事では Factory Method パターンの解説に集中するため、入館処理のみを扱います。
+※登録処理に関して、実務では DB に登録するのが一般的ですが、本記事では Factory Method パターンの解説に集中するため、コンソールへの出力のみとします。<br>
+※入退館管理に関して、本来は退館処理も必要ですが、本記事では Factory Method パターンの解説に集中するため、入館処理のみを扱います。
 
 ### 既存コードの仕様
 
@@ -55,9 +55,9 @@
 | `employeeName`       | `String` | 社員の氏名       |
 | `employeeCardNumber` | `int`    | 社員証の発行番号 |
 
-| メソッド      | 説明                                                          |
-| ------------- | ------------------------------------------------------------- |
-| `void pass()` | 社員証でゲートを通過する<br>※ここでの `this` に関する説明[^1] |
+| メソッド | 戻り値の型 | 説明                             |
+| -------- | ---------- | -------------------------------- |
+| `pass`   | `void`     | 社員証でゲートを通過した際の処理 |
 
 ```Java:EmployeeCard.java
 public class EmployeeCard {
@@ -81,6 +81,8 @@ public class EmployeeCard {
 }
 ```
 
+※`pass` メソッドの `this` に関する説明[^1]
+
 <br>
 
 - `Main`（実行クラス）
@@ -90,6 +92,8 @@ public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
         EmployeeCard employeeCard2 = new EmployeeCard("山田 花子", 1002);
+
+        System.out.println();
 
         employeeCard1.pass();
         employeeCard2.pass();
@@ -102,6 +106,7 @@ public class Main {
 ```
 田中 太郎 さんの社員証を 1001 番で発行します。
 山田 花子 さんの社員証を 1002 番で発行します。
+
 [社員証1001：田中 太郎] でゲートを通過します。
 [社員証1002：山田 花子] でゲートを通過します。
 ```
@@ -140,6 +145,7 @@ public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
         EmployeeCard employeeCard2 = new EmployeeCard("山田 花子", 1002);
+
         /* ここを追加（ここから） */
         System.out.println();
 
@@ -147,10 +153,9 @@ public class Main {
         System.out.println("[登録記録] " + visitorCard1 + " を登録しました。");
         VisitorCard visitorCard2 = new VisitorCard("伊藤 咲子", 2);
         System.out.println("[登録記録] " + visitorCard2 + " を登録しました。");
-
-        System.out.println();
         /* ここを追加（ここまで） */
 
+        System.out.println();
 
         employeeCard1.pass();
         employeeCard2.pass();
@@ -188,8 +193,8 @@ public class Main {
 しかし、この実装には以下の問題点があります。
 
 - 仕様変更のたびに、全クラスへの修正が必要になる
-    - その結果、追加実装のたびにクラスが増え、仕様変更に伴う修正の漏れが発生するリスクが高くなる
-- 「発行 → 登録」という手順が呼び出し元の `Main` クラス側に直接書かれているため、正しい手順を呼び出す側が管理しないといけない
+    - その結果、追加実装時にクラスが増えるので、仕様変更に伴う修正の漏れが発生するリスクが高くなる
+- 呼び出し元の `Main` クラス側に「発行 → 登録」という手順が直接書かれているため、呼び出す側が正しい手順を管理しないといけない
 - 機能追加時に既存クラスを見て真似るしかないため、構造が同じクラスが無秩序に増え続け、設計の一貫性が保てない
 - `EmployeeCard`・`VisitorCard` に共通の型がないため、一括で扱うことができない（例えば、`pass` メソッドの呼び出し方が同じため、下記のように処理をまとめようとしても、まとめることができない）
 
@@ -216,19 +221,19 @@ public class Main {
 これらの問題を解決するのが **Factory Method パターン**です。<br>
 まずは、次のコードを見てください。
 
-※本記事では下記の構成としています。
+※本記事では下記のクラス構成としています。
 
-**クラス構成：**
+> ```
+> framework パッケージ（スーパークラス）
+>   ├── Management.java    抽象クラス：入退館管理のための共通インターフェース
+>   └── Factory.java       抽象クラス：「発行 → 登録」の手順を定義
+>
+> visitorcard パッケージ（具体的な実装を行うサブクラス）
+>   ├── VisitorCard.java           Management のサブクラス
+>   └── VisitorCardFactory.java    Factory のサブクラス
+> ```
 
-```
-framework パッケージ（変更不可のスーパークラス）
-  ├── Management.java 抽象クラス：入退館管理のための共通インターフェース
-  └── Factory.java    抽象クラス：「発行 → 登録」の手順を定義
-
-visitorcard パッケージ（具体的な実装を行うサブクラス）
-  ├── VisitorCard.java        Management のサブクラス
-  └── VisitorCardFactory.java Factory のサブクラス
-```
+**framework パッケージ**
 
 ```Java:Management.java
 package framework;
@@ -256,16 +261,17 @@ public abstract class Factory {
 }
 ```
 
-上記のスーパークラスを見ると、`create` メソッドの戻り値と変数の型がいずれも抽象クラス `Management` であることがわかります。<br>
-このことから、スーパークラスは具体的なクラスを知る必要がなく、インスタンス生成のための枠組みだけを定義していることが読み取れます。<br>
-また、`createManagement` メソッドと `registerManagement` メソッドは修飾子 `abstract` がついているため、実際の処理内容はサブクラスに委ねられていることも読み取れます。
+`Factory` クラスの `create` メソッドを見ると、メソッドの戻り値の型と変数の型がいずれも抽象クラス `Management` であることがわかります。<br>
+また、`createManagement` メソッドと `registerManagement` メソッドは修飾子 `abstract` がついているため、実際の処理内容はサブクラスに委ねられていることもわかります。<br>
+このことから、スーパークラスは具体的なクラスを知る必要がなく、インスタンス生成のための枠組みだけを定義していることが読み取れます。
 
 以上のように、インスタンスの生成処理をサブクラスに委ねることで、インスタンス生成のための枠組みを定義するクラスと実際のインスタンス生成を行うクラスとを分離するパターンが **Factory Method パターン**です。
 
-さらに、`Factory` クラスの `create` メソッドに `final` がついています。<br>
-このことから、サブクラスは `create` メソッドを上書きできないため、処理が固定化（「発行 → 登録」という手順が変わらない）されることが読み取れます。
+さらに、`Factory` クラスの `create` メソッドに `final` がついています。このことから、サブクラスは `create` メソッドを上書きできないため、処理が固定化（「発行 → 登録」という手順が変わらない）されることが読み取れます。
 
 次に、サブクラスのコードを見ていきましょう。
+
+**visitorcard パッケージ**
 
 ```Java:VisitorCard.java
 package visitorcard;
@@ -315,9 +321,9 @@ public class VisitorCardFactory extends Factory {
 }
 ```
 
-上記のサブクラスを見ると、`createManagement` メソッドで `new VisitorCard(...)` と記述していることから、具体的なインスタンス生成をサブクラスが担っていることがわかります。
+スーパークラス `Factory` を継承した `VisitorCardFactory` クラスを見ると、`createManagement` メソッドで `new VisitorCard(...)` と記述していることから、サブクラスが具体的なインスタンス生成を担っていることがわかります。
 
-実行クラスでは次のようなコードとなり、出力結果は下記となります。
+実行クラスは次のコードとなります。
 
 ```Java:Main.java
 import framework.Factory;
@@ -335,9 +341,9 @@ public class Main {
         Factory visitorCardFactory = new VisitorCardFactory();
         Management visitorCard1 = visitorCardFactory.create("鈴木 次郎");
         Management visitorCard2 = visitorCardFactory.create("伊藤 咲子");
+        /* ここを追加（ここまで） */
 
         System.out.println();
-        /* ここを追加（ここまで） */
 
         employeeCard1.pass();
         employeeCard2.pass();
@@ -371,15 +377,14 @@ public class Main {
 ```
 
 ここで補足です。<br>
-実務では工数が決まっているため、既存コードである `EmployeeCard` クラスは修正していません。しかし、追加実装をしたうえで、今後のメンテナンスのしやすさを PM に伝えた場合、修正の許可が出る場合もあると思います。<br>
-その場合は以下のようになります。
+実務では工数が決まっているため、既存コードである `EmployeeCard` クラスは修正していません。しかし、追加実装をしたうえで、今後のメンテナンスのしやすさを PM に伝えた場合、修正の許可が出る場合もあります。その場合は以下のようになります。
 
-**クラス構成：**
+※本記事では下記のクラス構成を追加するとします。
 
 ```
 employeecard パッケージ（具体的な実装を行うサブクラス）
-  ├── EmployeeCard.java        Management のサブクラス
-  └── EmployeeCardFactory.java Factory のサブクラス
+  ├── EmployeeCard.java           Management のサブクラス
+  └── EmployeeCardFactory.java    Factory のサブクラス
 ```
 
 ```Java:EmployeeCard.java
@@ -425,8 +430,8 @@ public class EmployeeCardFactory extends Factory {
 
     @Override
     protected void registerManagement(Management management) {
-        // 既存の仕様では、登録処理をしていないため下記をコメントアウトしているが、
-        // PM から既存の仕様を追加実装に合わせてもよいという許可が出た場合は、以下のコメントアウトを外す
+        // 既存の仕様では、登録処理をしていないため下記をコメントアウトしています。
+        // ただ、PM から既存の仕様を追加実装に合わせてもよいという許可が出た場合は、以下のコメントアウトを外して実装します。
         // System.out.println("[登録記録] " + management + " を登録しました。");
     }
 }
@@ -493,7 +498,7 @@ public class Main {
     - もし根本的な処理を変更したい場合は、スーパークラスの修正のみ行えば良い
     - テスト時に発覚したバグなど、具体的な実装の修正の場合は、対象のサブクラスのみ修正を行えば良い
 - 「発行 → 登録」という手順がスーパークラスで定義されているため、追加実装の際に処理の流れを気にする必要がない
-- 新しい種類を追加する際は追加実装用のサブクラスを作成するだけでよく、各サブクラスが独立しているため一方の変更がもう一方に影響せず、設計の一貫性を担保できる
+- 機能追加時は追加実装用のサブクラスを作成するだけでよく、各サブクラスが独立しているため、あるサブクラスの変更が他のサブクラスに影響せず、設計の一貫性を担保できる
 - サブクラスを共通の型で呼び出せる（[好ましくない実装](#好ましくない実装)で触れた「処理がまとめられなかった件」の解決ができる）
 
     ```java
@@ -514,19 +519,19 @@ public class Main {
 - 通し番号に関して、`Factory` クラスを継承したサブクラスで管理するため、採番ミスや重複が発生しない
 
 上記以外のメリットとして、別システムへの転用ができることが挙げられます。<br>
-例えば、「病院の受付システムからも同じフレームワークを使いたいという要件が来た」としましょう。その際は、`employeecard` パッケージを作成したときと同様に、下記のパッケージを追加するだけで実装ができます。この時、**`framework` パッケージのコードは 1 行も変更しません。**
+例えば、「病院の受付システムからも同じフレームワークを使いたいという要件が来た」としましょう。その際は、`employeecard` パッケージを作成したときと同様に、下記のパッケージを追加するだけで実装ができます。この時、**スーパークラスのコードは 1 行も変更しません。**
 
 ```
 patientticket パッケージ
-  ├── PatientTicket.java        Management のサブクラス
-  └── PatientTicketFactory.java Factory のサブクラス
+  ├── PatientTicket.java           Management のサブクラス
+  └── PatientTicketFactory.java    Factory のサブクラス
 ```
 
-このように、`framework` に手を加えることなく、全く異なるドメインのシステムへ転用できるといったメリットが Factory Method パターンにはあります。
+このように、スーパークラスに手を加えることなく、全く異なるドメインのシステムへ転用できるといったメリットが Factory Method パターンにはあります。
 
 ## まとめ
 
-正しい実装の実行クラスを見ると、変数の型はスーパークラスのみです。<br>
+正しい実装の実行クラスを見ると、変数の型は全てスーパークラスです。<br>
 そのため、サブクラスの内部実装を知っている必要がありません。<br>
 つまり、Factory Method パターンは、サブクラスをカプセル化することができます。
 
@@ -539,7 +544,7 @@ patientticket パッケージ
 
 ---
 
-[^1]: `pass` メソッド内の `this + "..."` という書き方は、Java の文字列連結時に `toString()` が自動呼び出しされる仕組みを利用しています。詳細は[【深堀り④】](#深堀り4)を参照。
+[^1]: `pass` メソッド内の `this + "..."` という書き方は、Java の文字列連結時に `toString` メソッドが自動呼び出しされる仕組みを利用しています。詳細は[【深堀り④】](#深堀り4)を参照。
 
 ---
 
@@ -565,13 +570,12 @@ public abstract class Factory {
 }
 ```
 
-上記のコードからは最終的にどんな処理を行うかはわかりませんが、処理の枠組みは定められていることがわかります。<br>
-このことから、処理の枠組みが定まった `Factory` を継承し、実装が強制された 2 つの抽象メソッド（`createManagement`・`registerManagement`）を実装することで具体的な処理が確定することが読み取れます。
+上記のコードから、処理の枠組みが定まった `Factory` を継承し、実装が強制された 2 つの抽象メソッド（`createManagement`・`registerManagement`）を実装することで具体的な処理が確定することが読み取れます。
 
 このように、スーパークラスで処理の枠組みを定め、サブクラスで具体的な処理内容を定めるようなデザインパターンを **Template Method パターン**と言います。<br>
 また、`create` メソッドに `final` がついているため、サブクラスはこのメソッドを上書きできず、処理が固定化されます。このようなメソッドを「**テンプレートメソッド**」と言います。
 
-つまり、**Template Method パターンをインスタンス生成の場面に適用したものが Factory Method パターン**なのです。
+本記事で扱った Factory Method パターンは、「**Template Method パターンをインスタンス生成の場面に適用したもの**」なのです。
 
 ### なぜ抽象クラスか
 
@@ -579,7 +583,7 @@ public abstract class Factory {
 このように思った方がいるかもしれません。
 
 しかし、インターフェースで記述するのは好ましくありません。<br>
-なぜなら、インターフェースの `default` メソッドには修飾子 `final` をつけることができないため、インターフェースを実現したクラスで `create` メソッドを上書きできてしまうからです。<br>
+なぜなら、インターフェースの `default` メソッドには修飾子 `final` をつけることができないため、インターフェースを実現したクラスは `create` メソッドを上書きできてしまうからです。<br>
 
 Template Method パターンの本質は「流れは固定し、中身だけを差し替える」という構造にあります。<br>
 `create` メソッドに `final` をつけることができ、「流れを守らせる強制力」を表現できる抽象クラスが Template Method パターンを成立させる実装方法となります。
@@ -592,13 +596,9 @@ Factory Method パターンには、設計原則の観点から 2 つの側面�
 
 ### DIP（依存性逆転の原則）
 
-正しい実装の実行クラスを見てみましょう。
+正しい実装の本質的な実行クラス（社員証の入退館システム）を見てみましょう。
 
 ```Java:Main.java
-import employeecard.EmployeeCardFactory;
-import framework.Factory;
-import framework.Management;
-
 public class Main {
     public static void main(String[] args) {
         Factory factory = new EmployeeCardFactory();
@@ -611,10 +611,7 @@ public class Main {
 }
 ```
 
-変数 `factory` の型は抽象クラス `Factory`、変数 `management1` の型は抽象クラス `Management` です。<br>
-実行クラスはサブクラス（`EmployeeCard`・`EmployeeCardFactory`）の内部実装を知らなくても動作できています。
-
-変数 `factory` を定める時のみサブクラスに触れています（`new EmployeeCardFactory()`）が、ここを別のサブクラス（例えば `new VisitorCardFactory()`）に差し替えるだけで、実行クラス全体の挙動を切り替えることができます。
+変数の型は全て抽象クラス（`Management`・`Factory`）なので、実行クラスはサブクラス（`EmployeeCard`・`EmployeeCardFactory`）の内部実装を知らなくても動作できます。
 
 このように、「具体的なクラス（`EmployeeCard`・`EmployeeCardFactory`）ではなく、抽象クラス（`Management`・`Factory`）に依存して実装する」という設計は、「**DIP（Dependency Inversion Principle：依存性逆転の原則）**」と呼ばれる設計原則の実践です。Factory Method パターンは DIP を実現するための設計手段の一つと言えます。
 
@@ -624,7 +621,7 @@ DIP を守ることで、スーパークラスを修正することなく具体�
 
 既存コードが「正しい実装のコード」となっている段階で、若手にリファクタリングを依頼したとしましょう。
 
-「`EmployeeCardFactory` と `VisitorCardFactory` はほぼ同じコードなので、個別に作るのは冗長だ」という理由で、生成処理を 1 か所にまとめ、インスタンス化も省いた次のようなコードが PR として来るかもしれません。
+「`EmployeeCardFactory` と `VisitorCardFactory` はほぼ同じコードなので、個別に作るのは冗長だ」という理由で、生成処理を 1 か所にまとめ、インスタンス化も省いた次のようなコードを PR として提出してくるかもしれません。
 
 ```Java:CardFactory.java
 public class CardFactory {
@@ -648,7 +645,9 @@ public class Main {
     public static void main(String[] args) {
         CardFactory.create("employee", "田中 太郎");
         CardFactory.create("employee", "山田 花子");
+
         System.out.println();
+
         CardFactory.create("visitor", "鈴木 次郎");
         CardFactory.create("visitor", "伊藤 咲子");
     }
@@ -671,63 +670,27 @@ public class Main {
 [来訪者カード4：伊藤 咲子] でゲートを通過します。
 ```
 
-実行結果の時点で「来訪者カード」の通し番号にバグがあるので、実装ミスに気がつくと思います。<br>
-また、次の問題もあります。
+実行結果の時点で「来訪者カード」の通し番号にバグがあるので、実装ミスに気がつくと思いますが、次の問題もあります。
 
 - 追加実装するたびに、`CardFactory` 自体に条件分岐が増えていく
 - `static` メソッドはサブクラスで上書きできない（`@Override` アノテーションをつけるとコンパイルエラーが発生）
 
-Factory Method パターンでは、[正しい実装](#正しい実装)で見たように、スーパークラスや既存のサブクラスを修正することなく、機能の追加ができています。<br>
+Factory Method パターンは、スーパークラスや既存のサブクラスを修正することなく、機能の追加ができます。（このことは本記事で明らかです。）<br>
 このような「既存コードを修正せず、新しいクラスを追加することで拡張する」という設計は、「**OCP（Open/Closed Principle：開放閉鎖原則）**」と呼ばれる設計原則の実践です。Factory Method パターンは OCP を実現するための設計手段の一つと言えます。<br>
-上記のリファクタリングは既存コードを変更して機能の拡張をしているため、OCP に反しており差し戻しが妥当です。
+上記のリファクタリングは既存コードを変更して機能の拡張をしていることから、OCP に反しているため、差し戻しが妥当です。
 
-また、「`static` メソッドはサブクラスで上書きできない」という問題は、「生成処理をサブクラスに委ねる」という Factory Method パターンの根幹が成立していないことを意味しています。この点でも差し戻しが妥当です。<br>
+また、「`static` メソッドはサブクラスで上書きできない」という問題は、「生成処理をサブクラスに委ねる」という Factory Method パターンの根幹が成立していないことを意味しています。この点からも差し戻しが妥当です。<br>
 ※詳細は[【深堀り③】static Factory Method との違い](#深堀り3)を参照してください。
 
 <a id="深堀り3"></a>
 
 ## 【深堀り③】static Factory Method との違い
 
-[【深堀り①】Template Method パターンとの関係](#深堀り1)で、「Template Method パターンをインスタンス生成の場面に適用したものが Factory Method パターン」という話をしました。Java ではインスタンスを生成するために、クラスメソッドを用いることがあります。このようなインスタンス生成のためのクラスメソッドのことを「**static Factory Method**」といいます。
+[【深堀り①】Template Method パターンとの関係](#深堀り1)で、「Factory Method パターンは、Template Method パターンをインスタンス生成の場面に適用したもの」という話をしました。Java ではインスタンスを生成するために、クラスメソッドを用いることがあります。このようなインスタンス生成のためのクラスメソッドのことを「**static Factory Method**」といいます。
 
 ここでは、static Factory Method と Factory Method パターンの違いに関して学びます。
 
-馴染み深い `List` の `of` メソッドと `Arrays` の `asList` メソッドを例に見ていきましょう。
-
-```Java
-List<String> list  = List.of("sample1", "sample2", "sample3");
-List<String> list2 = Arrays.asList("sample1", "sample2", "sample3");
-```
-
-```Java
-public interface List<E> extends SequencedCollection<E> {
-    static <E> List<E> of(E e1, E e2, E e3) {
-        return ImmutableCollections.listFromTrustedArray(e1, e2, e3);
-    }
-}
-```
-
-> 引用元: OpenJDK [List.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/List.java)
-
-```Java
-class ImmutableCollections {
-    static <E> List<E> listFromTrustedArray(Object... input) {
-        assert input.getClass() == Object[].class;
-        for (Object o : input) { // implicit null check of 'input' array
-            Objects.requireNonNull(o);
-        }
-
-        return switch (input.length) {
-            case 0 -> (List<E>) ImmutableCollections.EMPTY_LIST;
-            case 1 -> (List<E>) new List12<>(input[0]);
-            case 2 -> (List<E>) new List12<>(input[0], input[1]);
-            default -> (List<E>) new ListN<>(input, false);
-        };
-    }
-}
-```
-
-> 引用元: OpenJDK [ImmutableCollections.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/ImmutableCollections.java)
+`Arrays` の `asList` メソッドを例に見ていきましょう。
 
 ```Java
 public final class Arrays {
@@ -739,17 +702,22 @@ public final class Arrays {
 
 > 引用元: OpenJDK [Arrays.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Arrays.java)
 
-上記から、どちらも `new` キーワードを用いずに `List` のインスタンスを生成していることがわかります。
+```Java
+List<String> list = Arrays.asList("sample1", "sample2", "sample3");
+```
 
-このように、static Factory Method は実装の詳細を隠蔽することが目的である一方、Factory Method パターンは「どのサブクラスを生成するか」をサブクラスに委ね、拡張を容易にすることが目的です。
+上記から、`new` キーワードを用いずに `List` のインスタンスを生成していることがわかります。
+
+このように、static Factory Method は「実装の詳細を隠蔽すること」が目的となります。<br>
+一方、Factory Method パターンは「『どのサブクラスを生成するか』をサブクラスに委ね、拡張を容易にすること」が目的です。
 
 詳しくは「static Factory Method」で検索してみてください。
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】文字列連結時の `toString()` 自動呼び出し
+## 【深堀り④】文字列連結時の `toString` メソッド自動呼び出し
 
-[既存コードの仕様](#既存コードの仕様)の `EmployeeCard` クラスを確認しましょう。
+[既存コードの仕様](#既存コードの仕様)を再度示します。
 
 ```Java:EmployeeCard.java
 public class EmployeeCard {
@@ -779,6 +747,8 @@ public class Main {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
         EmployeeCard employeeCard2 = new EmployeeCard("山田 花子", 1002);
 
+        System.out.println();
+
         employeeCard1.pass();
         employeeCard2.pass();
     }
@@ -790,47 +760,50 @@ public class Main {
 ```
 田中 太郎 さんの社員証を 1001 番で発行します。
 山田 花子 さんの社員証を 1002 番で発行します。
+
 [社員証1001：田中 太郎] でゲートを通過します。
 [社員証1002：山田 花子] でゲートを通過します。
 ```
 
-実行クラスで `pass` メソッドを呼び出した際、`this` の部分が `toString` メソッドをオーバーライドした内容が出力されています。
+実行クラスで `pass` メソッドを呼び出すと、`this` の部分が「`toString` メソッドをオーバーライドした内容」で出力されていることがわかります。
 
-ここではなぜ `this` だけで文字列が出力されるのかを学びます。
+ここではなぜ `this` だけで「`toString` メソッドをオーバーライドした内容」が出力されるのかを学びます。
 
 ### `+` 演算子と `StringBuilder`
 
-Java では、オブジェクト（`this`）と文字列とを `+` 演算子を使って連結すると、コンパイラは内部で `StringBuilder` を使ったコードに変換します。
+Java では、`+` 演算子を使ってオブジェクト（`this`）と文字列とを連結すると、コンパイラは内部で `StringBuilder` を使ったコードに変換します。
 
 ```java
 // コンパイル後の実態（概略）
 new StringBuilder().append(this).append(" でゲートを通過します。").toString()
 ```
 
-ここでさらに、下記から分かるように `append(Object obj)` は内部で `String.valueOf(obj)` を呼びます。
+`append(Object obj)` では、次のように内部で `String.valueOf(obj)` を呼びます。
 
 ```java
 public final class StringBuilder
     extends AbstractStringBuilder
-    implements Appendable, java.io.Serializable, Comparable<StringBuilder>, CharSequence
-{
+    implements Appendable, java.io.Serializable, Comparable<StringBuilder>, CharSequence {
+
     public StringBuilder append(Object obj) {
         return append(String.valueOf(obj));
     }
+
 }
 ```
 
 > 引用元: OpenJDK [StringBuilder.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/lang/StringBuilder.java)
 
-上記の `append` メソッドに渡す `String.valueOf(Object obj)` は次のように実装されています。
+`String.valueOf(Object obj)` は次のように定義されています。
 
 ```java
 public final class String
-    implements java.io.Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc
-{
+    implements java.io.Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc {
+
     public static String valueOf(Object obj) {
         return (obj == null) ? "null" : obj.toString();
     }
+
 }
 ```
 
@@ -847,9 +820,9 @@ this + " でゲートを通過します。"
 
 そのため、実行クラスで `pass` メソッドを呼び出すと `this` の部分は `toString` メソッドをオーバーライドした内容が出力されることになります。
 
-### `toString()` をオーバーライドしない場合
+### `toString` メソッドをオーバーライドしない場合
 
-`toString()` をオーバーライドしないと、`Object` クラスのデフォルト実装が使われます。
+`toString` メソッドをオーバーライドしない場合は、`Object` クラスのデフォルト実装が使われます。
 
 ```java
 // Object.toString() のデフォルト実装（概略）
