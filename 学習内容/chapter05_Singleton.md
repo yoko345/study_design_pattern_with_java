@@ -1,4 +1,4 @@
-# Singleton パターン ― インスタンスをただひとつにする
+# Singleton（シングルトン）パターン ― インスタンスをただ 1 つにする
 
 次のような経験をしたことはありませんか？
 
@@ -11,11 +11,17 @@
 - [【具体例】](#具体例)
     - [シナリオ](#シナリオ)
     - [既存コードの仕様](#既存コードの仕様)
+    - [`Logger` クラスの仕様](#Loggerクラスの仕様)
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
+    - [補足（`Logger` クラスのインスタンスが生成されるタイミング）](#正しい実装の補足)
 - [まとめ](#まとめ)
-- [【深堀り①】private コンストラクタが必要な理由](#深堀り1)
+- [【深堀り①】`private` コンストラクタが必要な理由](#深堀り1)
 - [【深堀り②】Singleton をスレッドセーフにする](#深堀り2)
+    - [シナリオ](#深堀り2シナリオ)
+    - [好ましくない実装（遅延初期化）](#好ましくない実装遅延初期化)
+    - [正しい実装（早期初期化）](#正しい実装早期初期化)
+    - [補足（synchronized）](#補足synchronized)
 - [【深堀り③】インスタンス数を n 個に制限する](#深堀り3)
 - [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
 
@@ -66,6 +72,7 @@ public class PaymentService {
 ```
 
 <br>
+<a id="既存コードの実行クラス"></a>
 
 - `Main`（実行クラス）
 
@@ -88,13 +95,15 @@ public class Main {
 決済処理を開始します: pay_001
 ```
 
+<a id="Loggerクラスの仕様"></a>
+
 ### `Logger` クラスの仕様
 
-今回は、本記事の主題から脱線しないようにするために、`Logger` クラスの仕様を下記に示します。
+本記事の主題に集中できるよう、`Logger` クラスの仕様を下記に示します。
 
-| フィールド | 型       | 説明                                        |
-| ---------- | -------- | ------------------------------------------- |
-| `logLevel` | `String` | ログの出力レベル（例: `"INFO"`、`"ERROR"`） |
+| フィールド | 型       | 説明                             |
+| ---------- | -------- | -------------------------------- |
+| `logLevel` | `String` | ログの出力レベル（例: `"INFO"`） |
 
 | メソッド | 戻り値の型 | 説明                                 |
 | -------- | ---------- | ------------------------------------ |
@@ -105,8 +114,8 @@ public class Logger {
     private String logLevel;
 
     public Logger(String logLevel) {
-        this.logLevel = logLevel;
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
     public void log(String message) {
@@ -115,18 +124,20 @@ public class Logger {
 }
 ```
 
+※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
+
 ## 好ましくない実装
 
-では、シナリオに従い追加実装をしていきましょう。
+では、シナリオに従って各サービスクラスから使えるように実装をしていきましょう。
 
-「各サービスでログを出力できればよい」と考え、次のような実装をするのではないでしょうか？
+「各サービスでログが出力されればよい」と考え、次のような実装をするのではないでしょうか？
 
 ```Java:OrderService.java
 public class OrderService {
     private Logger logger = new Logger("DEBUG"); // ←ここを追加
 
     public void placeOrder(String orderId) {
-        System.out.println("注文を受け付けました: " + orderId); // 本来ここは DB の登録処理などが入るので、わざと残している
+        System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
         logger.log("注文を受け付けました: " + orderId); // ←ここを追加
     }
 }
@@ -137,13 +148,13 @@ public class PaymentService {
     private Logger logger = new Logger("INFO"); // ←ここを追加
 
     public void processPayment(String paymentId) {
-        System.out.println("決済処理を開始します: " + paymentId); // 本来ここは DB の登録処理などが入るので、わざと残している
+        System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
         logger.log("決済処理を開始しました: " + paymentId); // ←ここを追加
     }
 }
 ```
 
-実行クラスは変更なし。
+[実行クラス](#既存コードの実行クラス)は変更なし。
 
 **実行結果**
 
@@ -160,11 +171,11 @@ Logger を生成しました。[logLevel=INFO]
 
 しかし、この実装には以下の問題点があります。
 
-- 各クラスが独立してインスタンスを生成すると、設計者が同じ設定をすることを望んでいても、実装者により設定がバラバラになりやすい（実行結果を見てわかるように `[DEBUG]` と `[INFO]` が混在していて、アプリ全体で統一した設定になっていない）
+- 各クラスが独立してインスタンスを生成すると、実装者により設定がバラバラになりやすいため、設計者の意図と異なる設定となってしまう（実行結果を見てわかるように `[DEBUG]` と `[INFO]` が混在していて、アプリ全体で統一した設定になっていない）
 - 仕様変更のたびに、全クラスへの修正が必要になる
-    - その結果、追加実装時にクラスが増えるので、仕様変更に伴う修正の漏れが発生するリスクが高くなる
-- 同じ設定のインスタンスが複数存在する
-    - ログの設定は基本的にアプリ全体で統一されるべきなので、各クラスが個別に持つことは好ましくない
+    - その結果、追加実装時はクラスが増えるので、仕様変更に伴う修正漏れのリスクが高くなる
+- 同じ設定のインスタンスが、意図せず複数存在してしまう場合がある
+    - 今回のようなログの設定は、基本的にアプリ全体で統一されるべきなので、各クラスが個別に持つことは好ましくない
     - 将来ログをファイルに書き込むようにした場合、複数のインスタンスが同じファイルに同時に書き込もうとして競合が起きるリスクがある
 
 ## 正しい実装
@@ -176,17 +187,19 @@ Logger を生成しました。[logLevel=INFO]
 
 ```Java:Logger.java
 public class Logger {
-    private static Logger logger = new Logger("INFO");
+    private static Logger logger = new Logger("INFO"); // ←ここを追加
     private String logLevel;
 
-    private Logger(String logLevel) {
-        this.logLevel = logLevel;
+    private Logger(String logLevel) { // ←ここを修正
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
+    /* ここを追加（ここから） */
     public static Logger getInstance() {
         return logger;
     }
+    /* ここを追加（ここまで） */
 
     public void log(String message) {
         System.out.println("[" + logLevel + "] " + message);
@@ -194,15 +207,14 @@ public class Logger {
 }
 ```
 
-`Logger` クラスを見ると次のことがわかります。
+上記を見ると次のことがわかります。
 
-- `static` フィールドの変数 `logger` が設定されていて、その変数に `Logger` のインスタンスを 1 つだけ生成し、代入している
-- コンストラクタのアクセス修飾子が `private` になっている
-- `static` な `getInstance` メソッドにアクセスすることで変数 `logger` が取得できる
+1. `Logger` クラスのインスタンスを 1 つだけ生成している `static` フィールドの変数 `logger` が設定されている
+2. コンストラクタのアクセス修飾子が `private` になっている
+3. 修飾子 `static` が付いている `getInstance` メソッドにアクセスすることで `Logger` のインスタンスが取得できる
 
-`Logger` のインスタンスを 1 つだけ生成した変数 `logger` が `static` フィールドに設定されているので、JVM 全体で 1 つしか存在しないことが読み取れます。<br>
-また、コンストラクタのアクセス修飾子が `private` になっているため、`Logger` クラスの外から `new Logger(...)` することができなくなっていることが読み取れます。<br>
-さらに、インスタンスを生成した変数 `logger` は `getInstance` メソッドにアクセスしないと取得できないため、`Logger` クラスの外からインスタンスを取得する方法が制限されていることがわかります。
+1 つ目より、JVM 全体で `Logger` クラスのインスタンスが 1 つしか存在しないことが読み取れます。<br>
+2 つ目と 3 つ目より、`Logger` クラスの外からのインスタンス生成が禁止され、インスタンスの取得は `getInstance` メソッド経由に限られることが読み取れます。
 
 このように、「インスタンスが 1 個しか存在しないことをプログラム上で表現」しつつ、「そのクラスのインスタンスが絶対に 1 個しか存在しないことを保証」するパターンを **Singleton パターン**といいます。
 
@@ -211,7 +223,7 @@ public class Logger {
 ```Java:OrderService.java
 public class OrderService {
     public void placeOrder(String orderId) {
-        System.out.println("注文を受け付けました: " + orderId); // 本来ここは DB の登録処理などが入るので、わざと残している
+        System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
         Logger.getInstance().log("注文を受け付けました: " + orderId); // ←ここを追加
     }
 }
@@ -220,13 +232,13 @@ public class OrderService {
 ```Java:PaymentService.java
 public class PaymentService {
     public void processPayment(String paymentId) {
-        System.out.println("決済処理を開始します: " + paymentId); // 本来ここは DB の登録処理などが入るので、わざと残している
+        System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
         Logger.getInstance().log("決済処理を開始しました: " + paymentId); // ←ここを追加
     }
 }
 ```
 
-実行クラスは変更なし。
+[実行クラス](#既存コードの実行クラス)は変更なし。
 
 **実行結果**
 
@@ -239,7 +251,7 @@ Logger を生成しました。[logLevel=INFO]
 ```
 
 実行結果から、「Logger を生成しました。[logLevel=INFO]」が **1 回だけ**出力されていることがわかります。<br>
-つまり、インスタンスが 1 つしか存在しないということです。
+つまり、インスタンスは 1 つしか存在しないということです。
 
 試しに `getInstance` メソッドを 2 回呼び出し、同一のインスタンスかどうか確認してみましょう。
 
@@ -265,34 +277,36 @@ Logger を生成しました。[logLevel=INFO]
 logger1 と logger2 は同じインスタンスです。
 ```
 
-実行結果から、インスタンスが 1 つしか存在しないことがわかりました。
+実行結果から、インスタンスは 1 つしか存在しないことがわかりました。
 
 このように、Singleton パターンを適用すると以下のメリットがあります。
 
-- インスタンスは 1 個しか存在しないことが保証されているため、設計者が意図した実装になる（実行結果を見てわかるように `[INFO]` のみが指定されていて、アプリ全体で統一した設定になっている）
-    - 同じ設定のインスタンスが複数存在することがなくなるため、[好ましくない実装](#好ましくない実装)の問題点にあったファイル書き込み時の競合が起きない
-- 仕様変更があった際は、共通で呼び出しているクラスを修正するだけでよいので、修正の漏れが発生するリスクが低くなる
+- インスタンスは 1 個しか存在しないことが保証されているため、設計者が意図した設定になる（実行結果から `[INFO]` のみであることがわかるので、アプリ全体で統一した設定になっている）
+- 同じ設定のインスタンスが、複数存在しなくなるため、[好ましくない実装](#好ましくない実装)の問題点にあったファイル書き込み時の競合が起きない
+- 仕様変更があった際は、共通で呼び出しているクラスを修正するだけでよいので、修正漏れのリスクが低い
+
+<a id="正しい実装の補足"></a>
 
 ### 補足（`Logger` クラスのインスタンスが生成されるタイミング）
 
-`Logger` クラスのインスタンスが生成されるタイミングに関して深堀りします。<br>
+ここで、`Logger` クラスのインスタンスが生成されるタイミングに関して深堀りをします。<br>
 生成のタイミングがわかっている場合は飛ばしてください。
 
-1. `main()` 開始
+1. `main` メソッドが実行される
 2. `new OrderService()` → `Logger` はまだロードされない（`OrderService` のフィールドに `Logger` がない）
 3. `new PaymentService()` → 上記と同様
-4. `orderService.placeOrder("order_001")` の中で、まず `System.out.println` が実行され、続いて `Logger.getInstance()` が呼ばれる → このタイミングで `Logger` クラスが初めてロードされ、`static` フィールドが初期化されてインスタンスが生成される → 「Logger を生成しました。[logLevel=INFO]」が出力される
-5. 以降は `Logger.getInstance()` を何回呼んでも既存インスタンスを返すだけ
+4. `orderService.placeOrder("order_001")` の中で、まず `System.out.println` が実行され、続いて `Logger.getInstance()` が呼ばれる → このタイミングで初めて `Logger` クラスがロードされ、`static` フィールドが初期化されてインスタンスが生成される → 「Logger を生成しました。[logLevel=INFO]」が出力される
+5. 以降は `Logger.getInstance()` を何回呼んでも `static` フィールドの値を参照して既存インスタンスを返すだけ
 
-上記の流れより、初めて `Logger.getInstance()` が呼ばれたタイミングで `Logger` クラスのインスタンスが生成されます。
+上記の流れより、`Logger.getInstance()` が初めて呼ばれたタイミングで `Logger` クラスのインスタンスが生成されます。
 
 ## まとめ
 
 正しい実装を見ると、インスタンスが 1 つに絞られています。<br>
 そのため、同じ設定のインスタンスが複数存在することによる、思いがけないバグが生じなくなります。
 
-また、クラスの外からインスタンスを取得するための窓口を絞り、インスタンスを `static` フィールドで管理しています。<br>
-これにより、アプリ全体で共有したいリソースを 1 つだけにできるので、安全に管理できるようになります。
+また、クラスの外からインスタンスを取得するための窓口が絞られており、そのインスタンスは `static` フィールドで管理されています。<br>
+これにより、クラス外からの勝手なインスタンス生成がなくなり、アプリ全体で共有したいリソースを 1 つだけにできるので、安全に管理ができるようになります。
 
 本記事の内容はここまでとなります。
 
@@ -302,24 +316,24 @@ logger1 と logger2 は同じインスタンスです。
 
 <a id="深堀り1"></a>
 
-## 【深堀り①】private コンストラクタが必要な理由
+## 【深堀り①】`private` コンストラクタが必要な理由
 
 正しい実装では、`Logger` クラスのコンストラクタのアクセス修飾子が `private` になっていました。<br>
 なぜ `public`（もしくは修飾子なし）ではなく `private` にしているのでしょうか？
 
 ここでは、Singleton パターンにおいて、コンストラクタを `private` にしないといけないことについて学びます。
 
-結論から述べると、コンストラクタを `public`（もしくは修飾子なし）にすると、クラスの外から自由にインスタンスを生成できてしまうからです。<br>
-つまり、次のコードのコンパイルが通ってしまいます。
+次のコードのように、コンストラクタを `public`（もしくは修飾子なし）にすると、クラスの外から自由にインスタンスを生成できるようになります。
 
 ```Java:Logger.java
 public class Logger {
     private static Logger logger = new Logger("INFO");
     private String logLevel;
 
+    // コンストラクタに public をつけている
     public Logger(String logLevel) {
-        this.logLevel = logLevel;
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
     public static Logger getInstance() {
@@ -336,15 +350,14 @@ public class Logger {
 public class Main {
     public static void main(String[] args) {
         Logger logger1 = Logger.getInstance();
-        Logger logger2 = new Logger("ERROR");
+        Logger logger2 = new Logger("ERROR"); // クラスの外からインスタンスの生成ができる
     }
 }
 ```
 
-Singleton パターンは、「そのクラスのインスタンスが絶対に 1 個しか存在しないことを保証」するパターンだと説明しました。
-
-`public` のままでは、この目的が達成できません。<br>
-そのため、コンストラクタを `private` にして、インスタンスの生成をクラス内部に閉じ込め、`getInstance` メソッド経由でのみインスタンスにアクセスできるようにしているのです。
+Singleton パターンは、「そのクラスのインスタンスが絶対に 1 個しか存在しないことを保証」するパターンだと説明しました。<br>
+コンストラクタに `public` をつけるとこの目的が達成できません。<br>
+そのため、コンストラクタを `private` にして、インスタンスの生成をクラス内部に閉じ込める実装をしているのです。また、インスタンスを取得したい場合は、メソッド（ここでは、`getInstance` メソッドに当たる）経由でのみアクセスできるように実装します。
 
 <a id="深堀り2"></a>
 
@@ -353,16 +366,18 @@ Singleton パターンは、「そのクラスのインスタンスが絶対に 
 EC サイトでは、同時に複数のリクエストをさばくために、処理を**複数のスレッド**で並行実行するケースがよくあります。<br>
 このとき、`Logger` クラスの実装の仕方によっては、思いがけない問題が起きます。
 
-ここでは、アプリ起動直後に複数のリクエストが同時に届いたというシナリオを通して、生じる問題と対応方法を学びます。
+ここでは、アプリ起動直後に複数のリクエストが同時に届いたというシナリオを通して、発生する問題と対応方法を学びます。
 
 ※スレッドセーフ：複数のスレッドから同時にアクセスされても、意図した通りに動作することを保証する性質のこと。
+
+<a id="深堀り2シナリオ"></a>
 
 ### シナリオ
 
 > あなたは `Logger` クラスを実装する際、「アプリ起動時にインスタンスを生成するより、最初に呼ばれたときに生成すれば十分」と考え、遅延初期化で実装しました。<br>
-> ところが、アプリ起動直後に `OrderService` と `PaymentService` がほぼ同時に最初のリクエストを受け付けた際、`Logger` のインスタンスが複数生成されるバグが発生しました。
+> ところが、アプリ起動直後、`OrderService` と `PaymentService` がほぼ同時に最初のリクエストを受け付けた際、`Logger` のインスタンスが複数生成されるバグが発生しました。
 
-※遅延初期化（Lazy Initialization）：フィールドの値が必要になるまで初期化を遅らせる方法（ここでは `getInstance` メソッドが初めて呼ばれたタイミングでインスタンスを生成する方法に当たる）。
+※遅延初期化（Lazy Initialization）：フィールドの値が必要になるまで初期化を遅らせる方法（ここでは `getInstance` メソッドが初めて呼ばれたタイミングでインスタンスを生成する実装に当たる）。
 
 ### 好ましくない実装（遅延初期化）
 
@@ -375,19 +390,21 @@ public class Logger {
     private String logLevel;
 
     private Logger(String logLevel) {
-        this.logLevel = logLevel;
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
     public static Logger getInstance() {
         if (logger == null) {                    // ①
             try {
-                Thread.sleep(1000);               // レースコンディションを起きやすくするための遅延
+                Thread.sleep(1000);              // レースコンディションを起きやすくするための遅延
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+
             logger = new Logger("INFO");         // ②
         }
+
         return logger;
     }
 
@@ -418,6 +435,8 @@ public class Main {
 
 **実行結果**
 
+※レースコンディションが発生した場合の例で、レースコンディションが発生しなければ、インスタンスの生成は 1 つだけになる
+
 ```
 Logger を生成しました。[logLevel=INFO]
 Logger を生成しました。[logLevel=INFO]
@@ -425,26 +444,25 @@ Logger を生成しました。[logLevel=INFO]
 スレッドA（OrderService）が取得したインスタンス: Logger@18615390
 ```
 
-※レースコンディションが発生した場合の例（←レースコンディションが発生しなければ、インスタンスの生成は 1 つだけになる）
+実行結果を見ると、確かにインスタンスのアドレス値が「Logger@c2390e4」「Logger@18615390」と異なっているので、インスタンスが複数生成されたことがわかります。
 
-実行結果を見ると、確かにインスタンスのアドレス値が「Logger@c2390e4」「Logger@18615390」と異なっているので、インスタンスが複数生成されていることがわかります。<br>
 なぜこのようなことが起こるのか、処理の流れを確認してみましょう。
 
-1. スレッド A が①を実行し、`logger == null` が `true` と判定される
+1. スレッド A が ① を実行し、`logger == null` が `true` と判定される
 2. スレッド A が 1000ms 一時停止する
-3. スレッド A が②を実行する前に、スレッド B が①を実行し、こちらも `logger == null` が `true` と判定される
+3. スレッド A が ② を実行する前に、スレッド B が ① を実行し、`logger == null` が `true` と判定される
 4. スレッド B が 1000ms 一時停止する
-5. スレッド A またはスレッド B が②を実行し、インスタンスを生成する
-6. 他方のスレッドが②を実行し、さらにもう 1 つインスタンスを生成する
+5. スレッド A またはスレッド B が ② を実行し、インスタンスを生成する
+6. 他方のスレッドが ② を実行し、さらにもう 1 つインスタンスを生成する
 
-上記から、Singleton パターンで実装したはずなのに、2 つのインスタンスが生成されてしまうわけです。
+上記から、Singleton パターンで実装したはずなのに、2 つのインスタンスが生成されてしまうのです。
 
 ### 正しい実装（早期初期化）
 
-では、この問題を防ぐにはどのような実装にすればよいのでしょうか？
+では、この問題を防ぐにはどのような実装をすればよいのでしょうか？
 
-この問題を解決する実装が、本記事で扱った**早期初期化**です。<br>
-※早期初期化（Eager Initialization）：クラスがロードされるタイミングでインスタンスを生成する方法（ここでは `static` フィールドの宣言時にインスタンスを生成する方法に当たる）。
+この問題を解決するのが、本記事で扱った**早期初期化**です。<br>
+※早期初期化（Eager Initialization）：クラスがロードされるタイミングでインスタンスを生成する方法（ここでは `static` フィールドの宣言時にインスタンスを生成する実装に当たる）。
 
 ```Java:Logger.java
 public class Logger {
@@ -452,8 +470,8 @@ public class Logger {
     private String logLevel;
 
     private Logger(String logLevel) {
-        this.logLevel = logLevel;
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
     public static Logger getInstance() {
@@ -474,7 +492,7 @@ public class Logger {
 }
 ```
 
-実行クラスは変更なし。
+`Main` クラスは変更なし。
 
 **実行結果**
 
@@ -484,15 +502,16 @@ Logger を生成しました。[logLevel=INFO]
 スレッドA（OrderService）が取得したインスタンス: Logger@2d4088ab
 ```
 
-実行結果を見ると、インスタンスのアドレス値が「Logger@2d4088ab」で同じであることから、インスタンスが 1 つだけ生成されていることがわかります。
+実行結果を見ると、インスタンスのアドレス値が「Logger@2d4088ab」で同じであることから、インスタンスが 1 つだけ生成されたことがわかります。
 
-これは、`static` フィールドの初期化を JVM がクラスをロードした時にスレッドセーフに行うため、複数のスレッドが同時にアクセスしても、インスタンスの生成は 1 回だけに保証されているからです。
+これは、JVM がクラスをロードした時に `static` フィールドの初期化をスレッドセーフに行うため、複数のスレッドが同時にアクセスしても、インスタンスの生成は 1 回だけとなるからです。
 
 このように、早期初期化を採用することで `synchronized` などの排他制御を使わずにスレッドセーフな Singleton を実現できます。
 
 ### 補足（synchronized）
 
-遅延初期化を使いたい場合の解決策の一つが `synchronized` です。
+実務では、遅延初期化をどうしても使いたい場合があります。<br>
+この解決策の一つが `synchronized` です。
 
 ```Java:Logger.java
 public class Logger {
@@ -500,19 +519,22 @@ public class Logger {
     private String logLevel;
 
     private Logger(String logLevel) {
-        this.logLevel = logLevel;
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
+    // getInstance メソッドに synchronized をつける
     public static synchronized Logger getInstance() {
         if (logger == null) {                    // ①
             try {
-                Thread.sleep(1000);               // レースコンディションを起きやすくするための遅延
+                Thread.sleep(1000);              // レースコンディションを起きやすくするための遅延
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+
             logger = new Logger("INFO");         // ②
         }
+
         return logger;
     }
 
@@ -522,7 +544,7 @@ public class Logger {
 }
 ```
 
-実行クラスは変更なし。
+`Main` クラスは変更なし。
 
 **実行結果**
 
@@ -536,8 +558,7 @@ Logger を生成しました。[logLevel=INFO]
 これにより、複数スレッドが同時に `logger == null` の判定をすることがなくなり、インスタンスの二重生成を防げます。
 
 ただし、`synchronized` はロックの取得・解放にコストがかかるため、パフォーマンスを重視する場面では早期初期化の方が有利です。<br>
-また、デッドロックが発生するリスクもあるためお勧めできません。<br>
-デッドロックの詳細は本記事の範囲を超えるため、興味のある方は別途調べてみてください。
+また、デッドロックが発生するリスクもあるためお勧めできません。（デッドロックの詳細は本記事の範囲を超えるため、興味のある方は別途調べてみてください。）
 
 <a id="深堀り3"></a>
 
@@ -546,7 +567,7 @@ Logger を生成しました。[logLevel=INFO]
 本記事で扱ったコードでは、ログレベルを `INFO` に固定することしかできませんでした。<br>
 しかし、実務では `WARNING` や `ERROR` などのレベルも設定できるようにしたいはずです。
 
-Singleton パターンを応用することで、インスタンス数を **n 個に限定する**ことができます。<br>
+このような時、Singleton パターンを応用することで、インスタンス数を **n 個に限定する**ことができます。<br>
 ここでは、本記事のコードを参考にしつつ、実装者側でログレベルを決定できるようにします。
 
 次のコードを見てください。
@@ -564,8 +585,8 @@ public class Logger {
     /* 変更（ここまで） */
 
     private Logger(String logLevel) {
-        this.logLevel = logLevel;
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
     }
 
     /* 変更（ここから） */
@@ -584,21 +605,21 @@ public class Logger {
 
 - 単一インスタンスを保持していた `static` フィールドが `HashMap` に変わっている
 - `static` 初期化子で `logLevels` 配列の各要素に対応するインスタンスを生成し、`HashMap` に格納している
-- `getInstance` が引数（ログレベル名）を受け取るようになっている
+- `getInstance` が引数（ログレベル名）を受け取れるようになっている
 
-それぞれの変更がどのように機能するかを見ていきましょう。
+それぞれの変更点について詳しく見ていきましょう。
 
-`HashMap` は、ログレベル名をキーに、対応する `Logger` インスタンスを値として保持するデータ構造です。<br>
-クラスがロードされると、`logLevels` 配列の要素数（**n 個**）分のインスタンスが一括で生成され、`HashMap` へ格納されます。<br>
-これにより、配列の要素を変えるだけで、制限するインスタンス数や種類を自由に設計することができるようになります。<br>
-また、`getInstance` に引数を追加したことで、呼び出し側が取得したいログレベルのインスタンスを指定できるようになります。
+`HashMap` は、ログレベル名をキーに、対応する `Logger` インスタンスを値として保持するデータ構造となっています。<br>
+クラスがロードされると、`static` 初期化子により、`logLevels` 配列の要素数（**n 個**）分のインスタンスが一括で生成され、`HashMap` へ格納されます。<br>
+この結果、配列の要素を変えるだけで、制限するインスタンス数や種類を自由に設計することができるようになります。<br>
+また、`getInstance` に引数を受け取れるようにしたことで、呼び出し側が取得したいログレベルのインスタンスを指定できるようになります。
 
 では、呼び出し側の実装を見ていきましょう。
 
 ```Java:OrderService.java
 public class OrderService {
     public void placeOrder(String orderId) {
-        System.out.println("注文を受け付けました: " + orderId); // 本来ここは DB の登録処理などが入るので、わざと残している
+        System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
 
         /* ここを追加（ここから） */
         if (orderId.equals("warning_id")) {
@@ -614,7 +635,7 @@ public class OrderService {
 ```Java:PaymentService.java
 public class PaymentService {
     public void processPayment(String paymentId) {
-        System.out.println("決済処理を開始します: " + paymentId); // 本来ここは DB の登録処理などが入るので、わざと残している
+        System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
 
         /* ここを追加（ここから） */
         if (paymentId.equals("error_id")) {
@@ -634,9 +655,9 @@ public class Main {
         PaymentService paymentService = new PaymentService();
 
         orderService.placeOrder("order_001");
-        orderService.placeOrder("warning_id");
+        orderService.placeOrder("warning_id"); // ←ここを追加
         paymentService.processPayment("pay_001");
-        paymentService.processPayment("error_id");
+        paymentService.processPayment("error_id"); // ←ここを追加
     }
 }
 ```
@@ -657,7 +678,7 @@ Logger を生成しました。[logLevel=ERROR]
 [ERROR] 決済処理を開始しました: error_id
 ```
 
-実行結果を見ると、`Logger を生成しました` はログレベルごとに 1 度しか出力されていないことがわかります（`[INFO]` が複数箇所で使われていますが、インスタンスの生成は 1 度だけです）。
+実行結果を見ると、ログレベルごとに「`Logger を生成しました。`」が 1 回だけ出力されていることがわかります（`[INFO]` が複数箇所で使われていますが、インスタンスの生成は 1 回だけです）。
 
 ちなみに、`Logger.getInstance("INFO1")` のように設計者が意図していないログレベルを指定すると `NullPointerException` が発生するので、設計者の意図通りの実装を強制することができます。
 
