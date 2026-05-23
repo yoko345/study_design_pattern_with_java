@@ -22,8 +22,12 @@
     - [好ましくない実装（遅延初期化）](#好ましくない実装遅延初期化)
     - [正しい実装（早期初期化）](#正しい実装早期初期化)
     - [補足（synchronized）](#補足synchronized)
-- [【深堀り③】インスタンス数を n 個に制限する](#深堀り3)
-- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+- [【深堀り③】あらかじめ決めた n 個のインスタンスに制限する](#深堀り3)
+- [【深堀り④】`enum` （列挙型）を使った Singleton](#深堀り4)
+    - [`enum` の特徴](#enumの特徴)
+    - [Singleton との共通点](#Singletonとの共通点)
+    - [`Logger` クラスを `enum` で実装する](#LoggerをenumでImplementする)
+- [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
 
@@ -308,6 +312,8 @@ logger1 と logger2 は同じインスタンスです。
 また、クラスの外からインスタンスを取得するための窓口が絞られており、そのインスタンスは `static` フィールドで管理されています。<br>
 これにより、クラス外からの勝手なインスタンス生成がなくなり、アプリ全体で共有したいリソースを 1 つだけにできるので、安全に管理ができるようになります。
 
+なお、本記事の `Logger` クラスは `enum` を使って実装することもできます（[【深堀り④】参照](#深堀り4)）。
+
 本記事の内容はここまでとなります。
 
 以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
@@ -562,7 +568,7 @@ Logger を生成しました。[logLevel=INFO]
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】インスタンス数を n 個に制限する
+## 【深堀り③】あらかじめ決めた n 個のインスタンスに制限する
 
 本記事で扱ったコードでは、ログレベルを `INFO` に固定することしかできませんでした。<br>
 しかし、実務では `WARNING` や `ERROR` などのレベルも設定できるようにしたいはずです。
@@ -611,7 +617,7 @@ public class Logger {
 
 `HashMap` は、ログレベル名をキーに、対応する `Logger` インスタンスを値として保持するデータ構造となっています。<br>
 クラスがロードされると、`static` 初期化子により、`logLevels` 配列の要素数（**n 個**）分のインスタンスが一括で生成され、`HashMap` へ格納されます。<br>
-この結果、配列の要素を変えるだけで、制限するインスタンス数や種類を自由に設計することができるようになります。<br>
+この結果、配列の要素を変えることで、制限するインスタンスの数や種類を設計時に決めることができます。<br>
 また、`getInstance` に引数を受け取れるようにしたことで、呼び出し側が取得したいログレベルのインスタンスを指定できるようになります。
 
 では、呼び出し側の実装を見ていきましょう。
@@ -684,7 +690,124 @@ Logger を生成しました。[logLevel=ERROR]
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】GoF デザインパターンとの位置づけ
+## 【深堀り④】`enum` （列挙型）を使った Singleton
+
+本記事の `Logger` クラスを `enum` で実装する場合を見ていく前に、`enum` の特徴から確認していきましょう。
+
+<a id="enumの特徴"></a>
+
+### `enum` の特徴
+
+`enum` は、次のような特徴を持つ特殊なクラスです。
+
+- 定数を宣言できる
+    - クラスの先頭に宣言された定数は、自クラスのインスタンスであり、`public static final` なフィールドとして扱われる
+- 通常のクラスと同様にフィールドやメソッドを持てる
+- コンストラクタは `private`（または修飾子なし）しか指定できない
+    - アクセス修飾子がない場合、実質的に `private` として扱われる
+
+<a id="Singletonとの共通点"></a>
+
+### Singleton との共通点
+
+ここで、Singleton パターンは次の 2 点の特徴がありました。
+
+1. インスタンスを 1 つに保証する
+    - `static` フィールドで唯一のインスタンスを保持することで実現
+2. クラス外からのインスタンス生成を禁止する
+    - `private` コンストラクタにより実現
+
+上記と `enum` の特徴とを照らし合わせると、この 2 点がいずれも言語仕様として組み込まれていることがわかります。<br>
+そのため、`enum` を使うことで `private` コンストラクタや `getInstance` メソッドを自分で書かなくても、Singleton パターンを実現することができます。
+
+<a id="LoggerをenumでImplementする"></a>
+
+### `Logger` クラスを `enum` で実装する
+
+では、本記事の `Logger` クラスを `enum` で実装してみましょう。
+
+```Java:Logger.java
+public enum Logger {
+    INSTANCE("INFO");
+
+    private final String logLevel;
+
+    Logger(String logLevel) {
+        System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+        this.logLevel = logLevel;
+    }
+
+    public void log(String message) {
+        System.out.println("[" + logLevel + "] " + message);
+    }
+}
+```
+
+`INSTANCE` という定数が、列挙型 `Logger` の唯一のインスタンスとなります。<br>
+`Logger.INSTANCE` で呼び出すことで、インスタンスを取得することができます。
+
+```Java:OrderService.java
+public class OrderService {
+    public void placeOrder(String orderId) {
+        System.out.println("注文を受け付けました: " + orderId);
+        Logger.INSTANCE.log("注文を受け付けました: " + orderId);
+    }
+}
+```
+
+```Java:PaymentService.java
+public class PaymentService {
+    public void processPayment(String paymentId) {
+        System.out.println("決済処理を開始します: " + paymentId);
+        Logger.INSTANCE.log("決済処理を開始しました: " + paymentId);
+    }
+}
+```
+
+[実行クラス](#既存コードの実行クラス)は変更なし。
+
+**実行結果**
+
+```
+注文を受け付けました: order_001
+Logger を生成しました。[logLevel=INFO]
+[INFO] 注文を受け付けました: order_001
+決済処理を開始します: pay_001
+[INFO] 決済処理を開始しました: pay_001
+```
+
+実行結果から、本記事と同様の結果を得られていることがわかります。
+
+なお、[【深堀り③】](#深堀り3) で扱った「あらかじめ決めた n 個のインスタンスに制限する」実装も、`enum` で表現できます。
+
+```Java:Logger.java
+public enum Logger {
+    INFO("INFO"),
+    WARNING("WARNING"),
+    ERROR("ERROR");
+
+    // 以降は先ほどと同じ
+}
+```
+
+```Java:OrderService.java
+public class OrderService {
+    public void placeOrder(String orderId) {
+        System.out.println("注文を受け付けました: " + orderId);
+        if (orderId.equals("warning_id")) {
+            Logger.WARNING.log("注文を受け付けました: " + orderId);
+        } else {
+            Logger.INFO.log("注文を受け付けました: " + orderId);
+        }
+    }
+}
+```
+
+コードの簡潔さと堅牢性が求められる場面では、`enum` Singleton が有力な選択肢になります。
+
+<a id="深堀り5"></a>
+
+## 【深堀り⑤】GoF デザインパターンとの位置づけ
 
 今回使った Singleton パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「生成パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
