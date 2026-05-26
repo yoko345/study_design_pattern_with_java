@@ -2,7 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> 通知機能を追加するたびに、通知を管理するクラスを修正しなければならなくて、`if-else` がどんどん増えてしまった
+> 扱う機能が増えるたびに管理クラスを修正し続けなければならず、条件分岐がどんどん増えてしまった
 
 この記事では、EC サイトの通知配信システムへの機能追加というシナリオを通して、Prototype パターンがこの問題をどのように解決するかを学びます。
 
@@ -11,7 +11,7 @@
 - [【具体例】](#具体例)
     - [シナリオ](#シナリオ)
     - [既存コードの仕様](#既存コードの仕様)
-    - [`FramedNotification` クラスと `UnderlineNotification` クラスの仕様](#通知フォーマットクラスの仕様)
+    - [`CardNotification` クラスと `BannerNotification` クラスの仕様](#通知フォーマットクラスの仕様)
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
     - [コピーコンストラクタとの比較](#コピーコンストラクタとの比較)
@@ -28,8 +28,9 @@
 ### シナリオ
 
 > あなたは EC サイトの開発チームに所属しています。<br>
-> 通知配信システムの基本機能はすでに動いていますが、マーケティング部門から「クーポン配布・キャンペーン告知・定期メルマガなど、種類によって見た目を変えた通知を送りたい」という要望が届きました。<br>
-> 各通知タイプはそれぞれ独自のフォーマット（枠囲み・下線付きなど）を持ち、将来的に種類がさらに増える可能性もあるとのことです。
+> 通知配信システムの基本機能はすでに稼働しています。<br>
+> ある日、マーケティング部門から「クーポン配布・キャンペーン告知・定期メルマガなど、種類によって見た目を変えた通知を送りたい」という要望が届きました。<br>
+> 各通知タイプはそれぞれ独自の HTML フォーマットを持ち、通知 API のレスポンスとして返却されます。
 
 ### 既存コードの仕様
 
@@ -70,81 +71,62 @@ public class Main {
 
 <a id="通知フォーマットクラスの仕様"></a>
 
-### `FramedNotification` クラスと `UnderlineNotification` クラスの仕様
+### 通知フォーマットクラスの仕様
 
-本記事の主題に集中できるよう、通知フォーマットを担う 2 つのクラスの仕様を先に示します。
+本記事の主題に集中できるよう、通知フォーマットを担う 2 つのクラス（`CardNotification`・`BannerNotification`）の仕様を先に示します。
 
 <br>
 
-- `FramedNotification`
+- `CardNotification`
 
-メッセージを指定した文字で枠囲みして出力するクラスです。
+メッセージをカード形式の HTML 文字列に変換するクラスです。
 
-| フィールド  | 型     | 説明             |
-| ----------- | ------ | ---------------- |
-| `frameChar` | `char` | 枠に使用する文字 |
+| フィールド | 型       | 説明                        |
+| ---------- | -------- | --------------------------- |
+| `cssClass` | `String` | 追加で付与する CSS クラス名 |
 
-| メソッド | 戻り値の型 | 説明                               |
-| -------- | ---------- | ---------------------------------- |
-| `use`    | `void`     | メッセージを枠で囲んでコンソールへ出力する |
+| メソッド | 戻り値の型 | 説明                                   |
+| -------- | ---------- | -------------------------------------- |
+| `use`    | `String`   | カード形式の HTML 文字列を生成して返す |
 
-```Java:FramedNotification.java
-public class FramedNotification {
-    private char frameChar;
+```Java:CardNotification.java
+public class CardNotification {
+    private String cssClass;
 
-    public FramedNotification(char frameChar) {
-        this.frameChar = frameChar;
+    public CardNotification(String cssClass) {
+        this.cssClass = cssClass;
     }
 
-    public void use(String message) {
-        int len = message.length() + 2;
-
-        for (int i = 0; i < len; i++) {
-            System.out.print(frameChar);
-        }
-
-        System.out.println();
-        System.out.println(frameChar + message + frameChar);
-
-        for (int i = 0; i < len; i++) {
-            System.out.print(frameChar);
-        }
-
-        System.out.println();
+    public String use(String message) {
+        return "<div class=\"card " + cssClass + "\"><p>" + message + "</p></div>";
     }
 }
 ```
 
 <br>
 
-- `UnderlineNotification`
+- `BannerNotification`
 
-メッセージを出力した後、指定した文字で下線を引くクラスです。
+メッセージをバナー形式の HTML 文字列に変換するクラスです。
 
-| フィールド      | 型     | 説明               |
-| --------------- | ------ | ------------------ |
-| `underlineChar` | `char` | 下線に使用する文字 |
+| フィールド | 型       | 説明                        |
+| ---------- | -------- | --------------------------- |
+| `cssClass` | `String` | 追加で付与する CSS クラス名 |
 
-| メソッド | 戻り値の型 | 説明                                       |
-| -------- | ---------- | ------------------------------------------ |
-| `use`    | `void`     | メッセージとその下線をコンソールへ出力する |
+| メソッド | 戻り値の型 | 説明                                   |
+| -------- | ---------- | -------------------------------------- |
+| `use`    | `String`   | バナー形式の HTML 文字列を生成して返す |
 
-```Java:UnderlineNotification.java
-public class UnderlineNotification {
-    private char underlineChar;
+```Java:BannerNotification.java
+public class BannerNotification {
+    private String cssClass;
 
-    public UnderlineNotification(char underlineChar) {
-        this.underlineChar = underlineChar;
+    public BannerNotification(String cssClass) {
+        this.cssClass = cssClass;
     }
 
-    public void use(String message) {
-        System.out.println(message);
-
-        for (int i = 0; i < message.length(); i++) {
-            System.out.print(underlineChar);
-        }
-
-        System.out.println();
+    public String use(String message) {
+        return "<div class=\"banner " + cssClass + "\"><strong>" + message + "</strong></div>";
     }
 }
 ```
@@ -161,14 +143,14 @@ public class UnderlineNotification {
 public class NotificationManager {
     public void send(String type, String message) {
         if (type.equals("coupon")) {
-            FramedNotification n = new FramedNotification('*');
-            n.use(message);
+            CardNotification n = new CardNotification("coupon");
+            System.out.println(n.use(message));
         } else if (type.equals("campaign")) {
-            UnderlineNotification n = new UnderlineNotification('=');
-            n.use(message);
+            BannerNotification n = new BannerNotification("campaign");
+            System.out.println(n.use(message));
         } else if (type.equals("newsletter")) {
-            FramedNotification n = new FramedNotification('/');
-            n.use(message);
+            CardNotification n = new CardNotification("newsletter");
+            System.out.println(n.use(message));
         }
     }
 }
@@ -188,14 +170,9 @@ public class Main {
 **実行結果**
 
 ```
-**************
-*クーポン: 10%OFF*
-**************
-夏のキャンペーン開始！
-===========
-/////////
-/7月のメルマガ/
-/////////
+<div class="card coupon"><p>クーポン: 10%OFF</p></div>
+<div class="banner campaign"><strong>夏のキャンペーン開始！</strong></div>
+<div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
 
 コンパイルエラーがなく結果が出力されていることから、実装・動作確認ともに問題ないことがわかります。
@@ -205,9 +182,9 @@ public class Main {
 - 通知タイプを追加するたびに `NotificationManager` の修正が必要になる
     - `"coupon"`、`"campaign"` などの文字列で種類を管理しているため、追加ミスや修正漏れが起きやすい
     - 通知タイプが増えるほど `if-else` が長くなり、見通しが悪くなる
-- `NotificationManager` が `FramedNotification`、`UnderlineNotification` という具体的なクラス名をすべて把握しておく必要がある
+- `NotificationManager` が `CardNotification`、`BannerNotification` という具体的なクラス名をすべて把握しておく必要がある
     - 新しいフォーマットクラスを追加しても、`NotificationManager` を変更しない限り使用できない
-- フォーマット設定（`'*'`、`'='`、`'/'` といった文字）が `NotificationManager` にハードコードされており、呼び出し元で自由に設定できない
+- フォーマット設定（`"coupon"`、`"campaign"` といった CSS クラス名）が `NotificationManager` にハードコードされており、呼び出し元で自由に設定できない
 
 ## 正しい実装
 
@@ -220,7 +197,7 @@ Prototype パターンでは、「あらかじめ登録しておいたオブジ�
 
 ```Java:Notification.java
 public abstract class Notification implements Cloneable {
-    public abstract void use(String message);
+    public abstract String use(String message);
 
     public Notification createCopy() {
         Notification n = null;
@@ -238,61 +215,42 @@ public abstract class Notification implements Cloneable {
 
 `Notification` は抽象クラスで、`use()` と `createCopy()` の 2 つのメソッドを持ちます。
 
-- `use(String message)`: サブクラスごとに定義するフォーマット出力の本体です。
+- `use(String message)`: サブクラスごとに定義するフォーマット生成の本体です。HTML文字列を返します。
 - `createCopy()`: `clone()` を呼び出して自身のコピーを返します。これが Prototype パターンの核心部分です。
 
-`FramedNotification` と `UnderlineNotification` はこの `Notification` を継承するサブクラスとして定義し直します。
+`CardNotification` と `BannerNotification` はこの `Notification` を継承するサブクラスとして定義し直します。
 
-```Java:FramedNotification.java
-public class FramedNotification extends Notification {
-    private char frameChar;
+```Java:CardNotification.java
+public class CardNotification extends Notification {
+    private String cssClass;
 
-    public FramedNotification(char frameChar) {
-        this.frameChar = frameChar;
+    public CardNotification(String cssClass) {
+        this.cssClass = cssClass;
     }
 
     @Override
-    public void use(String message) {
-        int len = message.length() + 2;
-
-        for (int i = 0; i < len; i++) {
-            System.out.print(frameChar);
-        }
-
-        System.out.println();
-        System.out.println(frameChar + message + frameChar);
-
-        for (int i = 0; i < len; i++) {
-            System.out.print(frameChar);
-        }
-
-        System.out.println();
+    public String use(String message) {
+        return "<div class=\"card " + cssClass + "\"><p>" + message + "</p></div>";
     }
 }
 ```
 
-```Java:UnderlineNotification.java
-public class UnderlineNotification extends Notification {
-    private char underlineChar;
+```Java:BannerNotification.java
+public class BannerNotification extends Notification {
+    private String cssClass;
 
-    public UnderlineNotification(char underlineChar) {
-        this.underlineChar = underlineChar;
+    public BannerNotification(String cssClass) {
+        this.cssClass = cssClass;
     }
 
     @Override
-    public void use(String message) {
-        System.out.println(message);
-
-        for (int i = 0; i < message.length(); i++) {
-            System.out.print(underlineChar);
-        }
-
-        System.out.println();
+    public String use(String message) {
+        return "<div class=\"banner " + cssClass + "\"><strong>" + message + "</strong></div>";
     }
 }
 ```
 
-`use()` に `@Override` を追加した以外、`FramedNotification` と `UnderlineNotification` の中身に変更はありません。`createCopy()` は `Notification` クラスに実装されているので、各サブクラスで定義し直す必要はありません。
+`use()` に `@Override` を追加した以外、`CardNotification` と `BannerNotification` の中身に変更はありません。`createCopy()` は `Notification` クラスに実装されているので、各サブクラスで定義し直す必要はありません。
 
 次に、`NotificationManager` を書き直します。
 
@@ -314,7 +272,7 @@ public class NotificationManager {
 }
 ```
 
-`NotificationManager` には `FramedNotification` も `UnderlineNotification` も import されていません。`Notification`（抽象クラス）だけを知っていれば動作します。
+`NotificationManager` には `CardNotification` も `BannerNotification` も import されていません。`Notification`（抽象クラス）だけを知っていれば動作します。
 
 - `register(String name, Notification prototype)`: プロトタイプを名前付きで登録します。
 - `create(String name)`: 登録済みのプロトタイプを `createCopy()` で複製して返します。
@@ -326,22 +284,22 @@ public class Main {
     public static void main(String[] args) {
         NotificationManager manager = new NotificationManager();
 
-        FramedNotification coupon = new FramedNotification('*');
-        UnderlineNotification campaign = new UnderlineNotification('=');
-        FramedNotification newsletter = new FramedNotification('/');
+        CardNotification coupon = new CardNotification("coupon");
+        BannerNotification campaign = new BannerNotification("campaign");
+        CardNotification newsletter = new CardNotification("newsletter");
 
         manager.register("coupon", coupon);
         manager.register("campaign", campaign);
         manager.register("newsletter", newsletter);
 
         Notification n1 = manager.create("coupon");
-        n1.use("クーポン: 10%OFF");
+        System.out.println(n1.use("クーポン: 10%OFF"));
 
         Notification n2 = manager.create("campaign");
-        n2.use("夏のキャンペーン開始！");
+        System.out.println(n2.use("夏のキャンペーン開始！"));
 
         Notification n3 = manager.create("newsletter");
-        n3.use("7月のメルマガ");
+        System.out.println(n3.use("7月のメルマガ"));
     }
 }
 ```
@@ -349,15 +307,12 @@ public class Main {
 **実行結果**
 
 ```
-**************
-*クーポン: 10%OFF*
-**************
-夏のキャンペーン開始！
-===========
-/////////
-/7月のメルマガ/
-/////////
+<div class="card coupon"><p>クーポン: 10%OFF</p></div>
+<div class="banner campaign"><strong>夏のキャンペーン開始！</strong></div>
+<div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
+
+> `use()` が返すHTML文字列がそのままAPIのレスポンスボディとなります。ここでは確認のため `System.out.println()` で出力しています。
 
 実行結果は好ましくない実装と変わりませんが、設計が大きく改善されています。
 
@@ -369,17 +324,17 @@ public class Main {
 
 オブジェクトの複製手段として、`clone()` の代わりに「コピーコンストラクタ」を使う方法があります。コピーコンストラクタとは、同じクラスのインスタンスを引数に受け取り、フィールドをコピーするコンストラクタのことです。
 
-```Java:FramedNotification.java（コピーコンストラクタを追加した場合）
-public class FramedNotification extends Notification {
-    private char frameChar;
+```Java:CardNotification.java（コピーコンストラクタを追加した場合）
+public class CardNotification extends Notification {
+    private String cssClass;
 
-    public FramedNotification(char frameChar) {
-        this.frameChar = frameChar;
+    public CardNotification(String cssClass) {
+        this.cssClass = cssClass;
     }
 
     // コピーコンストラクタ
-    public FramedNotification(FramedNotification other) {
-        this.frameChar = other.frameChar;
+    public CardNotification(CardNotification other) {
+        this.cssClass = other.cssClass;
     }
 
     // ... use() は省略
@@ -392,10 +347,10 @@ public class FramedNotification extends Notification {
 public Notification create(String name) {
     Notification n = map.get(name);
 
-    if (n instanceof FramedNotification) {
-        return new FramedNotification((FramedNotification) n); // 具体型を知っている
-    } else if (n instanceof UnderlineNotification) {
-        return new UnderlineNotification((UnderlineNotification) n); // 具体型を知っている
+    if (n instanceof CardNotification) {
+        return new CardNotification((CardNotification) n); // 具体型を知っている
+    } else if (n instanceof BannerNotification) {
+        return new BannerNotification((BannerNotification) n); // 具体型を知っている
     }
 
     throw new IllegalArgumentException("Unknown type: " + name);
@@ -404,11 +359,11 @@ public Notification create(String name) {
 
 新しい通知タイプを追加するたびに `NotificationManager` の修正が再び必要になり、好ましくない実装と同じ問題が発生します。
 
-| 観点 | `clone()` による実装 | コピーコンストラクタ |
-| ---- | -------------------- | -------------------- |
-| `NotificationManager` が具体クラスを知る必要があるか | なし | あり |
-| 新しい通知タイプを追加したときの `NotificationManager` への影響 | なし（修正不要） | あり（修正が必要） |
-| ポリモーフィズムの活用 | できる | できない |
+| 観点                                                            | `clone()` による実装 | コピーコンストラクタ |
+| --------------------------------------------------------------- | -------------------- | -------------------- |
+| `NotificationManager` が具体クラスを知る必要があるか            | なし                 | あり                 |
+| 新しい通知タイプを追加したときの `NotificationManager` への影響 | なし（修正不要）     | あり（修正が必要）   |
+| ポリモーフィズムの活用                                          | できる               | できない             |
 
 `clone()` を `Notification` 抽象クラスに定義することで、`NotificationManager` は具体的なクラスを一切知らなくてよくなります。これが、コピーコンストラクタではなく `clone()` を採用する最大の理由です。
 
@@ -416,11 +371,11 @@ public Notification create(String name) {
 
 Prototype パターンをまとめると、以下のとおりです。
 
-| 要素 | 役割 |
-| ---- | ---- |
-| `Notification`（抽象クラス） | 複製メソッド `createCopy()` を持つプロトタイプの基底 |
-| `FramedNotification` / `UnderlineNotification` | 具体的なフォーマットを実装したプロトタイプ |
-| `NotificationManager` | プロトタイプを名前付きで登録し、複製して返すマネージャー |
+| 要素                                      | 役割                                                     |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `Notification`（抽象クラス）              | 複製メソッド `createCopy()` を持つプロトタイプの基底     |
+| `CardNotification` / `BannerNotification` | 具体的なフォーマットを実装したプロトタイプ               |
+| `NotificationManager`                     | プロトタイプを名前付きで登録し、複製して返すマネージャー |
 
 Prototype パターンを使うメリットは以下のとおりです。
 
@@ -430,11 +385,11 @@ Prototype パターンを使うメリットは以下のとおりです。
 
 好ましくない実装との比較：
 
-| 観点 | 好ましくない実装 | Prototype パターン |
-| ---- | ---------------- | ------------------ |
-| 新しい通知タイプの追加 | `NotificationManager` の修正が必要 | 新クラスの追加のみ |
-| `NotificationManager` の依存関係 | 全具体クラスを知っている | 抽象クラスのみ |
-| OCP への適合 | ✗ | ✓ |
+| 観点                             | 好ましくない実装                   | Prototype パターン |
+| -------------------------------- | ---------------------------------- | ------------------ |
+| 新しい通知タイプの追加           | `NotificationManager` の修正が必要 | 新クラスの追加のみ |
+| `NotificationManager` の依存関係 | 全具体クラスを知っている           | 抽象クラスのみ     |
+| OCP への適合                     | ✗                                  | ✓                  |
 
 <a id="深堀り1"></a>
 
@@ -468,7 +423,7 @@ public Notification createCopy() {
 }
 ```
 
-`Notification` が `Cloneable` を実装しているため、そのサブクラス（`FramedNotification`、`UnderlineNotification`）でも追加の実装なしに `clone()` が正しく動作します。
+`Notification` が `Cloneable` を実装しているため、そのサブクラス（`CardNotification`、`BannerNotification`）でも追加の実装なしに `clone()` が正しく動作します。
 
 <a id="深堀り2"></a>
 
@@ -476,12 +431,12 @@ public Notification createCopy() {
 
 `Object.clone()` が行うのは「浅いコピー（シャローコピー）」です。
 
-| フィールドの型 | コピーの挙動 |
-| -------------- | ------------ |
-| プリミティブ型（`char`、`int` など） | 値がそのままコピーされる |
-| 参照型（配列、独自クラスなど） | 参照先のアドレスのみコピーされる |
+| フィールドの型                       | コピーの挙動                     |
+| ------------------------------------ | -------------------------------- |
+| プリミティブ型（`char`、`int` など） | 値がそのままコピーされる         |
+| 参照型（配列、独自クラスなど）       | 参照先のアドレスのみコピーされる |
 
-今回の `FramedNotification` は `frameChar`（`char` 型）しか持たないため、浅いコピーで問題はありません。
+今回の `CardNotification` は `frameChar`（`char` 型）しか持たないため、浅いコピーで問題はありません。
 
 しかし、フィールドに参照型が含まれる場合は注意が必要です。
 
@@ -501,8 +456,9 @@ public class ComplexNotification extends Notification {
     }
 
     @Override
-    public void use(String message) {
+    public String use(String message) {
         // ... 省略
+        return "";
     }
 }
 ```
@@ -533,17 +489,17 @@ public class NotificationManager {
 }
 ```
 
-このクラスが参照しているのは `Notification`（抽象クラス）だけです。`FramedNotification` も `UnderlineNotification` も import されていません。
+このクラスが参照しているのは `Notification`（抽象クラス）だけです。`CardNotification` も `BannerNotification` も import されていません。
 
 これが可能な理由は、`createCopy()` が `Notification` 抽象クラスに定義されており、どのサブクラスに対しても同じ呼び出し方で複製できるからです。`NotificationManager` は複製の方法を知らなくてよく、「複製してください」と依頼するだけです。
 
 新しい通知タイプ（例: `BoldNotification`）を追加したい場合の作業を比較すると、違いが明確です。
 
-| 作業 | 好ましくない実装 | Prototype パターン |
-| ---- | ---------------- | ------------------ |
-| `BoldNotification` クラスの作成 | 必要 | 必要 |
-| `NotificationManager` の修正 | 必要 | **不要** |
-| `register()` の呼び出し（Main 側） | 不要 | 必要 |
+| 作業                               | 好ましくない実装 | Prototype パターン |
+| ---------------------------------- | ---------------- | ------------------ |
+| `BoldNotification` クラスの作成    | 必要             | 必要               |
+| `NotificationManager` の修正       | 必要             | **不要**           |
+| `register()` の呼び出し（Main 側） | 不要             | 必要               |
 
 これは「開放/閉鎖原則（OCP: Open-Closed Principle）」の実践例です。`NotificationManager` は機能拡張（新しい通知タイプの追加）に対して開かれており、既存コードの変更に対しては閉じています。
 
