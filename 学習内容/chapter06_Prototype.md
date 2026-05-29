@@ -58,7 +58,7 @@ public class NotificationSender {
 public class Main {
     public static void main(String[] args) {
         NotificationSender sender = new NotificationSender();
-        System.out.println(sender.send("注文が確定しました"));
+        System.out.println(sender.send("お知らせがあります。"));
     }
 }
 ```
@@ -66,7 +66,7 @@ public class Main {
 **実行結果**
 
 ```
-[通知] 注文が確定しました
+[通知] お知らせがあります。
 ```
 
 <a id="通知フォーマットクラスの仕様"></a>
@@ -87,7 +87,7 @@ public class Main {
 
 | メソッド | 戻り値の型 | 説明                                   |
 | -------- | ---------- | -------------------------------------- |
-| `use`    | `String`   | カード形式の HTML 文字列を生成して返す |
+| `send`   | `String`   | カード形式の HTML 文字列を生成して返す |
 
 ```Java:CardNotification.java
 public class CardNotification {
@@ -97,7 +97,7 @@ public class CardNotification {
         this.cssClass = cssClass;
     }
 
-    public String use(String message) {
+    public String send(String message) {
         return "<div class=\"card " + cssClass + "\"><p>" + message + "</p></div>";
     }
 }
@@ -115,7 +115,7 @@ public class CardNotification {
 
 | メソッド | 戻り値の型 | 説明                                   |
 | -------- | ---------- | -------------------------------------- |
-| `use`    | `String`   | バナー形式の HTML 文字列を生成して返す |
+| `send`   | `String`   | バナー形式の HTML 文字列を生成して返す |
 
 ```Java:BannerNotification.java
 public class BannerNotification {
@@ -125,7 +125,7 @@ public class BannerNotification {
         this.cssClass = cssClass;
     }
 
-    public String use(String message) {
+    public String send(String message) {
         return "<div class=\"banner " + cssClass + "\"><strong>" + message + "</strong></div>";
     }
 }
@@ -137,21 +137,22 @@ public class BannerNotification {
 
 では、シナリオに従って複数種類の通知を送れるように実装をしていきましょう。
 
-「通知の種類に応じてフォーマットを切り替えればよい」と考え、次のような実装をするのではないでしょうか？
+ぱっと思いつくのは、既存の `NotificationSender` に型ごとの分岐を追加する方法ではないでしょうか？
 
-```Java:NotificationManager.java
-public class NotificationManager {
-    public void send(String type, String message) {
+```Java:NotificationSender.java
+public class NotificationSender {
+    public String send(String type, String message) {
         if (type.equals("coupon")) {
-            CardNotification n = new CardNotification("coupon");
-            System.out.println(n.use(message));
+            CardNotification n = new CardNotification(type);
+            return n.send(message);
         } else if (type.equals("campaign")) {
-            BannerNotification n = new BannerNotification("campaign");
-            System.out.println(n.use(message));
+            BannerNotification n = new BannerNotification(type);
+            return n.send(message);
         } else if (type.equals("newsletter")) {
-            CardNotification n = new CardNotification("newsletter");
-            System.out.println(n.use(message));
+            CardNotification n = new CardNotification(type);
+            return n.send(message);
         }
+        return "";
     }
 }
 ```
@@ -159,10 +160,10 @@ public class NotificationManager {
 ```Java:Main.java
 public class Main {
     public static void main(String[] args) {
-        NotificationManager manager = new NotificationManager();
-        manager.send("coupon", "クーポン: 10%OFF");
-        manager.send("campaign", "夏のキャンペーン開始！");
-        manager.send("newsletter", "7月のメルマガ");
+        NotificationSender sender = new NotificationSender();
+        System.out.println(sender.send("coupon", "クーポン: 10%OFF"));
+        System.out.println(sender.send("campaign", "夏のキャンペーン開始！"));
+        System.out.println(sender.send("newsletter", "7月のメルマガ"));
     }
 }
 ```
@@ -179,25 +180,24 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- 通知タイプを追加するたびに `NotificationManager` の修正が必要になる
-    - `"coupon"`、`"campaign"` などの文字列で種類を管理しているため、追加ミスや修正漏れが起きやすい
-    - 通知タイプが増えるほど `if-else` が長くなり、見通しが悪くなる
-- `NotificationManager` が `CardNotification`、`BannerNotification` という具体的なクラス名をすべて把握しておく必要がある
-    - 新しいフォーマットクラスを追加しても、`NotificationManager` を変更しない限り使用できない
-- フォーマット設定（`"coupon"`、`"campaign"` といった CSS クラス名）が `NotificationManager` にハードコードされており、呼び出し元で自由に設定できない
+- 通知タイプを追加するたびに既存コードの修正が必要になる
+    - 特に、条件分岐が長くなり、見通しが悪くなる
+- 呼び出し側のクラス（`NotificationSender`）が具体的な通知クラス（`CardNotification`、`BannerNotification`）をすべて把握しておく必要がある
+- CSS クラス名（`"coupon"`、`"campaign"` など）が、呼び出し側のクラス（`NotificationSender`）にハードコードされているため、通知タイプを追加するたびに条件分岐と CSS クラス名の両方を修正する必要がある
+    - 修正箇所が複数に分散するため、追加ミスや修正漏れが起きやすい
 
 ## 正しい実装
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
 これらの問題を解決するのが **Prototype パターン**です。<br>
-Prototype パターンでは、「あらかじめ登録しておいたオブジェクト（プロトタイプ）を複製して、新しいインスタンスを生成する」という仕組みをとります。
+Prototype パターンでは、通知管理の責務を `NotificationSender` から切り出し、専用の `NotificationManager` を導入します。そして「あらかじめ登録しておいたオブジェクト（プロトタイプ）を複製して、新しいインスタンスを生成する」という仕組みをとります。
 
 まず、次のコードを見てください。
 
 ```Java:Notification.java
 public abstract class Notification implements Cloneable {
-    public abstract String use(String message);
+    public abstract String send(String message);
 
     public Notification createCopy() {
         Notification n = null;
@@ -213,9 +213,9 @@ public abstract class Notification implements Cloneable {
 }
 ```
 
-`Notification` は抽象クラスで、`use()` と `createCopy()` の 2 つのメソッドを持ちます。
+`Notification` は抽象クラスで、`send()` と `createCopy()` の 2 つのメソッドを持ちます。
 
-- `use(String message)`: サブクラスごとに定義するフォーマット生成の本体です。HTML文字列を返します。
+- `send(String message)`: サブクラスごとに定義するフォーマット生成の本体です。HTML文字列を返します。
 - `createCopy()`: `clone()` を呼び出して自身のコピーを返します。これが Prototype パターンの核心部分です。
 
 `CardNotification` と `BannerNotification` はこの `Notification` を継承するサブクラスとして定義し直します。
@@ -229,7 +229,7 @@ public class CardNotification extends Notification {
     }
 
     @Override
-    public String use(String message) {
+    public String send(String message) {
         return "<div class=\"card " + cssClass + "\"><p>" + message + "</p></div>";
     }
 }
@@ -244,15 +244,15 @@ public class BannerNotification extends Notification {
     }
 
     @Override
-    public String use(String message) {
+    public String send(String message) {
         return "<div class=\"banner " + cssClass + "\"><strong>" + message + "</strong></div>";
     }
 }
 ```
 
-`use()` に `@Override` を追加した以外、`CardNotification` と `BannerNotification` の中身に変更はありません。`createCopy()` は `Notification` クラスに実装されているので、各サブクラスで定義し直す必要はありません。
+`send()` に `@Override` を追加した以外、`CardNotification` と `BannerNotification` の中身に変更はありません。`createCopy()` は `Notification` クラスに実装されているので、各サブクラスで定義し直す必要はありません。
 
-次に、`NotificationManager` を書き直します。
+次に、通知管理を担う `NotificationManager` を新たに作成します。
 
 ```Java:NotificationManager.java
 import java.util.HashMap;
@@ -293,13 +293,13 @@ public class Main {
         manager.register("newsletter", newsletter);
 
         Notification n1 = manager.create("coupon");
-        System.out.println(n1.use("クーポン: 10%OFF"));
+        System.out.println(n1.send("クーポン: 10%OFF"));
 
         Notification n2 = manager.create("campaign");
-        System.out.println(n2.use("夏のキャンペーン開始！"));
+        System.out.println(n2.send("夏のキャンペーン開始！"));
 
         Notification n3 = manager.create("newsletter");
-        System.out.println(n3.use("7月のメルマガ"));
+        System.out.println(n3.send("7月のメルマガ"));
     }
 }
 ```
@@ -312,7 +312,7 @@ public class Main {
 <div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
 
-> `use()` が返すHTML文字列がそのままAPIのレスポンスボディとなります。ここでは確認のため `System.out.println()` で出力しています。
+> `send()` が返すHTML文字列がそのままAPIのレスポンスボディとなります。ここでは確認のため `System.out.println()` で出力しています。
 
 実行結果は好ましくない実装と変わりませんが、設計が大きく改善されています。
 
@@ -337,7 +337,7 @@ public class CardNotification extends Notification {
         this.cssClass = other.cssClass;
     }
 
-    // ... use() は省略
+    // ... send() は省略
 }
 ```
 
@@ -385,11 +385,11 @@ Prototype パターンを使うメリットは以下のとおりです。
 
 好ましくない実装との比較：
 
-| 観点                             | 好ましくない実装                   | Prototype パターン |
-| -------------------------------- | ---------------------------------- | ------------------ |
-| 新しい通知タイプの追加           | `NotificationManager` の修正が必要 | 新クラスの追加のみ |
-| `NotificationManager` の依存関係 | 全具体クラスを知っている           | 抽象クラスのみ     |
-| OCP への適合                     | ✗                                  | ✓                  |
+| 観点                     | 好ましくない実装                  | Prototype パターン |
+| ------------------------ | --------------------------------- | ------------------ |
+| 新しい通知タイプの追加   | `NotificationSender` の修正が必要 | 新クラスの追加のみ |
+| 通知管理クラスの依存関係 | 全具体クラスを知っている          | 抽象クラスのみ     |
+| OCP への適合             | ✗                                 | ✓                  |
 
 <a id="深堀り1"></a>
 
@@ -456,7 +456,7 @@ public class ComplexNotification extends Notification {
     }
 
     @Override
-    public String use(String message) {
+    public String send(String message) {
         // ... 省略
         return "";
     }
@@ -498,7 +498,7 @@ public class NotificationManager {
 | 作業                               | 好ましくない実装 | Prototype パターン |
 | ---------------------------------- | ---------------- | ------------------ |
 | `BoldNotification` クラスの作成    | 必要             | 必要               |
-| `NotificationManager` の修正       | 必要             | **不要**           |
+| `NotificationSender` の修正        | 必要             | **不要**           |
 | `register()` の呼び出し（Main 側） | 不要             | 必要               |
 
 これは「開放/閉鎖原則（OCP: Open-Closed Principle）」の実践例です。`NotificationManager` は機能拡張（新しい通知タイプの追加）に対して開かれており、既存コードの変更に対しては閉じています。
