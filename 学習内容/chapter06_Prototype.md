@@ -36,16 +36,16 @@
 
 - `NotificationSender`（既存クラス）
 
-通知メッセージをコンソールへ出力するクラスです。
+通知メッセージを文字列として返すクラスです。
 
 | メソッド | 戻り値の型 | 説明                             |
 | -------- | ---------- | -------------------------------- |
-| `send`   | `void`     | メッセージをコンソールへ出力する |
+| `send`   | `String`   | 通知メッセージを文字列として返す |
 
 ```Java:NotificationSender.java
 public class NotificationSender {
-    public void send(String message) {
-        System.out.println("[通知] " + message);
+    public String send(String message) {
+        return "[通知] " + message;
     }
 }
 ```
@@ -58,7 +58,7 @@ public class NotificationSender {
 public class Main {
     public static void main(String[] args) {
         NotificationSender sender = new NotificationSender();
-        sender.send("注文が確定しました");
+        System.out.println(sender.send("注文が確定しました"));
     }
 }
 ```
