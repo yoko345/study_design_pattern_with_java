@@ -143,14 +143,14 @@ public class BannerNotification {
 public class NotificationSender {
     public String send(String type, String message) {
         if (type.equals("coupon")) {
-            CardNotification n = new CardNotification(type);
-            return n.send(message);
+            CardNotification cardNotification = new CardNotification(type);
+            return cardNotification.send(message);
         } else if (type.equals("campaign")) {
-            BannerNotification n = new BannerNotification(type);
-            return n.send(message);
+            BannerNotification bannerNotification = new BannerNotification(type);
+            return bannerNotification.send(message);
         } else if (type.equals("newsletter")) {
-            CardNotification n = new CardNotification(type);
-            return n.send(message);
+            CardNotification cardNotification = new CardNotification(type);
+            return cardNotification.send(message);
         }
         return "";
     }
@@ -181,7 +181,7 @@ public class Main {
 しかし、この実装には以下の問題点があります。
 
 - 通知タイプを追加するたびに既存コードの修正が必要になる
-    - 特に、条件分岐が長くなり、見通しが悪くなる
+    - 特に、条件分岐が長くなり、コードの見通しが悪くなる
 - 呼び出し側のクラス（`NotificationSender`）が具体的な通知クラス（`CardNotification`、`BannerNotification`）をすべて把握しておく必要がある
 - CSS クラス名（`"coupon"`、`"campaign"` など）が、呼び出し側のクラス（`NotificationSender`）にハードコードされているため、通知タイプを追加するたびに条件分岐と CSS クラス名の両方を修正する必要がある
     - 修正箇所が複数に分散するため、追加ミスや修正漏れが起きやすい
@@ -190,8 +190,7 @@ public class Main {
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-これらの問題を解決するのが **Prototype パターン**です。<br>
-Prototype パターンでは、通知管理の責務を `NotificationSender` から切り出し、専用の `NotificationManager` を導入します。そして「あらかじめ登録しておいたオブジェクト（プロトタイプ）を複製して、新しいインスタンスを生成する」という仕組みをとります。
+これらの問題を解決するのが **Prototype パターン**です。
 
 まず、次のコードを見てください。
 
@@ -200,25 +199,26 @@ public abstract class Notification implements Cloneable {
     public abstract String send(String message);
 
     public Notification createCopy() {
-        Notification n = null;
+        Notification notification = null;
 
         try {
-            n = (Notification) clone();
+            notification = (Notification) clone();
         } catch (CloneNotSupportedException e) {
             e.printStackTrace();
         }
 
-        return n;
+        return notification;
     }
 }
 ```
 
-`Notification` は抽象クラスで、`send()` と `createCopy()` の 2 つのメソッドを持ちます。
+上記から次のことがわかります。
 
-- `send(String message)`: サブクラスごとに定義するフォーマット生成の本体です。HTML文字列を返します。
-- `createCopy()`: `clone()` を呼び出して自身のコピーを返します。これが Prototype パターンの核心部分です。
+- 抽象クラス `Notification` は[マーカーインタフェース](#cloneable-と-clone-に関して) `Cloneable` を実装している
+- `Notification` を継承するクラスは、`send` メソッドをオーバーライドしないといけない
+- `createCopy` メソッドが呼ばれると、[`clone` メソッド](#cloneable-と-clone-に関して)が呼び出されて、`Notification` 型でキャストした値が返る
 
-`CardNotification` と `BannerNotification` はこの `Notification` を継承するサブクラスとして定義し直します。
+次に、抽象クラス `Notification` を継承したクラスを見てください。
 
 ```Java:CardNotification.java
 public class CardNotification extends Notification {
@@ -250,14 +250,14 @@ public class BannerNotification extends Notification {
 }
 ```
 
-`send()` に `@Override` を追加した以外、`CardNotification` と `BannerNotification` の中身に変更はありません。`createCopy()` は `Notification` クラスに実装されているので、各サブクラスで定義し直す必要はありません。
+上記から次のことを変更しただけで、処理の実装は変わっていないことがわかります。
 
-次に、通知管理を担う `NotificationManager` を新たに作成します。
+- `Notification` を継承している
+- `send` メソッドがオーバーライドされている
+
+最後に、通知管理を担う `NotificationManager` クラスを見てください。
 
 ```Java:NotificationManager.java
-import java.util.HashMap;
-import java.util.Map;
-
 public class NotificationManager {
     private Map<String, Notification> map = new HashMap<>();
 
@@ -266,18 +266,19 @@ public class NotificationManager {
     }
 
     public Notification create(String name) {
-        Notification n = map.get(name);
-        return n.createCopy();
+        Notification notification = map.get(name);
+        return notification.createCopy();
     }
 }
 ```
 
-`NotificationManager` には `CardNotification` も `BannerNotification` も import されていません。`Notification`（抽象クラス）だけを知っていれば動作します。
+上記から次のことがわかります。
 
-- `register(String name, Notification prototype)`: プロトタイプを名前付きで登録します。
-- `create(String name)`: 登録済みのプロトタイプを `createCopy()` で複製して返します。
+- `register` メソッドにより、任意の名前で `Notification` クラスのインスタンスを管理できる
+    - `CardNotification` や `BannerNotification` が登場していないため、`NotificationManager` は抽象クラス `Notification` だけを知っていれば動作する
+- `create` メソッドにより、`register` メソッドで登録した名前の `Notification` クラスのインスタンスのコピーを取得できる
 
-実行クラスは次のようになります。
+実行クラスと実行結果は次のようになります。
 
 ```Java:Main.java
 public class Main {
@@ -292,14 +293,14 @@ public class Main {
         manager.register("campaign", campaign);
         manager.register("newsletter", newsletter);
 
-        Notification n1 = manager.create("coupon");
-        System.out.println(n1.send("クーポン: 10%OFF"));
+        Notification notificationCoupon = manager.create("coupon");
+        System.out.println(notificationCoupon.send("クーポン: 10%OFF"));
 
-        Notification n2 = manager.create("campaign");
-        System.out.println(n2.send("夏のキャンペーン開始！"));
+        Notification notificationCampaign = manager.create("campaign");
+        System.out.println(notificationCampaign.send("夏のキャンペーン開始！"));
 
-        Notification n3 = manager.create("newsletter");
-        System.out.println(n3.send("7月のメルマガ"));
+        Notification notificationNewsletter = manager.create("newsletter");
+        System.out.println(notificationNewsletter.send("7月のメルマガ"));
     }
 }
 ```
@@ -312,19 +313,77 @@ public class Main {
 <div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
 
-> `send()` が返すHTML文字列がそのままAPIのレスポンスボディとなります。ここでは確認のため `System.out.println()` で出力しています。
+以上のような実装を行うことで、次のメリットが得られます。
 
-実行結果は好ましくない実装と変わりませんが、設計が大きく改善されています。
-
-仮に新しい通知タイプ（たとえば太字フォーマットの `BoldNotification`）を追加したい場合、`Notification` を継承した新クラスを作成し、`register()` で登録するだけです。`NotificationManager` は一切修正不要です。
+- 通知管理を担う `NotificationManager` クラスにより、通知タイプが増えても既存コードを変更することなく、実行クラスで `register` メソッドに登録するだけで良くなる
+    - 条件分岐がないので、コードの見通しが良い
+- 具体的な通知クラス（`CardNotification`、`BannerNotification`）をすべて把握する必要のあった呼び出し側のクラス（`NotificationSender`）が不要となり、責務の分離ができる
+    - CSS クラス名（`"coupon"`、`"campaign"` など）をハードコードしていた呼び出し側のクラス（`NotificationSender`）が不要となったため、修正箇所が実行クラスのみとなり、追加ミスや修正漏れが起きにくい
 
 <a id="コピーコンストラクタとの比較"></a>
 
 ### コピーコンストラクタとの比較
 
-オブジェクトの複製手段として、`clone()` の代わりに「コピーコンストラクタ」を使う方法があります。コピーコンストラクタとは、同じクラスのインスタンスを引数に受け取り、フィールドをコピーするコンストラクタのことです。
+#### `Cloneable` と `clone` に関して
 
-```Java:CardNotification.java（コピーコンストラクタを追加した場合）
+`Cloneable` はインターフェースで以下の定義になっています。
+
+```Java:Cloneable.java
+package java.lang;
+
+public interface Cloneable {
+}
+```
+
+> 引用元: OpenJDK [Cloneable.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/lang/Cloneable.java)
+
+上記を見ると、メソッドが 1 つも宣言されていないことがわかります。<br>
+これは、`Cloneable` を実装することで「このクラスは `clone` によるコピーを許可する」という印をつけるためのものだからです。<br>
+このような印をつけるインタフェースのことをマーカーインタフェース（marker interface）と呼びます。
+
+つまり、`clone` メソッドはインターフェース `Cloneable` の中で宣言されているわけではないということです。<br>
+では、どこで宣言されているかというと `java.lang.Object` クラスで宣言されています。
+
+```Java:Object.java
+package java.lang;
+
+public class Object {
+    @IntrinsicCandidate
+    protected native Object clone() throws CloneNotSupportedException;
+}
+```
+
+> 引用元: OpenJDK [Object.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/lang/Object.java)
+
+`Object` クラスは Java の全てのクラスが継承しているため、どのクラスでも使用できます。<br>
+一方で、`clone` メソッドの戻り値は `Object` 型なので、`Notification` クラスの `createCopy` メソッドにおいて、`Notification` 型でキャストしているわけです。
+
+`clone` メソッドは、自身の浅いコピー（フィールドの内容をそのままコピーするだけで、フィールドの先にあるインスタンスの中身までは考慮しない）を生成して返すメソッドです。<br>
+また、`Cloneable` を実装していないクラスで呼び出すと `CloneNotSupportedException` がスローされます。
+
+上記から、`clone` メソッドを使用することは次のような面倒さがあります。
+
+- アクセス修飾子が `protected` のため、継承関係を意識する必要がある
+- `throws CloneNotSupportedException` があるため、例外処理を行う必要がある
+    > もしインターフェース `Cloneable` の中で `clone` が宣言されていれば、例外処理のことを意識する必要はなかった
+- 浅いコピーしか行わないため、設計者が別途必要としている処理のコピーを行うにはオーバーライドする必要がある
+
+このような面倒さを解消した実装の 1 つが「コピーコンストラクタ」を使った実装になります。<br>
+ここで、コピーコンストラクタとは、同じクラスのインスタンスを引数に受け取り、インスタンス生成時にフィールドのコピーを行うコンストラクタのことです。
+
+#### コピーコンストラクタを使った実装
+
+では実際にコードを見ていきましょう。
+
+```Java:Notification.java
+public abstract class Notification { // ← ここを修正
+    public abstract String send(String message);
+
+    public abstract Notification createCopy(); // ← ここを修正
+}
+```
+
+```Java:CardNotification.java
 public class CardNotification extends Notification {
     private String cssClass;
 
@@ -332,64 +391,56 @@ public class CardNotification extends Notification {
         this.cssClass = cssClass;
     }
 
-    // コピーコンストラクタ
-    public CardNotification(CardNotification other) {
-        this.cssClass = other.cssClass;
+    /* コピーコンストラクタの実装（ここから） */
+    public CardNotification(CardNotification prototype) {
+        this.cssClass = prototype.cssClass;
+    }
+    /* コピーコンストラクタの実装（ここまで） */
+
+    @Override
+    public String send(String message) {
+        return "<div class=\"card " + cssClass + "\"><p>" + message + "</p></div>";
     }
 
-    // ... send() は省略
+    /* ここを追加（ここから） */
+    @Override
+    public Notification createCopy() {
+        return new CardNotification(this);
+    }
+    /* ここを追加（ここまで） */
 }
 ```
 
-しかし、コピーコンストラクタを使って `NotificationManager.create()` を実装しようとすると、具体的なクラス名を知る必要が生じます。
+BannerNotification.java は CardNotification.java と同様の実装のため、省略。
 
-```Java:NotificationManager.java（コピーコンストラクタを使おうとした場合）
-public Notification create(String name) {
-    Notification n = map.get(name);
+実行クラスの変更はなし。
 
-    if (n instanceof CardNotification) {
-        return new CardNotification((CardNotification) n); // 具体型を知っている
-    } else if (n instanceof BannerNotification) {
-        return new BannerNotification((BannerNotification) n); // 具体型を知っている
-    }
+**実行結果**
 
-    throw new IllegalArgumentException("Unknown type: " + name);
-}
+```
+<div class="card coupon"><p>クーポン: 10%OFF</p></div>
+<div class="banner campaign"><strong>夏のキャンペーン開始！</strong></div>
+<div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
 
-新しい通知タイプを追加するたびに `NotificationManager` の修正が再び必要になり、好ましくない実装と同じ問題が発生します。
+同様の結果を得ることができました。
 
-| 観点                                                            | `clone()` による実装 | コピーコンストラクタ |
-| --------------------------------------------------------------- | -------------------- | -------------------- |
-| `NotificationManager` が具体クラスを知る必要があるか            | なし                 | あり                 |
-| 新しい通知タイプを追加したときの `NotificationManager` への影響 | なし（修正不要）     | あり（修正が必要）   |
-| ポリモーフィズムの活用                                          | できる               | できない             |
-
-`clone()` を `Notification` 抽象クラスに定義することで、`NotificationManager` は具体的なクラスを一切知らなくてよくなります。これが、コピーコンストラクタではなく `clone()` を採用する最大の理由です。
+抽象クラス `Notification` の `createCopy` メソッドを抽象メソッドとし、コピーコンストラクタを実装した `CardNotification` クラスで `this` を引数に渡してインスタンスを生成することにより、コピーを行うことができていることがわかります。<br>
+これより、継承関係を意識せずにインスタンスのコピーが行なえ、例外処理の実装もなくなります。また、設計者が別途必要としている処理は抽象クラス `Notification` を継承したクラス内に記述するだけでよくなります。
 
 ## まとめ
 
-Prototype パターンをまとめると、以下のとおりです。
+正しい実装を見ると、通知の生成は `NotificationManager` が担っており、具体的なクラス名は一切登場しません。<br>
+そのため、新しい通知タイプを追加しても `NotificationManager` を修正する必要がなく、既存コードに影響を与えません。
 
-| 要素                                      | 役割                                                     |
-| ----------------------------------------- | -------------------------------------------------------- |
-| `Notification`（抽象クラス）              | 複製メソッド `createCopy()` を持つプロトタイプの基底     |
-| `CardNotification` / `BannerNotification` | 具体的なフォーマットを実装したプロトタイプ               |
-| `NotificationManager`                     | プロトタイプを名前付きで登録し、複製して返すマネージャー |
+Prototype パターンは、事前に登録したオブジェクト（プロトタイプ）を複製することで新しいインスタンスを生成する仕組みです。<br>
+これにより、呼び出し側は抽象クラスだけに依存した設計が可能になります。
 
-Prototype パターンを使うメリットは以下のとおりです。
+本記事の内容はここまでとなります。
 
-- **OCP に従った設計**: 新しい通知タイプを追加しても `NotificationManager` を変更する必要がない
-- **具体クラスへの依存をなくせる**: `NotificationManager` は抽象クラス `Notification` だけを知ればよい
-- **設定済みのオブジェクトを再利用できる**: 一度設定したプロトタイプを複製するので、フォーマット設定のばらつきを防げる
+以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
 
-好ましくない実装との比較：
-
-| 観点                     | 好ましくない実装                  | Prototype パターン |
-| ------------------------ | --------------------------------- | ------------------ |
-| 新しい通知タイプの追加   | `NotificationSender` の修正が必要 | 新クラスの追加のみ |
-| 通知管理クラスの依存関係 | 全具体クラスを知っている          | 抽象クラスのみ     |
-| OCP への適合             | ✗                                 | ✓                  |
+---
 
 <a id="深堀り1"></a>
 
@@ -397,7 +448,7 @@ Prototype パターンを使うメリットは以下のとおりです。
 
 `Object.clone()` を使いこなすには、まず `Cloneable` インターフェースを理解しておく必要があります。
 
-`Cloneable` はメソッドを 1 つも持たない「マーカーインターフェース」です。実装することで「このクラスは複製を許可する」という意思表示になります。
+`Cloneable` はメソッドを 1 つも持たない「マーカーインタフェース」です。実装することで「このクラスは複製を許可する」という意思表示になります。
 
 ```Java:Cloneable の実態（java.lang パッケージ）
 public interface Cloneable {
