@@ -15,11 +15,13 @@
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
     - [コピーコンストラクタとの比較](#コピーコンストラクタとの比較)
+        - [`Cloneable` と `clone` に関して](#cloneable-と-clone-に関して)
+        - [コピーコンストラクタを使った実装](#コピーコンストラクタを使った実装)
 - [まとめ](#まとめ)
-- [【深堀り①】`clone()` の仕組み](#深堀り1)
-- [【深堀り②】浅いコピーと深いコピー](#深堀り2)
-- [【深堀り③】`NotificationManager` がサブクラスを知らなくていい理由](#深堀り3)
-- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+- [【深堀り②】浅いコピー（シャローコピー）と深いコピー（ディープコピー）](#深堀り2)
+- [【深堀り③】OCP（オープン・クローズドの原則）](#深堀り3)
+- [【深堀り④】実行クラスでの型宣言 ― 抽象型 vs 具体型](#深堀り4)
+- [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
 
@@ -361,12 +363,14 @@ public class Object {
 `clone` メソッドは、自身の浅いコピー（フィールドの内容をそのままコピーするだけで、フィールドの先にあるインスタンスの中身までは考慮しない）を生成して返すメソッドです。<br>
 また、`Cloneable` を実装していないクラスで呼び出すと `CloneNotSupportedException` がスローされます。
 
+> ※ 親クラス `Notification` のサブクラス（`CardNotification`・`BannerNotification`）は、親クラスが `Cloneable` を実装しているため、サブクラスで実装をしなくても `clone` メソッドが正しく動きます。
+
 上記から、`clone` メソッドを使用することは次のような面倒さがあります。
 
 - アクセス修飾子が `protected` のため、継承関係を意識する必要がある
 - `throws CloneNotSupportedException` があるため、例外処理を行う必要がある
     > もしインターフェース `Cloneable` の中で `clone` が宣言されていれば、例外処理のことを意識する必要はなかった
-- 浅いコピーしか行わないため、設計者が別途必要としている処理のコピーを行うにはオーバーライドする必要がある
+- 浅いコピーしか行わないため、設計者が別途必要としている処理のコピーを行うにはオーバーライドする必要がある（→ [【深堀り②】浅いコピーと深いコピー](#深堀り2)）
 
 このような面倒さを解消した実装の 1 つが「コピーコンストラクタ」を使った実装になります。<br>
 ここで、コピーコンストラクタとは、同じクラスのインスタンスを引数に受け取り、インスタンス生成時にフィールドのコピーを行うコンストラクタのことです。
@@ -442,121 +446,163 @@ Prototype パターンは、事前に登録したオブジェクト（プロト�
 
 ---
 
-<a id="深堀り1"></a>
-
-## 【深堀り①】`clone()` の仕組み
-
-`Object.clone()` を使いこなすには、まず `Cloneable` インターフェースを理解しておく必要があります。
-
-`Cloneable` はメソッドを 1 つも持たない「マーカーインタフェース」です。実装することで「このクラスは複製を許可する」という意思表示になります。
-
-```Java:Cloneable の実態（java.lang パッケージ）
-public interface Cloneable {
-    // メソッドは何もない
-}
-```
-
-`Object.clone()` は `protected` アクセス修飾子を持ちます。`Cloneable` を実装していないクラスで `clone()` を呼ぶと `CloneNotSupportedException` がスローされます。
-
-`Notification.createCopy()` はこの例外を `try-catch` でラップし、呼び出し元に例外を伝播させない設計になっています。
-
-```Java:Notification.java
-public Notification createCopy() {
-    Notification n = null;
-
-    try {
-        n = (Notification) clone(); // Object.clone() を呼び出す
-    } catch (CloneNotSupportedException e) {
-        e.printStackTrace();
-    }
-
-    return n;
-}
-```
-
-`Notification` が `Cloneable` を実装しているため、そのサブクラス（`CardNotification`、`BannerNotification`）でも追加の実装なしに `clone()` が正しく動作します。
-
 <a id="深堀り2"></a>
 
-## 【深堀り②】浅いコピーと深いコピー
+## 【深堀り②】浅いコピー（シャローコピー）と深いコピー（ディープコピー）
 
-`Object.clone()` が行うのは「浅いコピー（シャローコピー）」です。
+本記事では、`clone` メソッドが「浅いコピー」しか行わないことに触れました。<br>
+ここでは、「浅いコピー」と「深いコピー」の違いと、深いコピーが必要な場合の対処法を学びます。
 
-| フィールドの型                       | コピーの挙動                     |
-| ------------------------------------ | -------------------------------- |
-| プリミティブ型（`char`、`int` など） | 値がそのままコピーされる         |
-| 参照型（配列、独自クラスなど）       | 参照先のアドレスのみコピーされる |
+では、フィールドの型に対する「浅いコピー」と「深いコピー」の違いを見ていきましょう。
 
-今回の `CardNotification` は `frameChar`（`char` 型）しか持たないため、浅いコピーで問題はありません。
+| フィールドの型                       | 浅いコピーの挙動                                                                       | 深いコピーの挙動                                                                       |
+| ------------------------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| プリミティブ型（`char`、`int` など） | 値がそのままコピーされる                                                               | 値がそのままコピーされる                                                               |
+| 参照型・不変（`String` など）        | 参照先のアドレスのみコピーされる（不変オブジェクトのため、コピー元と参照先を共有する） | 参照先のアドレスのみコピーされる（不変オブジェクトのため、コピー元と参照先を共有する） |
+| 参照型・可変（配列、独自クラスなど） | 参照先のアドレスのみコピーされる（可変オブジェクトのため、コピー元と参照先を共有する） | 参照先のインスタンスも含めて新しくコピーされる（コピー元と独立した参照先を持つ）       |
 
-しかし、フィールドに参照型が含まれる場合は注意が必要です。
+正しい実装の `CardNotification`・`BannerNotification` は `String` 型（参照型・不変）のフィールドしか持たないため、「浅いコピー」である `clone` メソッドを呼び出すだけで問題はありませんでした。
 
-```Java:ComplexNotification.java（参照型フィールドを持つ例）
-public class ComplexNotification extends Notification {
-    private String[] tags; // 参照型のフィールド
+しかし、フィールドに配列などの可変オブジェクト（参照型・可変）が含まれる場合は注意が必要になります。
 
-    public ComplexNotification(String[] tags) {
+例えば、通知に複数のタグ（カテゴリ名など）を付与できる `TaggedNotification` クラスを追加するケースを考えてみましょう。
+
+> ※下記で使用する `Notification` クラスはコピーコンストラクタを用いる前の抽象クラスです。
+
+```Java:TaggedNotification.java
+public class TaggedNotification extends Notification {
+    private String cssClass;
+    private String[] tags;
+
+    public TaggedNotification(String cssClass, String[] tags) {
+        this.cssClass = cssClass;
         this.tags = tags;
     }
 
     @Override
-    public ComplexNotification createCopy() {
-        ComplexNotification copy = (ComplexNotification) super.createCopy();
-        copy.tags = tags.clone(); // 配列も別途コピーして深いコピーにする
-        return copy;
+    public Notification createCopy() {
+        TaggedNotification taggedNotification = (TaggedNotification) super.createCopy();
+        taggedNotification.tags = tags.clone();
+        return taggedNotification;
     }
 
     @Override
     public String send(String message) {
-        // ... 省略
-        return "";
+        String tagStr = String.join(", ", tags);
+        return "<div class=\"tagged " + cssClass + "\"><p>[タグ: " + tagStr + "] " + message + "</p></div>";
     }
 }
 ```
 
-デフォルトの `clone()` では `tags` が元のオブジェクトと共有されます（同じ配列を参照する）。`createCopy()` をオーバーライドし、参照型フィールドを個別にコピーすることで「深いコピー（ディープコピー）」になります。参照型フィールドを持つクラスで Prototype パターンを使う際は、浅いコピー・深いコピーの違いを意識しておきましょう。
+上記を見ると次のことがわかります。
+
+- 親クラスの `createCopy` メソッドをオーバーライドしている
+- 親クラスの `createCopy` メソッドを呼び出した値を `TaggedNotification` にダウンキャストしている
+    - 親クラスの `createCopy` メソッドの戻り値の型は `Notification` のため、このままだと `tags` フィールドにアクセスできないため
+- コピーしたインスタンスの `tags` に対して、配列の `clone` メソッドを呼び出して個別にコピーしている
+
+`String` 型のフィールドである `cssClass` は不変（immutable）オブジェクトのため、「浅いコピー」で問題ありません。<br>
+しかし、`String[]` 型のフィールドである `tags` は可変オブジェクトのため、デフォルトの `clone` メソッドではコンストラクタ `TaggedNotification` を呼び出した際に設定した `tags` と同じ参照先になってしまいます。<br>
+そこで、親クラスの `createCopy` メソッドをオーバーライドし、`tags` を別途 `clone` することで、コピー後のインスタンスが独立した配列を持てるようになります。
+
+```Java:Main.java
+public class Main {
+    public static void main(String[] args) {
+        NotificationManager manager = new NotificationManager();
+
+        TaggedNotification tagged = new TaggedNotification("sale", new String[]{"セール", "夏"});
+        manager.register("tagged", tagged);
+
+        Notification taggedNotification = manager.create("tagged");
+        System.out.println(taggedNotification.send("夏のセール開始！"));
+    }
+}
+```
+
+**実行結果**
+
+```
+<div class="tagged sale"><p>[タグ: セール, 夏] 夏のセール開始！</p></div>
+```
+
+上記を見ると実行クラスの処理の流れに変更はなく、コンパイルエラーがなく結果が出力されていることがわかります。
+
+このように、参照型・可変のフィールドを持つクラスで Prototype パターンを使う場合は、別途コピーを行い、「深いコピー」にする必要があります。<br>
+実装の際は、「浅いコピーで十分か」を意識することが、Prototype パターンを安全に使う上での重要なポイントになります。
+
+> ちなみに、`TaggedNotification` を追加した際に `NotificationManager` の変更をしていないことに気がついたでしょうか？
+>
+> 変更する必要がなかった理由は、深堀り③で扱います（→ [【深堀り③】OCP（オープン・クローズドの原則）](#深堀り3)）。
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】`NotificationManager` がサブクラスを知らなくていい理由
+## 【深堀り③】OCP（オープン・クローズドの原則）
 
-`NotificationManager` のコードを改めて確認してみましょう。
+本記事のパターンを使った実装では、深堀り②で登場した `TaggedNotification` を追加した際も、`NotificationManager` には一切手を加えていません。<br>
+`NotificationManager` が依存しているのは抽象クラス `Notification` だけであるため、具体的なサブクラスが何であっても、登録・複製ともに対応できます。<br>
+そのため、通知パターンを追加する際は、実行クラスでサブクラスのインスタンスを生成し、`NotificationManager` の `register` メソッドを呼び出すだけで済むのです。
 
-```Java:NotificationManager.java
-import java.util.HashMap;
-import java.util.Map;
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Prototype パターンは OCP を実現するための設計手段の一つと言えます。
 
-public class NotificationManager {
-    private Map<String, Notification> map = new HashMap<>();
-
-    public void register(String name, Notification prototype) {
-        map.put(name, prototype);
-    }
-
-    public Notification create(String name) {
-        Notification n = map.get(name);
-        return n.createCopy();
-    }
-}
-```
-
-このクラスが参照しているのは `Notification`（抽象クラス）だけです。`CardNotification` も `BannerNotification` も import されていません。
-
-これが可能な理由は、`createCopy()` が `Notification` 抽象クラスに定義されており、どのサブクラスに対しても同じ呼び出し方で複製できるからです。`NotificationManager` は複製の方法を知らなくてよく、「複製してください」と依頼するだけです。
-
-新しい通知タイプ（例: `BoldNotification`）を追加したい場合の作業を比較すると、違いが明確です。
-
-| 作業                               | 好ましくない実装 | Prototype パターン |
-| ---------------------------------- | ---------------- | ------------------ |
-| `BoldNotification` クラスの作成    | 必要             | 必要               |
-| `NotificationSender` の修正        | 必要             | **不要**           |
-| `register()` の呼び出し（Main 側） | 不要             | 必要               |
-
-これは「開放/閉鎖原則（OCP: Open-Closed Principle）」の実践例です。`NotificationManager` は機能拡張（新しい通知タイプの追加）に対して開かれており、既存コードの変更に対しては閉じています。
+詳しくは「OCP」や「オープン・クローズドの原則」で検索してみてください。
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】GoF デザインパターンとの位置づけ
+## 【深堀り④】実行クラスでの型宣言 ― 抽象型 vs 具体型
+
+本記事の実行クラスのコードで、以下のような疑問を持った方もいるのではないでしょうか？
+
+> `register` メソッドは `Notification` 型を受け取るので、
+>
+> ```Java:Main.java
+> public class Main {
+>     public static void main(String[] args) {
+>         NotificationManager manager = new NotificationManager();
+>
+>         CardNotification coupon = new CardNotification("coupon");
+>
+>         manager.register("coupon", coupon);
+>
+>         〜省略〜
+>     }
+> }
+> ```
+>
+> 上記のように変数 `coupon` の型を具体クラス `CardNotification` で宣言するのではなく、
+>
+> ```Java:Main.java
+> public class Main {
+>     public static void main(String[] args) {
+>         NotificationManager manager = new NotificationManager();
+>
+>         Notification coupon = new CardNotification("coupon");
+>
+>         manager.register("coupon", coupon);
+>
+>         〜省略〜
+>     }
+> }
+> ```
+>
+> 上記のように抽象クラス `Notification` で宣言してもよいのではないか？
+>
+> ※ `BannerNotification` の登録処理は記載内容が変わらないため省略しています。
+
+上記のコードは、どちらでもコンパイルエラーがなく動作します。<br>
+ここでは、「具体クラス」と「抽象クラス」における宣言の使い分けに関して学びます。
+
+結論から言うと、**その後の使い道**で使い分けます。
+
+もし宣言した変数で、具体クラスの固有のメソッドを呼び出す必要がある場合は、「具体クラス」で宣言する必要があります。<br>
+一方で、`register` に渡すだけなら、「この変数は `Notification` として扱う」という設計の意図が伝わるため、「抽象クラス」で宣言するほうが良いです。
+
+実行クラスは、どのオブジェクトを組み合わせるかを決める唯一の場所（Composition Root）です。<br>
+つまり、ここは具体型を知っていてよい場所であり、設計上「`NotificationManager` が具体型を知らない」ことのほうが重要です。<br>
+変数の型宣言は、後続コードで何が必要かを考えて選ぶ習慣をつけると、コードの意図が読み手に伝わりやすくなります。
+
+<a id="深堀り5"></a>
+
+## 【深堀り⑤】GoF デザインパターンとの位置づけ
 
 今回使った Prototype パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「生成パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
