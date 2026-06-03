@@ -11,7 +11,7 @@
 - [【具体例】](#具体例)
     - [シナリオ](#シナリオ)
     - [既存コードの仕様](#既存コードの仕様)
-    - [`CardNotification` クラスと `BannerNotification` クラスの仕様](#通知フォーマットクラスの仕様)
+    - [通知フォーマットクラスの仕様](#通知フォーマットクラスの仕様)
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
     - [コピーコンストラクタとの比較](#コピーコンストラクタとの比較)
@@ -54,7 +54,7 @@ public class NotificationSender {
 
 <br>
 
-- `Main`（実行クラス）
+- 実行クラス
 
 ```Java:Main.java
 public class Main {
@@ -71,13 +71,13 @@ public class Main {
 [通知] お知らせがあります。
 ```
 
+<br>
+
 <a id="通知フォーマットクラスの仕様"></a>
 
 ### 通知フォーマットクラスの仕様
 
 本記事の主題に集中できるよう、通知フォーマットを担う 2 つのクラス（`CardNotification`・`BannerNotification`）の仕様を先に示します。
-
-<br>
 
 - `CardNotification`
 
@@ -139,7 +139,7 @@ public class BannerNotification {
 
 では、シナリオに従って複数種類の通知を送れるように実装をしていきましょう。
 
-ぱっと思いつくのは、既存の `NotificationSender` に型ごとの分岐を追加する方法ではないでしょうか？
+真っ先に思いつくのは、既存の `NotificationSender` に型ごとの分岐を追加する方法ではないでしょうか？
 
 ```Java:NotificationSender.java
 public class NotificationSender {
@@ -182,10 +182,10 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- 通知タイプを追加するたびに既存コードの修正が必要になる
-    - 特に、条件分岐が長くなり、コードの見通しが悪くなる
-- 呼び出し側のクラス（`NotificationSender`）が具体的な通知クラス（`CardNotification`、`BannerNotification`）をすべて把握しておく必要がある
-- CSS クラス名（`"coupon"`、`"campaign"` など）が、呼び出し側のクラス（`NotificationSender`）にハードコードされているため、通知タイプを追加するたびに条件分岐と CSS クラス名の両方を修正する必要がある
+- 通知タイプを追加するたびに既存コード（`NotificationSender`）の修正が必要になる
+    - 条件分岐が長くなり、コードの見通しが悪くなる
+- 呼び出し側のクラス（`NotificationSender`）が具体的な通知クラス（`CardNotification`・`BannerNotification`）をすべて把握しておく必要がある
+- CSS クラス名（`"coupon"`、`"campaign"` など）が、呼び出し側のクラス（`NotificationSender`）にハードコードされているため、仕様変更や通知タイプを追加するたびに条件分岐と CSS クラス名の両方を修正・追加する必要がある
     - 修正箇所が複数に分散するため、追加ミスや修正漏れが起きやすい
 
 ## 正しい実装
@@ -216,11 +216,13 @@ public abstract class Notification implements Cloneable {
 
 上記から次のことがわかります。
 
-- 抽象クラス `Notification` は[マーカーインタフェース](#cloneable-と-clone-に関して) `Cloneable` を実装している
-- `Notification` を継承するクラスは、`send` メソッドをオーバーライドしないといけない
+- 抽象クラス `Notification` は、[マーカーインタフェース](#cloneable-と-clone-に関して) `Cloneable` を実装している
+- `Notification` を継承するクラスは、`send` メソッドをオーバーライドすることを強制される
 - `createCopy` メソッドが呼ばれると、[`clone` メソッド](#cloneable-と-clone-に関して)が呼び出されて、`Notification` 型でキャストした値が返る
 
-次に、抽象クラス `Notification` を継承したクラスを見てください。
+<br>
+
+次に、抽象クラス `Notification` を継承したクラス（`CardNotification`・`BannerNotification`）を見てください。
 
 ```Java:CardNotification.java
 public class CardNotification extends Notification {
@@ -252,12 +254,12 @@ public class BannerNotification extends Notification {
 }
 ```
 
-上記を見ると、処理の実装は変わらず、変更したのは次の点だけであることがわかります。
+上記を見ると、処理の実装は変わらず、次の点だけ変更したことがわかります。
 
 - `Notification` を継承している
-- `send` メソッドがオーバーライドされている
+- `send` メソッドをオーバーライドしている
 
-最後に、通知管理を担う `NotificationManager` クラスを見てください。
+最後に、新たに追加実装する、通知管理を担う `NotificationManager` クラスを見てください。
 
 ```Java:NotificationManager.java
 public class NotificationManager {
@@ -276,9 +278,9 @@ public class NotificationManager {
 
 上記から次のことがわかります。
 
-- `register` メソッドにより、任意の名前で `Notification` クラスのインスタンスを管理できる
-    - `CardNotification` や `BannerNotification` が登場していないため、`NotificationManager` は抽象クラス `Notification` だけを知っていれば動作する
-- `create` メソッドにより、`register` メソッドで登録した名前の `Notification` クラスのインスタンスのコピーを取得できる
+- `register` メソッドにより、任意の名前で `Notification` のサブクラスのインスタンスを管理できる
+    - サブクラス（`CardNotification`・`BannerNotification`）が登場していないため、`NotificationManager` は抽象クラス `Notification` だけを知っていれば動作する
+- `create` メソッドの引数に、`register` メソッドで登録した名前を渡すことで、`Notification` のサブクラスのインスタンスのコピーを取得できる
 
 実行クラスと実行結果は次のようになります。
 
@@ -287,21 +289,21 @@ public class Main {
     public static void main(String[] args) {
         NotificationManager manager = new NotificationManager();
 
-        CardNotification coupon = new CardNotification("coupon");
-        BannerNotification campaign = new BannerNotification("campaign");
-        CardNotification newsletter = new CardNotification("newsletter");
+        CardNotification couponCard = new CardNotification("coupon");
+        BannerNotification campaignBanner = new BannerNotification("campaign");
+        CardNotification newsletterCard = new CardNotification("newsletter");
 
-        manager.register("coupon", coupon);
-        manager.register("campaign", campaign);
-        manager.register("newsletter", newsletter);
+        manager.register("クーポン", couponCard);
+        manager.register("キャンペーン", campaignBanner);
+        manager.register("メルマガ", newsletterCard);
 
-        Notification notificationCoupon = manager.create("coupon");
+        Notification notificationCoupon = manager.create("クーポン");
         System.out.println(notificationCoupon.send("クーポン: 10%OFF"));
 
-        Notification notificationCampaign = manager.create("campaign");
+        Notification notificationCampaign = manager.create("キャンペーン");
         System.out.println(notificationCampaign.send("夏のキャンペーン開始！"));
 
-        Notification notificationNewsletter = manager.create("newsletter");
+        Notification notificationNewsletter = manager.create("メルマガ");
         System.out.println(notificationNewsletter.send("7月のメルマガ"));
     }
 }
@@ -318,17 +320,25 @@ public class Main {
 以上のような実装を行うことで、次のメリットが得られます。
 
 - 通知管理を担う `NotificationManager` クラスにより、通知タイプが増えても既存コードを変更することなく、実行クラスで `register` メソッドに登録するだけで良くなる
-    - 条件分岐がないので、コードの見通しが良い
-- 具体的な通知クラス（`CardNotification`、`BannerNotification`）をすべて把握する必要のあった呼び出し側のクラス（`NotificationSender`）が不要となり、責務の分離ができる
-    - CSS クラス名（`"coupon"`、`"campaign"` など）をハードコードしていた呼び出し側のクラス（`NotificationSender`）が不要となったため、修正箇所が実行クラスのみとなり、追加ミスや修正漏れが起きにくい
+    - `NotificationSender` クラスに追加したときのような条件分岐がないので、コードの見通しが良い
+- 具体的な通知クラス（`CardNotification`・`BannerNotification`）をすべて把握する必要のあった呼び出し側のクラス（`NotificationSender`）が不要となり、責務の分離ができる
+    - `NotificationManager` がインスタンス管理と複製を担う
+    - 実行クラスは登録と呼び出しだけに専念できる
+- CSS クラス名（`"coupon"`、`"campaign"` など）をハードコードしていた呼び出し側のクラス（`NotificationSender`）が不要となったため、修正箇所が実行クラスのみとなり、追加ミスや修正漏れが起きにくい
+
+今回の実装では `clone` メソッドを使ってインスタンスのコピーを行いました。<br>
+インスタンスのコピーをする方法は他にもあります。<br>
+以降では、`clone` メソッドを使う方法と、コピーコンストラクタを使う方法を比較してみます。
 
 <a id="コピーコンストラクタとの比較"></a>
 
 ### コピーコンストラクタとの比較
 
+コピーコンストラクタを使った実装を見る前に、`Cloneable` と `clone` に関して理解を深めていきましょう。
+
 #### `Cloneable` と `clone` に関して
 
-`Cloneable` はインターフェースで以下の定義になっています。
+`Cloneable` はインターフェースで、以下の定義になっています。
 
 ```Java:Cloneable.java
 package java.lang;
@@ -341,10 +351,10 @@ public interface Cloneable {
 
 上記を見ると、メソッドが 1 つも宣言されていないことがわかります。<br>
 これは、`Cloneable` を実装することで「このクラスは `clone` によるコピーを許可する」という印をつけるためのものだからです。<br>
-このような印をつけるインタフェースのことをマーカーインタフェース（marker interface）と呼びます。
+このような印をつけるためのインタフェースを「**マーカーインタフェース（marker interface）**」と呼びます。<br>
+つまり、`clone` メソッドはインターフェース `Cloneable` の中で宣言されているわけではないということです。
 
-つまり、`clone` メソッドはインターフェース `Cloneable` の中で宣言されているわけではないということです。<br>
-では、どこで宣言されているかというと `java.lang.Object` クラスで宣言されています。
+では、どこで宣言されているかというと `java.lang.Object` クラスの中で宣言されています。
 
 ```Java:Object.java
 package java.lang;
@@ -358,26 +368,34 @@ public class Object {
 > 引用元: OpenJDK [Object.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/lang/Object.java)
 
 `Object` クラスは Java のすべてのクラスが継承しているため、どのクラスでも使用できます。<br>
-一方で、`clone` メソッドの戻り値は `Object` 型なので、`Notification` クラスの `createCopy` メソッドにおいて、`Notification` 型でキャストしているわけです。
+`clone` メソッドを見ると次のことがわかります。
 
-`clone` メソッドは、自身の浅いコピー（フィールドの内容をそのままコピーするだけで、フィールドの先にあるインスタンスの中身までは考慮しない）を生成して返すメソッドです。<br>
-また、`Cloneable` を実装していないクラスで呼び出すと `CloneNotSupportedException` がスローされます。
+1. 戻り値の型が `Object` 型である
+2. `throws` 句で `CloneNotSupportedException` が指定されている
+
+1 つ目より、`Notification` クラスの `createCopy` メソッドの処理において、`clone` メソッドを `Notification` 型でキャストしているわけです。
+また、2 つ目より、`Cloneable` を実装していないクラスで `clone` メソッドを呼び出すと `CloneNotSupportedException` がスローされるため、例外処理を行っているわけです。
 
 > ※ 親クラス `Notification` のサブクラス（`CardNotification`・`BannerNotification`）は、親クラスが `Cloneable` を実装しているため、サブクラスで実装をしなくても `clone` メソッドが正しく動きます。
 
-上記から、`clone` メソッドを使用することは次のような面倒さがあります。
+ちなみに、`clone` メソッドは自身の浅いコピーを生成して返すメソッドです。
+
+> ※ フィールドの内容をそのままコピーするだけで、フィールドの先にあるインスタンスの中身までは考慮しないということ。
+
+以上から、`clone` メソッドを使った実装をする際には、次のようなことを意識しないといけない面倒さがあります。
 
 - アクセス修飾子が `protected` のため、継承関係を意識する必要がある
-- `throws CloneNotSupportedException` があるため、例外処理を行う必要がある
+- `throws` 句があるため、例外処理を行う必要がある
     > もしインターフェース `Cloneable` の中で `clone` が宣言されていれば、例外処理のことを意識する必要はなかった
-- 浅いコピーしか行わないため、設計者が別途必要としている処理のコピーを行うにはオーバーライドする必要がある（→ [【深堀り①】浅いコピーと深いコピー](#深堀り1)）
+- 浅いコピーしか行わないため、設計者が別途必要としている処理のコピーを行うには、`clone` メソッドをオーバーライドしたり、今回の実装では `createCopy` メソッドをオーバーライドして個別にコピーしたり、といった対応を取る必要がある（→ [【深堀り①】浅いコピーと深いコピー](#深堀り1)）
 
 このような面倒さを解消した実装の 1 つが「コピーコンストラクタ」を使った実装になります。<br>
-ここで、コピーコンストラクタとは、同じクラスのインスタンスを引数に受け取り、インスタンス生成時にフィールドのコピーを行うコンストラクタのことです。
+
+> ※ コピーコンストラクタ：同じクラスのインスタンスを引数に受け取り、インスタンス生成時にフィールドのコピーを行うコンストラクタのこと。
 
 #### コピーコンストラクタを使った実装
 
-では実際にコードを見ていきましょう。
+では、実際にコードを見ていきましょう。
 
 ```Java:Notification.java
 public abstract class Notification { // ← ここを修正
@@ -415,7 +433,7 @@ public class CardNotification extends Notification {
 }
 ```
 
-BannerNotification.java は CardNotification.java と同様の実装のため、省略。
+`BannerNotification` クラスは `CardNotification` クラスと同様の処理の流れとなるため、省略。
 
 実行クラスの変更はなし。
 
@@ -427,10 +445,13 @@ BannerNotification.java は CardNotification.java と同様の実装のため、
 <div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
 
-同様の結果を得ることができました。
+実行結果を見てわかるように、同様の結果を得ることができました。
 
-抽象クラス `Notification` の `createCopy` メソッドを抽象メソッドとし、コピーコンストラクタを実装した `CardNotification` クラスで `this` を引数に渡してインスタンスを生成することにより、コピーを行うことができていることがわかります。<br>
-これより、継承関係を意識せずにインスタンスのコピーが行え、例外処理の実装もなくなります。また、設計者が別途必要としている処理は抽象クラス `Notification` を継承したクラス内に記述するだけでよくなります。
+抽象クラス `Notification` では、`createCopy` メソッドを抽象メソッドとします。<br>
+`CardNotification` クラスでは、コピーコンストラクタを実装し、`createCopy` メソッドの具体的な処理として、`this` を引数に渡して `CardNotification` クラスのインスタンスを生成します。<br>
+この一連の処理により、インスタンスのコピーを行うことができます。
+
+このように、継承関係を意識せずにインスタンスのコピーが行え、例外処理の実装もなくなります。また、設計者が別途必要としている処理は、コピーコンストラクタ内に記述するだけで済みます。そのため、実務ではこちらの実装を行うことが多いです。
 
 ## まとめ
 
@@ -451,9 +472,9 @@ Prototype パターンは、事前に登録したオブジェクト（プロト�
 ## 【深堀り①】浅いコピー（シャローコピー）と深いコピー（ディープコピー）
 
 本記事では、`clone` メソッドが「浅いコピー」しか行わないことに触れました。<br>
-ここでは、「浅いコピー」と「深いコピー」の違いと、深いコピーが必要な場合の対処法を学びます。
+ここでは、「浅いコピー」と「深いコピー」の違いと、深いコピーが必要な場合の対応方法を学びます。
 
-では、フィールドの型に対する「浅いコピー」と「深いコピー」の違いを見ていきましょう。
+まずは、フィールドの型に対する「浅いコピー」と「深いコピー」の違いを見ていきましょう。
 
 | フィールドの型                       | 浅いコピーの挙動                                                                       | 深いコピーの挙動                                                                       |
 | ------------------------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -463,9 +484,9 @@ Prototype パターンは、事前に登録したオブジェクト（プロト�
 
 正しい実装の `CardNotification`・`BannerNotification` は `String` 型（参照型・不変）のフィールドしか持たないため、「浅いコピー」である `clone` メソッドを呼び出すだけで問題はありませんでした。
 
-しかし、フィールドに配列などの可変オブジェクト（参照型・可変）が含まれる場合は注意が必要になります。
+しかし、フィールドに配列などの可変オブジェクト（参照型・可変）が含まれる場合は、「浅いコピー」だと参照先が同じになってしまうため、「深いコピー」の対応をする必要があります。
 
-例えば、通知に複数のタグ（カテゴリ名など）を付与できる `TaggedNotification` クラスを追加するケースを考えてみましょう。
+ここから、通知に複数のタグ（カテゴリ名など）を付与できる `TaggedNotification` クラスを追加する場合の実装を見ながら対応方法を見ていきましょう。
 
 > ※下記で使用する `Notification` クラスはコピーコンストラクタを用いる前の抽象クラスです。
 
@@ -497,12 +518,12 @@ public class TaggedNotification extends Notification {
 上記を見ると次のことがわかります。
 
 - 親クラスの `createCopy` メソッドをオーバーライドしている
-- 親クラスの `createCopy` メソッドを呼び出した値を `TaggedNotification` にダウンキャストしている
-    - 親クラスの `createCopy` メソッドの戻り値の型は `Notification` のため、このままだと `tags` フィールドにアクセスできないため
+- 親クラスの `createCopy` メソッドを呼び出した値を `TaggedNotification` にキャストしている<br>
+  → 親クラスの `createCopy` メソッドの戻り値の型は `Notification` のため、キャストしないと `tags` フィールドにアクセスできない
 - コピーしたインスタンスの `tags` に対して、配列の `clone` メソッドを呼び出して個別にコピーしている
 
 `String` 型のフィールドである `cssClass` は不変（immutable）オブジェクトのため、「浅いコピー」で問題ありません。<br>
-しかし、`String[]` 型のフィールドである `tags` は可変オブジェクトのため、デフォルトの `clone` メソッドではコンストラクタ `TaggedNotification` を呼び出した際に設定した `tags` と同じ参照先になってしまいます。<br>
+しかし、`String[]` 型のフィールドである `tags` は可変（mutable）オブジェクトです。そのため、デフォルトの `clone` メソッドでは、コンストラクタ `TaggedNotification` を呼び出した際に設定した `tags` と同じ参照先になってしまいます。<br>
 そこで、親クラスの `createCopy` メソッドをオーバーライドし、`tags` を別途 `clone` することで、コピー後のインスタンスが独立した配列を持てるようになります。
 
 ```Java:Main.java
@@ -530,9 +551,44 @@ public class Main {
 このように、参照型・可変のフィールドを持つクラスで Prototype パターンを使う場合は、別途コピーを行い、「深いコピー」にする必要があります。<br>
 実装の際は、「浅いコピーで十分か」を意識することが、Prototype パターンを安全に使う上での重要なポイントになります。
 
-> ちなみに、`TaggedNotification` を追加した際に `NotificationManager` の変更をしていないことに気がついたでしょうか？
+> ちなみに、`TaggedNotification` を追加した際に `NotificationManager` の変更をしていなかったことに気がついたでしょうか？
 >
 > 変更する必要がなかった理由は、深堀り②で扱います（→ [【深堀り②】OCP（オープン・クローズドの原則）](#深堀り2)）。
+
+### 補足（コピーコンストラクタを使った実装）
+
+`TaggedNotification` クラスにて、コピーコンストラクタを用いた実装は以下のとおりです。<br>
+しかし、次のように `tags` のような可変フィールドを持つ場合は、`tags.clone()` の記述があることからもわかるように別途対応が必要になるため、コピーコンストラクタによるメリットは薄いです。
+
+> とはいえ、`TaggedNotification` クラス内にキャストの処理が無くなるメリットはそれなりに大きいと思います。
+
+```Java:TaggedNotification.java
+public class TaggedNotification extends Notification {
+    private String cssClass;
+    private String[] tags;
+
+    public TaggedNotification(String cssClass, String[] tags) {
+        this.cssClass = cssClass;
+        this.tags = tags;
+    }
+
+    public TaggedNotification(TaggedNotification prototype) {
+        this.cssClass = prototype.cssClass;
+        this.tags = prototype.tags.clone();
+    }
+
+    @Override
+    public Notification createCopy() {
+        return new TaggedNotification(this);
+    }
+
+    @Override
+    public String send(String message) {
+        String tagStr = String.join(", ", tags);
+        return "<div class=\"tagged " + cssClass + "\"><p>[タグ: " + tagStr + "] " + message + "</p></div>";
+    }
+}
+```
 
 <a id="深堀り2"></a>
 
@@ -540,7 +596,7 @@ public class Main {
 
 本記事のパターンを使った実装では、深堀り①で登場した `TaggedNotification` を追加した際も、`NotificationManager` には一切手を加えていません。<br>
 `NotificationManager` が依存しているのは抽象クラス `Notification` だけであるため、具体的なサブクラスが何であっても、登録・複製ともに対応できます。<br>
-そのため、通知パターンを追加する際は、実行クラスでサブクラスのインスタンスを生成し、`NotificationManager` の `register` メソッドを呼び出すだけで済むのです。
+そのため、通知パターンを追加する際は、実行クラスでサブクラスのインスタンスを生成し、`NotificationManager` の `register` メソッドを呼び出すだけで済みます。
 
 この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Prototype パターンは OCP を実現するための設計手段の一つと言えます。
 
@@ -552,7 +608,8 @@ public class Main {
 
 本記事の実行クラスのコードで、以下のような疑問を持った方もいるのではないでしょうか？
 
-> `register` メソッドは `Notification` 型を受け取るので、
+> `register` メソッドは `Notification` 型を受け取るので、<br>
+> 下記のように変数 `coupon` の型を具体クラス `CardNotification` で宣言するのではなく、
 >
 > ```Java:Main.java
 > public class Main {
@@ -568,7 +625,7 @@ public class Main {
 > }
 > ```
 >
-> 上記のように変数 `coupon` の型を具体クラス `CardNotification` で宣言するのではなく、
+> 下記のように抽象クラス `Notification` で宣言してもよいのではないか？
 >
 > ```Java:Main.java
 > public class Main {
@@ -584,11 +641,10 @@ public class Main {
 > }
 > ```
 >
-> 上記のように抽象クラス `Notification` で宣言してもよいのではないか？
->
 > ※ `BannerNotification` の登録処理は記載内容が変わらないため省略しています。
 
-上記のコードは、どちらでもコンパイルエラーがなく動作します。<br>
+上記のコードは、どちらもコンパイルエラーがなく動作します。
+
 ここでは、「具体クラス」と「抽象クラス」における宣言の使い分けに関して学びます。
 
 結論から言うと、**その後の使い道**で使い分けます。
