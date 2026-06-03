@@ -126,9 +126,9 @@ public class Main {
 fruitBasket.add(new Fruit("キウイ", 130));
 ```
 
-の部分で `UnsupportedOperationException` が発生します。[^1]
+の部分で `UnsupportedOperationException` が発生します（→ [【深堀り①】配列・`List` インタフェース・`ArrayList` の違い](#深堀り1)）。
 
-そこで**可変長**の `ArrayList` [^2]を使うことで要素の追加ができるようになります。このことは、下記の実装から分かります。
+そこで**可変長**の `ArrayList`（→ [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)）を使うことで要素の追加ができるようになります。このことは、下記の実装から分かります。
 
 ```Java:Main.java
 public class Main {
@@ -322,7 +322,7 @@ public class Main {
 
 しかし、実装を見て分かるように `ArrayIndexOutOfBoundsException` が発生します。
 
-そこで、`FruitBasket` の内部実装を配列から `ArrayList` [^2]に変えてみましょう。
+そこで、`FruitBasket` の内部実装を配列から `ArrayList`（→ [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)）に変えてみましょう。
 
 ```Java:FruitBasket.java
 public class FruitBasket implements Iterable<Fruit> {
@@ -436,9 +436,6 @@ for (int i = 0; i < fruitBasket.length; i++) {
 
 ---
 
-[^1]: なぜ `List` でも固定長になってしまうのか → 【深堀り①】配列・`List` インタフェース・`ArrayList` の違い
-
-[^2]: `ArrayList<>` ではなく `List<>` での宣言を推奨しています → 【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）
 
 <a id="深堀り1"></a>
 

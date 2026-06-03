@@ -339,7 +339,7 @@ public class Main {
 - 将来 `SamplePayAdapter` クラスの内部実装が変わっても、`Main` クラスの修正は不要
 - 既存コードはすでにテスト済みのため、再テストは不要
 
-このようにメソッドの処理を他のインスタンスに委ねる実装を「委譲を使った Adapter パターン」といいます。[^1]
+このようにメソッドの処理を他のインスタンスに委ねる実装を「委譲を使った Adapter パターン」といいます（→ [【深堀り①】委譲（Delegation）とは](#深堀り1)）。
 
 ## 正しい実装②（継承を使った Adapter パターン）
 
@@ -382,7 +382,7 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 しかし実務では、現時点で動くかどうかだけでなく、将来の変更を見越した選択が重要となります。
 
 例えば「全決済クラスに共通のログ処理（`AppLogger` クラス）を追加したい」という要件がきたとしましょう。<br>
-継承を使ったパターンでは、`SamplePayAdapter` がすでに `SamplePayClient` を `extends` しているため、Java の単一継承の制約から `AppLogger` クラスをさらに `extends` できません。[^2]<br>
+継承を使ったパターンでは、`SamplePayAdapter` がすでに `SamplePayClient` を `extends` しているため、Java の単一継承の制約から `AppLogger` クラスをさらに `extends` できません（→ [【深堀り③】Java の単一継承の制約](#深堀り3)）。<br>
 そのため、次のように `new` でインスタンス化することになります。
 
 ```Java:SamplePayAdapter.java
@@ -453,9 +453,6 @@ Adapter パターンはその感覚を設計として実現する手段の一つ
 
 ---
 
-[^1]: 「委譲」の概念について → 【深堀り①】委譲（Delegation）とは
-
-[^2]: 「単一継承の制約」について → 【深堀り③】Java の単一継承の制約
 
 <a id="深堀り1"></a>
 
