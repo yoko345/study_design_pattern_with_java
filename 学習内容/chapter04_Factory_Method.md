@@ -59,7 +59,8 @@
 | -------- | ---------- | -------------------------------- |
 | `pass`   | `void`     | 社員証でゲートを通過した際の処理 |
 
-```Java:EmployeeCard.java
+**`EmployeeCard.java`**
+```java
 public class EmployeeCard {
     private String employeeName;
     private int employeeCardNumber;
@@ -87,7 +88,8 @@ public class EmployeeCard {
 
 - `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
@@ -119,7 +121,8 @@ public class Main {
 
 既存のコードがあるので、`EmployeeCard` を参考に、以下のような実装をするのではないでしょうか？
 
-```Java:VisitorCard.java
+**`VisitorCard.java`**
+```java
 public class VisitorCard {
     private String visitorName;
     private int visitorCardNumber;
@@ -141,7 +144,8 @@ public class VisitorCard {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
 
     public static void main(String[] args) {
@@ -237,7 +241,8 @@ public class Main {
 
 **framework パッケージ**
 
-```Java:Management.java
+**`Management.java`**
+```java
 package framework;
 
 public abstract class Management {
@@ -245,7 +250,8 @@ public abstract class Management {
 }
 ```
 
-```Java:Factory.java
+**`Factory.java`**
+```java
 package framework;
 
 public abstract class Factory {
@@ -275,7 +281,8 @@ public abstract class Factory {
 
 **visitorcard パッケージ**
 
-```Java:VisitorCard.java
+**`VisitorCard.java`**
+```java
 package visitorcard;
 
 import framework.Management;
@@ -302,7 +309,8 @@ public class VisitorCard extends Management {
 }
 ```
 
-```Java:VisitorCardFactory.java
+**`VisitorCardFactory.java`**
+```java
 package visitorcard;
 
 import framework.Factory;
@@ -327,7 +335,8 @@ public class VisitorCardFactory extends Factory {
 
 実行クラスは次のコードとなります。
 
-```Java:Main.java
+**`Main.java`**
+```java
 import framework.Factory;
 import framework.Management;
 import visitorcard.VisitorCardFactory;
@@ -389,7 +398,8 @@ employeecard パッケージ（具体的な実装を行うサブクラス）
   └── EmployeeCardFactory.java    Factory のサブクラス
 ```
 
-```Java:EmployeeCard.java
+**`EmployeeCard.java`**
+```java
 package employeecard;
 
 import framework.Management;
@@ -416,7 +426,8 @@ public class EmployeeCard extends Management {
 }
 ```
 
-```Java:EmployeeCardFactory.java
+**`EmployeeCardFactory.java`**
+```java
 package employeecard;
 
 import framework.Factory;
@@ -439,7 +450,8 @@ public class EmployeeCardFactory extends Factory {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 import employeecard.EmployeeCardFactory; // ←ここを追加
 import framework.Factory;
 import framework.Management;
@@ -476,7 +488,8 @@ public class Main {
 
 上記のコードの本質的な部分を抽出したコードが下記となります（社員証の入退館システムの方を提示している）。
 
-```Java:Main.java
+**`Main.java`**
+```java
 〜省略〜
 
 public class Main {
@@ -556,7 +569,8 @@ patientticket パッケージ
 
 本記事の `Factory` クラスを改めて見てみましょう。
 
-```Java:Factory.java
+**`Factory.java`**
+```java
 public abstract class Factory {
 
     protected abstract Management createManagement(String person);
@@ -600,7 +614,8 @@ Factory Method パターンには、設計原則の観点から 2 つの側面�
 
 正しい実装の本質的な実行クラス（社員証の入退館システム）を見てみましょう。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         Factory factory = new EmployeeCardFactory();
@@ -625,7 +640,8 @@ DIP を守ることで、スーパークラスを修正することなく具体�
 
 「`EmployeeCardFactory` と `VisitorCardFactory` はほぼ同じコードなので、個別に作るのは冗長だ」という理由で、生成処理を 1 か所にまとめ、インスタンス化も省いた次のようなコードを PR として提出してくるかもしれません。
 
-```Java:CardFactory.java
+**`CardFactory.java`**
+```java
 public class CardFactory {
     private static int number = 0;
 
@@ -642,7 +658,8 @@ public class CardFactory {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         CardFactory.create("employee", "田中 太郎");
@@ -721,7 +738,8 @@ List<String> list = Arrays.asList("sample1", "sample2", "sample3");
 
 [既存コードの仕様](#既存コードの仕様)を再度示します。
 
-```Java:EmployeeCard.java
+**`EmployeeCard.java`**
+```java
 public class EmployeeCard {
     private String employeeName;
     private int employeeCardNumber;
@@ -743,7 +761,8 @@ public class EmployeeCard {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);

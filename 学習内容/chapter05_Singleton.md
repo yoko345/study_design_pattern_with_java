@@ -49,7 +49,8 @@
 | ------------ | ---------- | ---------------- |
 | `placeOrder` | `void`     | 注文を受け付ける |
 
-```Java:OrderService.java
+**`OrderService.java`**
+```java
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);
@@ -67,7 +68,8 @@ public class OrderService {
 | ---------------- | ---------- | ------------------ |
 | `processPayment` | `void`     | 決済処理を開始する |
 
-```Java:PaymentService.java
+**`PaymentService.java`**
+```java
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId);
@@ -80,7 +82,8 @@ public class PaymentService {
 
 - `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         OrderService orderService = new OrderService();
@@ -113,7 +116,8 @@ public class Main {
 | -------- | ---------- | ------------------------------------ |
 | `log`    | `void`     | ログメッセージをコンソールへ出力する |
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private String logLevel;
 
@@ -136,7 +140,8 @@ public class Logger {
 
 「各サービスでログが出力されればよい」と考え、次のような実装をするのではないでしょうか？
 
-```Java:OrderService.java
+**`OrderService.java`**
+```java
 public class OrderService {
     private Logger logger = new Logger("DEBUG"); // ←ここを追加
 
@@ -147,7 +152,8 @@ public class OrderService {
 }
 ```
 
-```Java:PaymentService.java
+**`PaymentService.java`**
+```java
 public class PaymentService {
     private Logger logger = new Logger("INFO"); // ←ここを追加
 
@@ -189,7 +195,8 @@ Logger を生成しました。[logLevel=INFO]
 これらの問題を解決するのが **Singleton パターン**です。<br>
 まずは、次のコードを見てください。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private static Logger logger = new Logger("INFO"); // ←ここを追加
     private String logLevel;
@@ -224,7 +231,8 @@ public class Logger {
 
 次に、`Logger` を利用するクラスの実装を見てください。
 
-```Java:OrderService.java
+**`OrderService.java`**
+```java
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -233,7 +241,8 @@ public class OrderService {
 }
 ```
 
-```Java:PaymentService.java
+**`PaymentService.java`**
+```java
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -259,7 +268,8 @@ Logger を生成しました。[logLevel=INFO]
 
 試しに `getInstance` メソッドを 2 回呼び出し、同一のインスタンスかどうか確認してみましょう。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         Logger logger1 = Logger.getInstance();
@@ -331,7 +341,8 @@ logger1 と logger2 は同じインスタンスです。
 
 次のコードのように、コンストラクタを `public`（もしくは修飾子なし）にすると、クラスの外から自由にインスタンスを生成できるようになります。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private static Logger logger = new Logger("INFO");
     private String logLevel;
@@ -352,7 +363,8 @@ public class Logger {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         Logger logger1 = Logger.getInstance();
@@ -390,7 +402,8 @@ EC サイトでは、同時に複数のリクエストをさばくために、�
 遅延初期化で実装されたコードを確認しましょう（説明の都合、レースコンディションを起きやすくするための遅延処理が挟まれています）。<br>
 ※レースコンディション（競合状態）：複数のスレッドが同じリソースにほぼ同時にアクセスし、処理の順序によって結果が変わってしまう状態のこと。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private static Logger logger = null;
     private String logLevel;
@@ -420,7 +433,8 @@ public class Logger {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         Thread threadA = new Thread(() -> {
@@ -470,7 +484,8 @@ Logger を生成しました。[logLevel=INFO]
 この問題を解決するのが、本記事で扱った**早期初期化**です。<br>
 ※早期初期化（Eager Initialization）：クラスがロードされるタイミングでインスタンスを生成する方法（ここでは `static` フィールドの宣言時にインスタンスを生成する実装に当たる）。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private static Logger logger = new Logger("INFO"); // ←ここを修正
     private String logLevel;
@@ -519,7 +534,8 @@ Logger を生成しました。[logLevel=INFO]
 実務では、遅延初期化をどうしても使いたい場合があります。<br>
 この解決策の一つが `synchronized` です。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private static Logger logger = null;
     private String logLevel;
@@ -578,7 +594,8 @@ Logger を生成しました。[logLevel=INFO]
 
 次のコードを見てください。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public class Logger {
     private static Map<String, Logger> map = new HashMap<>(); // 変更
     private String logLevel;
@@ -622,7 +639,8 @@ public class Logger {
 
 では、呼び出し側の実装を見ていきましょう。
 
-```Java:OrderService.java
+**`OrderService.java`**
+```java
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -638,7 +656,8 @@ public class OrderService {
 }
 ```
 
-```Java:PaymentService.java
+**`PaymentService.java`**
+```java
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -654,7 +673,8 @@ public class PaymentService {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         OrderService orderService = new OrderService();
@@ -726,7 +746,8 @@ Logger を生成しました。[logLevel=ERROR]
 
 では、本記事の `Logger` クラスを `enum` で実装してみましょう。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public enum Logger {
     INSTANCE("INFO");
 
@@ -746,7 +767,8 @@ public enum Logger {
 `INSTANCE` という定数が、列挙型 `Logger` の唯一のインスタンスとなります。<br>
 `Logger.INSTANCE` で呼び出すことで、インスタンスを取得することができます。
 
-```Java:OrderService.java
+**`OrderService.java`**
+```java
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);
@@ -755,7 +777,8 @@ public class OrderService {
 }
 ```
 
-```Java:PaymentService.java
+**`PaymentService.java`**
+```java
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId);
@@ -780,7 +803,8 @@ Logger を生成しました。[logLevel=INFO]
 
 なお、[【深堀り③】](#深堀り3) で扱った「あらかじめ決めた n 個のインスタンスに制限する」実装も、`enum` で表現できます。
 
-```Java:Logger.java
+**`Logger.java`**
+```java
 public enum Logger {
     INFO("INFO"),
     WARNING("WARNING"),
@@ -790,7 +814,8 @@ public enum Logger {
 }
 ```
 
-```Java:OrderService.java
+**`OrderService.java`**
+```java
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);

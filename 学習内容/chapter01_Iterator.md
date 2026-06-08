@@ -32,7 +32,8 @@
 
 今回の具体例では、果物の名前と金額の情報を出力する必要があるので、`Fruit` クラスを事前に作成しておきます。
 
-```Java:Fruit.java
+**`Fruit.java`**
+```java
 public class Fruit {
     private String name;
     private int price;
@@ -53,7 +54,8 @@ public class Fruit {
 
 以下のようになると思います。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -81,7 +83,8 @@ public class Main {
 
 冒頭の経験のなかで例えば、後から「キウイ（130 円）」を追加したくなったとします。その場合、下記のような実装をしたくなると思います。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -102,7 +105,8 @@ public class Main {
 
 ここで「配列の代わりに `List` を使えばよいのでは？」と思うかもしれません。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         List<Fruit> fruitBasket = Arrays.asList(
@@ -130,7 +134,8 @@ fruitBasket.add(new Fruit("キウイ", 130));
 
 そこで**可変長**の `ArrayList`（→ [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)）を使うことで要素の追加ができるようになります。このことは、下記の実装から分かります。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         ArrayList<Fruit> fruitBasket = new ArrayList<>(); // ※2
@@ -200,7 +205,8 @@ public interface Iterator<E> {
 
 これらを使って `FruitBasket` クラスと `FruitBasketIterator` クラスを実装します。
 
-```Java:FruitBasket.java
+**`FruitBasket.java`**
+```java
 public class FruitBasket implements Iterable<Fruit> {
 
     private Fruit[] fruits;
@@ -230,7 +236,8 @@ public class FruitBasket implements Iterable<Fruit> {
 }
 ```
 
-```Java:FruitBasketIterator.java
+**`FruitBasketIterator.java`**
+```java
 public class FruitBasketIterator implements Iterator<Fruit> {
 
     private FruitBasket fruitBasket;
@@ -264,7 +271,8 @@ public class FruitBasketIterator implements Iterator<Fruit> {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -301,7 +309,8 @@ public class Main {
 
 改めて「キウイ（130 円）」を追加したくなったとしましょう。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -324,7 +333,8 @@ public class Main {
 
 そこで、`FruitBasket` の内部実装を配列から `ArrayList`（→ [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)）に変えてみましょう。
 
-```Java:FruitBasket.java
+**`FruitBasket.java`**
+```java
 public class FruitBasket implements Iterable<Fruit> {
     private List<Fruit> fruits;
 
@@ -351,7 +361,8 @@ public class FruitBasket implements Iterable<Fruit> {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);

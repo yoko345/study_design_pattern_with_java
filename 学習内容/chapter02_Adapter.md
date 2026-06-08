@@ -50,7 +50,8 @@ EC サイトの決済機能における共通インターフェースであり�
 | `void pay(int amount)`      | 指定金額を支払う     |
 | `String getPaymentMethod()` | 決済手段の名称を返す |
 
-```Java:PaymentProcessor.java
+**`PaymentProcessor.java`**
+```java
 public interface PaymentProcessor {
     void pay(int amount);
     String getPaymentMethod();
@@ -69,7 +70,8 @@ public interface PaymentProcessor {
 | `pay(int amount)`    | 「クレジットカードで {`amount`}円 支払いました」を出力 |
 | `getPaymentMethod()` | 「クレジットカード」という名称を返す                   |
 
-```Java:CreditCardPayment.java
+**`CreditCardPayment.java`**
+```java
 public class CreditCardPayment implements PaymentProcessor {
 
     @Override
@@ -97,7 +99,8 @@ public class CreditCardPayment implements PaymentProcessor {
 | `void charge(int yen)`    | 「サンプル Pay で {`yen`}円 決済します」を出力 |
 | `String getServiceName()` | 「サンプル Pay」という名称を返す               |
 
-```Java:SamplePayClient.java
+**`SamplePayClient.java`**
+```java
 public class SamplePayClient {
 
     public void charge(int yen) {
@@ -114,7 +117,8 @@ public class SamplePayClient {
 
 - `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -153,7 +157,8 @@ public class SamplePayClient implements PaymentProcessor {
 ただし、`SamplePayClient` クラスには上記のメソッドは存在しないので、追加でオーバーライドする必要があります。<br>
 最終的に、以下のような実装になると思います。
 
-```Java:SamplePayClient.java
+**`SamplePayClient.java`**
+```java
 public class SamplePayClient implements PaymentProcessor {
 
     public void charge(int yen) {
@@ -178,7 +183,8 @@ public class SamplePayClient implements PaymentProcessor {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -236,7 +242,8 @@ public class Main {
 そのため、「`PaymentProcessor` インターフェースを実現するクラスを作成する」という要件の見落としは十分にありえます。また、この要件は社内コードに関するものであるため、仕様書に明記されないことも多いです。<br>
 以上から次のような実装をしてしまうと考えられます。
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -281,7 +288,8 @@ public class Main {
 この問題を解決するのが **Adapter パターン**です。<br>
 以下の具体的な実装コードを見てみましょう。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
 public class SamplePayAdapter implements PaymentProcessor {
 
     private SamplePayClient samplePayClient = new SamplePayClient();
@@ -298,7 +306,8 @@ public class SamplePayAdapter implements PaymentProcessor {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -347,7 +356,8 @@ public class Main {
 
 `Main.java` は正しい実装①と同様なので、`SamplePayAdapter.java` のコードを次に示します。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
 
     @Override
@@ -385,7 +395,8 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 継承を使ったパターンでは、`SamplePayAdapter` がすでに `SamplePayClient` を `extends` しているため、Java の単一継承の制約から `AppLogger` クラスをさらに `extends` できません（→ [【深堀り③】Java の単一継承の制約](#深堀り3)）。<br>
 そのため、次のように `new` でインスタンス化することになります。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
 
     private AppLogger logger = new AppLogger(); // ←ここを追加
@@ -405,7 +416,8 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
 一方、委譲を使ったパターンでは、`SamplePayClient` も `AppLogger` もどちらも `new` でインスタンス化する形で統一されます。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
 public class SamplePayAdapter implements PaymentProcessor {
 
     private SamplePayClient samplePayClient = new SamplePayClient();
