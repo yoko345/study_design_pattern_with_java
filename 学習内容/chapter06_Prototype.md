@@ -55,7 +55,7 @@ public class NotificationSender {
 
 <br>
 
-- 実行クラス
+- `Main`（実行クラス）
 
 **`Main.java`**
 ```java

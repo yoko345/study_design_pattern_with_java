@@ -354,7 +354,7 @@ public class Main {
 
 正しい実装①では、「委譲を使った Adapter パターン」を示しましたが、Adapter パターンには「継承を使った Adapter パターン」もあります。
 
-`Main.java` は正しい実装①と同様なので、`SamplePayAdapter.java` のコードを次に示します。
+`Main` クラスは正しい実装①と同様なので、`SamplePayAdapter` クラスのコードを次に示します。
 
 **`SamplePayAdapter.java`**
 ```java
