@@ -90,6 +90,14 @@ public class Fruit { ... }
 - 「既存コードの仕様」セクションのクラス一覧のみ例外: `` `Main`（実行クラス） ``（他のクラス記述と形式を統一するため）
 - 「実行クラス」は概念として述べる文脈では使用可
 
+### パッケージ宣言
+クラスを示す Java コードブロックの先頭には `package example;` を記載する（デフォルトパッケージを避け、パッケージを明示する）。
+
+例外:
+- 記事内で実際にパッケージ構成を扱う場合（例: chapter04 の `framework`、`visitorcard`、`employeecard` など）は、`example` パッケージのサブパッケージとして配置する（`example.framework`、`example.visitorcard`、`example.employeecard` など）
+- JDK のソースコードを引用する場合（例: `java.lang.String` や `java.lang.Object` など）は、実際の `package java.lang;` を使用する
+- クラス全体ではなく式・差分のみを示すスニペットには付けない
+
 ### シナリオ方針
 書籍コードの丸パクリを避け、各章で独自の業務シナリオを新たに考案する。
 

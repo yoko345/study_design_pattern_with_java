@@ -51,6 +51,8 @@
 
 **`OrderService.java`**
 ```java
+package example;
+
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);
@@ -70,6 +72,8 @@ public class OrderService {
 
 **`PaymentService.java`**
 ```java
+package example;
+
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId);
@@ -84,6 +88,8 @@ public class PaymentService {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         OrderService orderService = new OrderService();
@@ -118,6 +124,8 @@ public class Main {
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private String logLevel;
 
@@ -142,6 +150,8 @@ public class Logger {
 
 **`OrderService.java`**
 ```java
+package example;
+
 public class OrderService {
     private Logger logger = new Logger("DEBUG"); // ←ここを追加
 
@@ -154,6 +164,8 @@ public class OrderService {
 
 **`PaymentService.java`**
 ```java
+package example;
+
 public class PaymentService {
     private Logger logger = new Logger("INFO"); // ←ここを追加
 
@@ -197,6 +209,8 @@ Logger を生成しました。[logLevel=INFO]
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private static Logger logger = new Logger("INFO"); // ←ここを追加
     private String logLevel;
@@ -233,6 +247,8 @@ public class Logger {
 
 **`OrderService.java`**
 ```java
+package example;
+
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -243,6 +259,8 @@ public class OrderService {
 
 **`PaymentService.java`**
 ```java
+package example;
+
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -270,6 +288,8 @@ Logger を生成しました。[logLevel=INFO]
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         Logger logger1 = Logger.getInstance();
@@ -343,6 +363,8 @@ logger1 と logger2 は同じインスタンスです。
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private static Logger logger = new Logger("INFO");
     private String logLevel;
@@ -365,6 +387,8 @@ public class Logger {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         Logger logger1 = Logger.getInstance();
@@ -404,6 +428,8 @@ EC サイトでは、同時に複数のリクエストをさばくために、�
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private static Logger logger = null;
     private String logLevel;
@@ -435,6 +461,8 @@ public class Logger {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         Thread threadA = new Thread(() -> {
@@ -486,6 +514,8 @@ Logger を生成しました。[logLevel=INFO]
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private static Logger logger = new Logger("INFO"); // ←ここを修正
     private String logLevel;
@@ -536,6 +566,8 @@ Logger を生成しました。[logLevel=INFO]
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private static Logger logger = null;
     private String logLevel;
@@ -596,6 +628,8 @@ Logger を生成しました。[logLevel=INFO]
 
 **`Logger.java`**
 ```java
+package example;
+
 public class Logger {
     private static Map<String, Logger> map = new HashMap<>(); // 変更
     private String logLevel;
@@ -641,6 +675,8 @@ public class Logger {
 
 **`OrderService.java`**
 ```java
+package example;
+
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -658,6 +694,8 @@ public class OrderService {
 
 **`PaymentService.java`**
 ```java
+package example;
+
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
@@ -675,6 +713,8 @@ public class PaymentService {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         OrderService orderService = new OrderService();
@@ -748,6 +788,8 @@ Logger を生成しました。[logLevel=ERROR]
 
 **`Logger.java`**
 ```java
+package example;
+
 public enum Logger {
     INSTANCE("INFO");
 
@@ -769,6 +811,8 @@ public enum Logger {
 
 **`OrderService.java`**
 ```java
+package example;
+
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);
@@ -779,6 +823,8 @@ public class OrderService {
 
 **`PaymentService.java`**
 ```java
+package example;
+
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId);
@@ -805,6 +851,8 @@ Logger を生成しました。[logLevel=INFO]
 
 **`Logger.java`**
 ```java
+package example;
+
 public enum Logger {
     INFO("INFO"),
     WARNING("WARNING"),
@@ -816,6 +864,8 @@ public enum Logger {
 
 **`OrderService.java`**
 ```java
+package example;
+
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);

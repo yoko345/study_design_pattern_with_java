@@ -34,6 +34,8 @@
 
 **`Fruit.java`**
 ```java
+package example;
+
 public class Fruit {
     private String name;
     private int price;
@@ -56,6 +58,8 @@ public class Fruit {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -85,6 +89,8 @@ public class Main {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -107,6 +113,8 @@ public class Main {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         List<Fruit> fruitBasket = Arrays.asList(
@@ -136,6 +144,8 @@ fruitBasket.add(new Fruit("キウイ", 130));
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         ArrayList<Fruit> fruitBasket = new ArrayList<>(); // ※2
@@ -207,6 +217,8 @@ public interface Iterator<E> {
 
 **`FruitBasket.java`**
 ```java
+package example;
+
 public class FruitBasket implements Iterable<Fruit> {
 
     private Fruit[] fruits;
@@ -238,6 +250,8 @@ public class FruitBasket implements Iterable<Fruit> {
 
 **`FruitBasketIterator.java`**
 ```java
+package example;
+
 public class FruitBasketIterator implements Iterator<Fruit> {
 
     private FruitBasket fruitBasket;
@@ -273,6 +287,8 @@ public class FruitBasketIterator implements Iterator<Fruit> {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -311,6 +327,8 @@ public class Main {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -335,6 +353,8 @@ public class Main {
 
 **`FruitBasket.java`**
 ```java
+package example;
+
 public class FruitBasket implements Iterable<Fruit> {
     private List<Fruit> fruits;
 
@@ -363,6 +383,8 @@ public class FruitBasket implements Iterable<Fruit> {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);

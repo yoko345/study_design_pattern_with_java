@@ -61,6 +61,8 @@
 
 **`EmployeeCard.java`**
 ```java
+package example;
+
 public class EmployeeCard {
     private String employeeName;
     private int employeeCardNumber;
@@ -90,6 +92,8 @@ public class EmployeeCard {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
@@ -123,6 +127,8 @@ public class Main {
 
 **`VisitorCard.java`**
 ```java
+package example;
+
 public class VisitorCard {
     private String visitorName;
     private int visitorCardNumber;
@@ -146,6 +152,8 @@ public class VisitorCard {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
 
     public static void main(String[] args) {
@@ -230,20 +238,20 @@ public class Main {
 ※本記事では下記のクラス構成としています。
 
 > ```
-> framework パッケージ（スーパークラス）
+> example.framework パッケージ（スーパークラス）
 >   ├── Management.java    抽象クラス：入退館管理のための共通インターフェース
 >   └── Factory.java       抽象クラス：「発行 → 登録」の手順を定義
 >
-> visitorcard パッケージ（具体的な実装を行うサブクラス）
+> example.visitorcard パッケージ（具体的な実装を行うサブクラス）
 >   ├── VisitorCard.java           Management のサブクラス
 >   └── VisitorCardFactory.java    Factory のサブクラス
 > ```
 
-**framework パッケージ**
+**example.framework パッケージ**
 
 **`Management.java`**
 ```java
-package framework;
+package example.framework;
 
 public abstract class Management {
     public abstract void pass();
@@ -252,7 +260,7 @@ public abstract class Management {
 
 **`Factory.java`**
 ```java
-package framework;
+package example.framework;
 
 public abstract class Factory {
 
@@ -279,13 +287,13 @@ public abstract class Factory {
 
 次に、サブクラスのコードを見ていきましょう。
 
-**visitorcard パッケージ**
+**example.visitorcard パッケージ**
 
 **`VisitorCard.java`**
 ```java
-package visitorcard;
+package example.visitorcard;
 
-import framework.Management;
+import example.framework.Management;
 
 public class VisitorCard extends Management {
     private String visitorName;
@@ -311,10 +319,10 @@ public class VisitorCard extends Management {
 
 **`VisitorCardFactory.java`**
 ```java
-package visitorcard;
+package example.visitorcard;
 
-import framework.Factory;
-import framework.Management;
+import example.framework.Factory;
+import example.framework.Management;
 
 public class VisitorCardFactory extends Factory {
     private int visitorCardNumber = 0;
@@ -337,9 +345,11 @@ public class VisitorCardFactory extends Factory {
 
 **`Main.java`**
 ```java
-import framework.Factory;
-import framework.Management;
-import visitorcard.VisitorCardFactory;
+package example;
+
+import example.framework.Factory;
+import example.framework.Management;
+import example.visitorcard.VisitorCardFactory;
 
 public class Main {
     public static void main(String[] args) {
@@ -393,16 +403,16 @@ public class Main {
 ※本記事では下記のクラス構成を追加するとします。
 
 ```
-employeecard パッケージ（具体的な実装を行うサブクラス）
+example.employeecard パッケージ（具体的な実装を行うサブクラス）
   ├── EmployeeCard.java           Management のサブクラス
   └── EmployeeCardFactory.java    Factory のサブクラス
 ```
 
 **`EmployeeCard.java`**
 ```java
-package employeecard;
+package example.employeecard;
 
-import framework.Management;
+import example.framework.Management;
 
 public class EmployeeCard extends Management {
     private String employeeName;
@@ -428,10 +438,10 @@ public class EmployeeCard extends Management {
 
 **`EmployeeCardFactory.java`**
 ```java
-package employeecard;
+package example.employeecard;
 
-import framework.Factory;
-import framework.Management;
+import example.framework.Factory;
+import example.framework.Management;
 
 public class EmployeeCardFactory extends Factory {
     private int employeeCardNumber = 1000;
@@ -452,10 +462,12 @@ public class EmployeeCardFactory extends Factory {
 
 **`Main.java`**
 ```java
-import employeecard.EmployeeCardFactory; // ←ここを追加
-import framework.Factory;
-import framework.Management;
-import visitorcard.VisitorCardFactory;
+package example;
+
+import example.employeecard.EmployeeCardFactory; // ←ここを追加
+import example.framework.Factory;
+import example.framework.Management;
+import example.visitorcard.VisitorCardFactory;
 
 public class Main {
     public static void main(String[] args) {
@@ -490,6 +502,8 @@ public class Main {
 
 **`Main.java`**
 ```java
+package example;
+
 〜省略〜
 
 public class Main {
@@ -534,10 +548,10 @@ public class Main {
 - 通し番号に関して、`Factory` クラスを継承したサブクラスで管理するため、採番ミスや重複が発生しない
 
 上記以外のメリットとして、別システムへの転用ができることが挙げられます。<br>
-例えば、「病院の受付システムからも同じフレームワークを使いたいという要件が来た」としましょう。その際は、`employeecard` パッケージを作成したときと同様に、下記のパッケージを追加するだけで実装ができます。この時、**スーパークラスのコードは 1 行も変更しません。**
+例えば、「病院の受付システムからも同じフレームワークを使いたいという要件が来た」としましょう。その際は、`example.employeecard` パッケージを作成したときと同様に、下記のパッケージを追加するだけで実装ができます。この時、**スーパークラスのコードは 1 行も変更しません。**
 
 ```
-patientticket パッケージ
+example.patientticket パッケージ
   ├── PatientTicket.java           Management のサブクラス
   └── PatientTicketFactory.java    Factory のサブクラス
 ```
@@ -571,6 +585,8 @@ patientticket パッケージ
 
 **`Factory.java`**
 ```java
+package example;
+
 public abstract class Factory {
 
     protected abstract Management createManagement(String person);
@@ -616,6 +632,8 @@ Factory Method パターンには、設計原則の観点から 2 つの側面�
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         Factory factory = new EmployeeCardFactory();
@@ -642,6 +660,8 @@ DIP を守ることで、スーパークラスを修正することなく具体�
 
 **`CardFactory.java`**
 ```java
+package example;
+
 public class CardFactory {
     private static int number = 0;
 
@@ -660,6 +680,8 @@ public class CardFactory {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         CardFactory.create("employee", "田中 太郎");
@@ -740,6 +762,8 @@ List<String> list = Arrays.asList("sample1", "sample2", "sample3");
 
 **`EmployeeCard.java`**
 ```java
+package example;
+
 public class EmployeeCard {
     private String employeeName;
     private int employeeCardNumber;
@@ -763,6 +787,8 @@ public class EmployeeCard {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
@@ -802,6 +828,8 @@ new StringBuilder().append(this).append(" でゲートを通過します。").to
 `append(Object obj)` では、次のように内部で `String.valueOf(obj)` を呼びます。
 
 ```java
+package java.lang;
+
 public final class StringBuilder
     extends AbstractStringBuilder
     implements Appendable, java.io.Serializable, Comparable<StringBuilder>, CharSequence {
@@ -818,6 +846,8 @@ public final class StringBuilder
 `String.valueOf(Object obj)` は次のように定義されています。
 
 ```java
+package java.lang;
+
 public final class String
     implements java.io.Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc {
 

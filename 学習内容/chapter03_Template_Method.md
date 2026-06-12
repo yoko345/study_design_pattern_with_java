@@ -52,6 +52,8 @@
 
 **`EmailNotification.java`**
 ```java
+package example;
+
 public class EmailNotification {
     private String emailAddress;
 
@@ -80,6 +82,8 @@ public class EmailNotification {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmailNotification email = new EmailNotification("user@example.com");
@@ -110,6 +114,8 @@ Slack では、障害発生時用のチャンネルに通知を飛ばすと考�
 
 **`SlackNotification.java`**
 ```java
+package example;
+
 public class SlackNotification {
     private String channel;
 
@@ -136,6 +142,8 @@ SMS では、電話番号が必要になるので、次のコードになると�
 
 **`SmsNotification.java`**
 ```java
+package example;
+
 public class SmsNotification {
     private String phoneNumber;
 
@@ -160,6 +168,8 @@ public class SmsNotification {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmailNotification email = new EmailNotification("user@example.com");
@@ -225,6 +235,8 @@ user@example.com にメールを送信しました：[障害通知] DBサーバ�
 
 **`SlackNotification.java`**
 ```java
+package example;
+
 public class SlackNotification {
     private String channel;
 
@@ -241,6 +253,8 @@ public class SlackNotification {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmailNotification email = new EmailNotification("user@example.com");
@@ -287,6 +301,8 @@ null にSlack通知を送信しました：:warning: DBサーバーの応答が�
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public abstract class NotificationSender {
     public abstract void validate();
 
@@ -321,6 +337,8 @@ public abstract class NotificationSender {
 
 **`EmailNotification.java`**
 ```java
+package example;
+
 public class EmailNotification extends NotificationSender {
     private String emailAddress;
 
@@ -354,6 +372,8 @@ public class EmailNotification extends NotificationSender {
 
 **`SlackNotification.java`**
 ```java
+package example;
+
 public class SlackNotification extends NotificationSender {
     private String channel;
 
@@ -387,6 +407,8 @@ public class SlackNotification extends NotificationSender {
 
 **`SmsNotification.java`**
 ```java
+package example;
+
 public class SmsNotification extends NotificationSender {
     private String phoneNumber;
 
@@ -422,6 +444,8 @@ public class SmsNotification extends NotificationSender {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender email = new EmailNotification("user@example.com");
@@ -509,6 +533,8 @@ Template Method パターンは、次の 2 つの大きな問題を同時に解�
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public interface NotificationSender {
     public abstract void validate();
 
@@ -556,6 +582,8 @@ Template Method パターンの本質は「流れは固定し、中身だけを�
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public interface NotificationSender {
     public static final int MAX_RETRY = 3;  // 参照するだけで更新できない（全インスタンス共通）
 
@@ -580,6 +608,8 @@ public interface NotificationSender {
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public abstract class NotificationSender {
     protected int retryCount = 0;  // インスタンスごとに状態を管理できる
 
@@ -652,6 +682,8 @@ Template Method パターンでは、本記事のように適切な修飾子を�
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public abstract class NotificationSender {
     public abstract void validate();
 
@@ -675,6 +707,8 @@ public abstract class NotificationSender {
 
 **`EmailNotification.java`**
 ```java
+package example;
+
 public class EmailNotification extends NotificationSender {
     private String emailAddress;
 
@@ -705,6 +739,8 @@ public class EmailNotification extends NotificationSender {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender email = new EmailNotification("user@example.com");

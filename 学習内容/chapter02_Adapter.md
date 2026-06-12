@@ -52,6 +52,8 @@ EC サイトの決済機能における共通インターフェースであり�
 
 **`PaymentProcessor.java`**
 ```java
+package example;
+
 public interface PaymentProcessor {
     void pay(int amount);
     String getPaymentMethod();
@@ -72,6 +74,8 @@ public interface PaymentProcessor {
 
 **`CreditCardPayment.java`**
 ```java
+package example;
+
 public class CreditCardPayment implements PaymentProcessor {
 
     @Override
@@ -101,6 +105,8 @@ public class CreditCardPayment implements PaymentProcessor {
 
 **`SamplePayClient.java`**
 ```java
+package example;
+
 public class SamplePayClient {
 
     public void charge(int yen) {
@@ -119,6 +125,8 @@ public class SamplePayClient {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -159,6 +167,8 @@ public class SamplePayClient implements PaymentProcessor {
 
 **`SamplePayClient.java`**
 ```java
+package example;
+
 public class SamplePayClient implements PaymentProcessor {
 
     public void charge(int yen) {
@@ -185,6 +195,8 @@ public class SamplePayClient implements PaymentProcessor {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -244,6 +256,8 @@ public class Main {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -290,6 +304,8 @@ public class Main {
 
 **`SamplePayAdapter.java`**
 ```java
+package example;
+
 public class SamplePayAdapter implements PaymentProcessor {
 
     private SamplePayClient samplePayClient = new SamplePayClient();
@@ -308,6 +324,8 @@ public class SamplePayAdapter implements PaymentProcessor {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -358,6 +376,8 @@ public class Main {
 
 **`SamplePayAdapter.java`**
 ```java
+package example;
+
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
 
     @Override
@@ -397,6 +417,8 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
 **`SamplePayAdapter.java`**
 ```java
+package example;
+
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
 
     private AppLogger logger = new AppLogger(); // ←ここを追加
@@ -418,6 +440,8 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
 **`SamplePayAdapter.java`**
 ```java
+package example;
+
 public class SamplePayAdapter implements PaymentProcessor {
 
     private SamplePayClient samplePayClient = new SamplePayClient();

@@ -46,6 +46,8 @@
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public class NotificationSender {
     public String send(String message) {
         return "[通知] " + message;
@@ -59,6 +61,8 @@ public class NotificationSender {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender sender = new NotificationSender();
@@ -95,6 +99,8 @@ public class Main {
 
 **`CardNotification.java`**
 ```java
+package example;
+
 public class CardNotification {
     private String cssClass;
 
@@ -124,6 +130,8 @@ public class CardNotification {
 
 **`BannerNotification.java`**
 ```java
+package example;
+
 public class BannerNotification {
     private String cssClass;
 
@@ -147,6 +155,8 @@ public class BannerNotification {
 
 **`NotificationSender.java`**
 ```java
+package example;
+
 public class NotificationSender {
     public String send(String type, String message) {
         if (type.equals("coupon")) {
@@ -166,6 +176,8 @@ public class NotificationSender {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender sender = new NotificationSender();
@@ -204,6 +216,8 @@ public class Main {
 
 **`Notification.java`**
 ```java
+package example;
+
 public abstract class Notification implements Cloneable {
     public abstract String send(String message);
 
@@ -233,6 +247,8 @@ public abstract class Notification implements Cloneable {
 
 **`CardNotification.java`**
 ```java
+package example;
+
 public class CardNotification extends Notification {
     private String cssClass;
 
@@ -249,6 +265,8 @@ public class CardNotification extends Notification {
 
 **`BannerNotification.java`**
 ```java
+package example;
+
 public class BannerNotification extends Notification {
     private String cssClass;
 
@@ -272,6 +290,8 @@ public class BannerNotification extends Notification {
 
 **`NotificationManager.java`**
 ```java
+package example;
+
 public class NotificationManager {
     private Map<String, Notification> map = new HashMap<>();
 
@@ -296,6 +316,8 @@ public class NotificationManager {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationManager manager = new NotificationManager();
@@ -412,6 +434,8 @@ public class Object {
 
 **`Notification.java`**
 ```java
+package example;
+
 public abstract class Notification { // ← ここを修正
     public abstract String send(String message);
 
@@ -421,6 +445,8 @@ public abstract class Notification { // ← ここを修正
 
 **`CardNotification.java`**
 ```java
+package example;
+
 public class CardNotification extends Notification {
     private String cssClass;
 
@@ -507,6 +533,8 @@ Prototype パターンは、事前に登録したオブジェクト（プロト�
 
 **`TaggedNotification.java`**
 ```java
+package example;
+
 public class TaggedNotification extends Notification {
     private String cssClass;
     private String[] tags;
@@ -544,6 +572,8 @@ public class TaggedNotification extends Notification {
 
 **`Main.java`**
 ```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationManager manager = new NotificationManager();
@@ -581,6 +611,8 @@ public class Main {
 
 **`TaggedNotification.java`**
 ```java
+package example;
+
 public class TaggedNotification extends Notification {
     private String cssClass;
     private String[] tags;
