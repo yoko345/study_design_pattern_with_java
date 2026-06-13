@@ -4,7 +4,7 @@
 
 > 複数の手順を経て完成するオブジェクトを、条件や用途に応じて作り分ける必要が生じた。生成コードを各所に直書きしているうちに重複が膨らんで、新しい種類を追加するたびに似たような変更を何箇所にも加えなければならなくなっていた。
 
-この記事では、EC サイトの注文管理システムのテストというシナリオを通して、Builder パターンがこの問題をどのように解決するかを学びます。
+この記事では、EC サイトの注文管理システムのテストというシナリオを通して、Builder パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -33,7 +33,11 @@
 
 注文に関わるエンティティは次の 4 つです。
 
+**`Customer.java`**
+
 ```java
+package example;
+
 // 顧客情報
 public class Customer {
     private final String name;
@@ -49,7 +53,11 @@ public class Customer {
 }
 ```
 
+**`OrderItem.java`**
+
 ```java
+package example;
+
 // 注文明細（1商品分）
 public class OrderItem {
     private final String productName;
@@ -65,7 +73,11 @@ public class OrderItem {
 }
 ```
 
+**`Order.java`**
+
 ```java
+package example;
+
 // 注文（Customer に依存）
 public class Order {
     private final Customer customer;
@@ -81,7 +93,11 @@ public class Order {
 }
 ```
 
+**`Payment.java`**
+
 ```java
+package example;
+
 // 支払い（Order に依存）
 public class Payment {
     private final Order order;
@@ -106,7 +122,11 @@ public class Payment {
 
 現在のテストコードはこのように書かれています。
 
+**`OrderServiceTest.java`**
+
 ```java
+package example;
+
 class OrderServiceTest {
     @Test
     void 正常な注文が処理される() {
@@ -149,7 +169,11 @@ class OrderServiceTest {
 
 共通化しようとして、種別を文字列で受け取るファクトリメソッドを作ったとします。
 
+**`TestDataFactory.java`**
+
 ```java
+package example;
+
 public class TestDataFactory {
     public static TestData create(String type) {
         if (type.equals("normal")) {
@@ -200,18 +224,22 @@ TestData data = TestDataFactory.create("normal");
 
 Builder パターンを使って解決します。登場するクラスは次の通りです。
 
-| クラス | 役割 |
-|---|---|
+| クラス                    | 役割                                           |
+| ------------------------- | ---------------------------------------------- |
 | `TestDataBuilder`（抽象） | テストデータ構築の手順（3 ステップ）を定義する |
-| `TestDataDirector` | 3 ステップを正しい順序で呼び出す |
-| `NormalCaseBuilder` | 正常系データを組み立てる |
-| `EdgeCaseBuilder` | 境界値系データを組み立てる |
-| `ErrorCaseBuilder` | 異常系データを組み立てる |
-| `TestData` | 構築済みのテストデータを保持する |
+| `TestDataDirector`        | 3 ステップを正しい順序で呼び出す               |
+| `NormalCaseBuilder`       | 正常系データを組み立てる                       |
+| `EdgeCaseBuilder`         | 境界値系データを組み立てる                     |
+| `ErrorCaseBuilder`        | 異常系データを組み立てる                       |
+| `TestData`                | 構築済みのテストデータを保持する               |
 
 まず、構築済みのデータをまとめて返す `TestData` クラスを定義します。
 
+**`TestData.java`**
+
 ```java
+package example;
+
 public class TestData {
     private final Customer customer;
     private final Order order;
@@ -228,7 +256,11 @@ public class TestData {
 
 次に `TestDataBuilder` 抽象クラスです。構築手順を 3 つのメソッドとして定義します。
 
+**`TestDataBuilder.java`**
+
 ```java
+package example;
+
 public abstract class TestDataBuilder {
     protected Customer customer;
     protected Order order;
@@ -246,7 +278,11 @@ public abstract class TestDataBuilder {
 
 `TestDataDirector` は、**Customer → Order → Payment** の順序を固定して呼び出します。
 
+**`TestDataDirector.java`**
+
 ```java
+package example;
+
 public class TestDataDirector {
     private final TestDataBuilder builder;
 
@@ -265,7 +301,11 @@ public class TestDataDirector {
 
 3 種類の Builder を実装します。
 
+**`NormalCaseBuilder.java`**
+
 ```java
+package example;
+
 public class NormalCaseBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
@@ -288,7 +328,11 @@ public class NormalCaseBuilder extends TestDataBuilder {
 }
 ```
 
+**`EdgeCaseBuilder.java`**
+
 ```java
+package example;
+
 public class EdgeCaseBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
@@ -311,7 +355,11 @@ public class EdgeCaseBuilder extends TestDataBuilder {
 }
 ```
 
+**`ErrorCaseBuilder.java`**
+
 ```java
+package example;
+
 public class ErrorCaseBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
@@ -332,7 +380,11 @@ public class ErrorCaseBuilder extends TestDataBuilder {
 
 テストコードはこう変わります。
 
+**`OrderServiceTest.java`**
+
 ```java
+package example;
+
 class OrderServiceTest {
     @Test
     void 正常な注文が処理される() {
@@ -368,17 +420,18 @@ class OrderServiceTest {
 
 Builder パターンの適用前後を整理します。
 
-| | 好ましくない実装 | Builder パターン |
-|---|---|---|
-| 種別の追加 | `TestDataFactory` を修正する | 新しい Builder クラスを追加する |
-| 組み立て順序の保証 | 呼び出し側が順序を守る必要がある | Director が順序を強制する |
-| 種別ごとの生成ロジック | 1 つのメソッドに混在する | Builder クラスごとに分離される |
+|                        | 好ましくない実装                 | Builder パターン                |
+| ---------------------- | -------------------------------- | ------------------------------- |
+| 種別の追加             | `TestDataFactory` を修正する     | 新しい Builder クラスを追加する |
+| 組み立て順序の保証     | 呼び出し側が順序を守る必要がある | Director が順序を強制する       |
+| 種別ごとの生成ロジック | 1 つのメソッドに混在する         | Builder クラスごとに分離される  |
 
 Builder パターンが特に力を発揮するのは、**複数のオブジェクトが依存関係を持ちながら段階的に組み立てる必要がある場合**です。今回のようなテストデータ生成のほか、複雑な設定オブジェクトの生成や環境ごとに異なる構成物を作る場面でも広く使われます。
 
 ---
 
 <a id="深堀り1"></a>
+
 ## 【深堀り①】Director の役割 ― 組み立て順序の強制
 
 `TestDataDirector` がなければ、テストコードは Builder のメソッドを直接呼ぶことになります。
@@ -406,13 +459,18 @@ Director はこの **「組み立てには正しい順序がある」という�
 ---
 
 <a id="深堀り2"></a>
+
 ## 【深堀り②】OCP（オープン・クローズドの原則）
 
 新たにパフォーマンステスト用のデータが必要になったとします。
 
 好ましくない実装では `TestDataFactory` に `else if` を追加しなければなりませんでした。一方 Builder パターンなら、新しいクラスを追加するだけです。
 
+**`StressTestBuilder.java`**
+
 ```java
+package example;
+
 public class StressTestBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
@@ -441,6 +499,7 @@ public class StressTestBuilder extends TestDataBuilder {
 ---
 
 <a id="深堀り3"></a>
+
 ## 【深堀り③】実行クラスでの型宣言 ― 抽象型 vs 具体型
 
 テストコードでの Builder の宣言をもう一度見てみます。
@@ -473,8 +532,8 @@ TestData data = new TestDataDirector(builder).construct();
 ---
 
 <a id="深堀り4"></a>
+
 ## 【深堀り④】GoF デザインパターンとの位置づけ
 
-今回使った Builder パターンは、GoF の 23 パターンのうち **生成に関するパターン（Creational Patterns）** に分類されます。同じグループには Singleton・Factory Method・Abstract Factory・Prototype が属しており、いずれもオブジェクトの生成方法に関するパターンです。
-
-Builder パターンの意図は「**複雑なオブジェクトの構築をその表現から分離し、同じ構築手順で異なる表現を生成できるようにする**」ことです。Director が「何をどの順序で組み立てるか」を担い、Builder が「どのように組み立てるか」を担う―この役割分担が Builder パターンの核心です。
+今回使った Builder パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「生成パターン」に分類されます。<br>
+詳しくは「GoF」で検索してみてください。
