@@ -1,16 +1,13 @@
 # Adapter（アダプタ）パターン ― 既存コードに触れずに新機能を追加する
 
-追加実装をする際に、既存コードを修正することなく実装するにはどうすればよいでしょうか？
+次のような経験をしたことはありませんか？
+
+> 既存システムとはインターフェースの異なる外部クラスを追加したくなったとき、呼び出し側のコードをその外部クラスに合わせて修正してしまった。
 
 実務では、「すでに動いているコードには触れたくない」という感覚は自然なものです。<br>
-テスト済みのコードを再び変更することは、デグレードのリスクを新たに持ち込むことになるからです。
+テスト済みのコードを再び変更することは、デグレードのリスクを新たに持ち込むことになるからです。しかし、外部クラスとの差異をどこかで吸収しなければ、この問題は解決できません。
 
-しかし、既存システムとはメソッド名や引数の仕様が異なる外部クラスを追加したい場合、その差異をどこかで吸収しなければなりません。
-
-そのための設計が「Adapter パターン」です。<br>
-名前の通り、異なるインターフェースを持つクラスを、既存システムに「適合（adapt）」させる役割を持ちます。
-
-この記事では、EC サイトへの決済手段追加というシナリオを通して、Adapter パターンの実装と、なぜこの設計が選ばれるのかを学んでいきます。
+この記事では、EC サイトへの決済手段追加というシナリオを通して、Adapter パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -50,7 +47,10 @@ EC サイトの決済機能における共通インターフェースであり�
 | `void pay(int amount)`      | 指定金額を支払う     |
 | `String getPaymentMethod()` | 決済手段の名称を返す |
 
-```Java:PaymentProcessor.java
+**`PaymentProcessor.java`**
+```java
+package example;
+
 public interface PaymentProcessor {
     void pay(int amount);
     String getPaymentMethod();
@@ -69,7 +69,10 @@ public interface PaymentProcessor {
 | `pay(int amount)`    | 「クレジットカードで {`amount`}円 支払いました」を出力 |
 | `getPaymentMethod()` | 「クレジットカード」という名称を返す                   |
 
-```Java:CreditCardPayment.java
+**`CreditCardPayment.java`**
+```java
+package example;
+
 public class CreditCardPayment implements PaymentProcessor {
 
     @Override
@@ -97,7 +100,10 @@ public class CreditCardPayment implements PaymentProcessor {
 | `void charge(int yen)`    | 「サンプル Pay で {`yen`}円 決済します」を出力 |
 | `String getServiceName()` | 「サンプル Pay」という名称を返す               |
 
-```Java:SamplePayClient.java
+**`SamplePayClient.java`**
+```java
+package example;
+
 public class SamplePayClient {
 
     public void charge(int yen) {
@@ -114,7 +120,10 @@ public class SamplePayClient {
 
 - `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -153,7 +162,10 @@ public class SamplePayClient implements PaymentProcessor {
 ただし、`SamplePayClient` クラスには上記のメソッドは存在しないので、追加でオーバーライドする必要があります。<br>
 最終的に、以下のような実装になると思います。
 
-```Java:SamplePayClient.java
+**`SamplePayClient.java`**
+```java
+package example;
+
 public class SamplePayClient implements PaymentProcessor {
 
     public void charge(int yen) {
@@ -178,7 +190,10 @@ public class SamplePayClient implements PaymentProcessor {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -236,7 +251,10 @@ public class Main {
 そのため、「`PaymentProcessor` インターフェースを実現するクラスを作成する」という要件の見落としは十分にありえます。また、この要件は社内コードに関するものであるため、仕様書に明記されないことも多いです。<br>
 以上から次のような実装をしてしまうと考えられます。
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -279,9 +297,14 @@ public class Main {
 では、`PaymentProcessor` という共通の型を実現しつつ、`SamplePayClient` クラスに変更を加えずに実装するにはどうすればよいのでしょうか？
 
 この問題を解決するのが **Adapter パターン**です。<br>
+名前の通り、異なるインターフェースを持つクラスを、既存システムに「適合（adapt）」させる役割を持ちます。
+
 以下の具体的な実装コードを見てみましょう。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
+package example;
+
 public class SamplePayAdapter implements PaymentProcessor {
 
     private SamplePayClient samplePayClient = new SamplePayClient();
@@ -298,7 +321,10 @@ public class SamplePayAdapter implements PaymentProcessor {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         PaymentProcessor creditCard = new CreditCardPayment();
@@ -345,9 +371,12 @@ public class Main {
 
 正しい実装①では、「委譲を使った Adapter パターン」を示しましたが、Adapter パターンには「継承を使った Adapter パターン」もあります。
 
-`Main.java` は正しい実装①と同様なので、`SamplePayAdapter.java` のコードを次に示します。
+`Main` クラスは正しい実装①と同様なので、`SamplePayAdapter` クラスのコードを次に示します。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
+package example;
+
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
 
     @Override
@@ -385,7 +414,10 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 継承を使ったパターンでは、`SamplePayAdapter` がすでに `SamplePayClient` を `extends` しているため、Java の単一継承の制約から `AppLogger` クラスをさらに `extends` できません（→ [【深堀り③】Java の単一継承の制約](#深堀り3)）。<br>
 そのため、次のように `new` でインスタンス化することになります。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
+package example;
+
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
 
     private AppLogger logger = new AppLogger(); // ←ここを追加
@@ -405,7 +437,10 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
 一方、委譲を使ったパターンでは、`SamplePayClient` も `AppLogger` もどちらも `new` でインスタンス化する形で統一されます。
 
-```Java:SamplePayAdapter.java
+**`SamplePayAdapter.java`**
+```java
+package example;
+
 public class SamplePayAdapter implements PaymentProcessor {
 
     private SamplePayClient samplePayClient = new SamplePayClient();

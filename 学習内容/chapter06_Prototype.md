@@ -4,7 +4,7 @@
 
 > 扱う機能が増えるたびに管理クラスを修正し続けなければならず、条件分岐がどんどん増えてしまった
 
-この記事では、EC サイトの通知配信システムへの機能追加というシナリオを通して、Prototype パターンがこの問題をどのように解決するかを学びます。
+この記事では、EC サイトの通知配信システムへの機能追加というシナリオを通して、Prototype パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -44,7 +44,10 @@
 | -------- | ---------- | -------------------------------- |
 | `send`   | `String`   | 通知メッセージを文字列として返す |
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public class NotificationSender {
     public String send(String message) {
         return "[通知] " + message;
@@ -54,9 +57,12 @@ public class NotificationSender {
 
 <br>
 
-- 実行クラス
+- `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender sender = new NotificationSender();
@@ -91,7 +97,10 @@ public class Main {
 | -------- | ---------- | -------------------------------------- |
 | `send`   | `String`   | カード形式の HTML 文字列を生成して返す |
 
-```Java:CardNotification.java
+**`CardNotification.java`**
+```java
+package example;
+
 public class CardNotification {
     private String cssClass;
 
@@ -119,7 +128,10 @@ public class CardNotification {
 | -------- | ---------- | -------------------------------------- |
 | `send`   | `String`   | バナー形式の HTML 文字列を生成して返す |
 
-```Java:BannerNotification.java
+**`BannerNotification.java`**
+```java
+package example;
+
 public class BannerNotification {
     private String cssClass;
 
@@ -141,7 +153,10 @@ public class BannerNotification {
 
 真っ先に思いつくのは、既存の `NotificationSender` に型ごとの分岐を追加する方法ではないでしょうか？
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public class NotificationSender {
     public String send(String type, String message) {
         if (type.equals("coupon")) {
@@ -159,7 +174,10 @@ public class NotificationSender {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender sender = new NotificationSender();
@@ -196,7 +214,10 @@ public class Main {
 
 まず、次のコードを見てください。
 
-```Java:Notification.java
+**`Notification.java`**
+```java
+package example;
+
 public abstract class Notification implements Cloneable {
     public abstract String send(String message);
 
@@ -224,7 +245,10 @@ public abstract class Notification implements Cloneable {
 
 次に、抽象クラス `Notification` を継承したクラス（`CardNotification`・`BannerNotification`）を見てください。
 
-```Java:CardNotification.java
+**`CardNotification.java`**
+```java
+package example;
+
 public class CardNotification extends Notification {
     private String cssClass;
 
@@ -239,7 +263,10 @@ public class CardNotification extends Notification {
 }
 ```
 
-```Java:BannerNotification.java
+**`BannerNotification.java`**
+```java
+package example;
+
 public class BannerNotification extends Notification {
     private String cssClass;
 
@@ -261,7 +288,10 @@ public class BannerNotification extends Notification {
 
 最後に、新たに追加実装する、通知管理を担う `NotificationManager` クラスを見てください。
 
-```Java:NotificationManager.java
+**`NotificationManager.java`**
+```java
+package example;
+
 public class NotificationManager {
     private Map<String, Notification> map = new HashMap<>();
 
@@ -284,7 +314,10 @@ public class NotificationManager {
 
 実行クラスと実行結果は次のようになります。
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationManager manager = new NotificationManager();
@@ -340,7 +373,8 @@ public class Main {
 
 `Cloneable` はインターフェースで、以下の定義になっています。
 
-```Java:Cloneable.java
+**`Cloneable.java`**
+```java
 package java.lang;
 
 public interface Cloneable {
@@ -356,7 +390,8 @@ public interface Cloneable {
 
 では、どこで宣言されているかというと `java.lang.Object` クラスの中で宣言されています。
 
-```Java:Object.java
+**`Object.java`**
+```java
 package java.lang;
 
 public class Object {
@@ -397,7 +432,10 @@ public class Object {
 
 では、実際にコードを見ていきましょう。
 
-```Java:Notification.java
+**`Notification.java`**
+```java
+package example;
+
 public abstract class Notification { // ← ここを修正
     public abstract String send(String message);
 
@@ -405,7 +443,10 @@ public abstract class Notification { // ← ここを修正
 }
 ```
 
-```Java:CardNotification.java
+**`CardNotification.java`**
+```java
+package example;
+
 public class CardNotification extends Notification {
     private String cssClass;
 
@@ -490,7 +531,10 @@ Prototype パターンは、事前に登録したオブジェクト（プロト�
 
 > ※下記で使用する `Notification` クラスはコピーコンストラクタを用いる前の抽象クラスです。
 
-```Java:TaggedNotification.java
+**`TaggedNotification.java`**
+```java
+package example;
+
 public class TaggedNotification extends Notification {
     private String cssClass;
     private String[] tags;
@@ -526,7 +570,10 @@ public class TaggedNotification extends Notification {
 しかし、`String[]` 型のフィールドである `tags` は可変（mutable）オブジェクトです。そのため、デフォルトの `clone` メソッドでは、コンストラクタ `TaggedNotification` を呼び出した際に設定した `tags` と同じ参照先になってしまいます。<br>
 そこで、親クラスの `createCopy` メソッドをオーバーライドし、`tags` を別途 `clone` することで、コピー後のインスタンスが独立した配列を持てるようになります。
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationManager manager = new NotificationManager();
@@ -562,7 +609,10 @@ public class Main {
 
 > とはいえ、`TaggedNotification` クラス内にキャストの処理が無くなるメリットはそれなりに大きいと思います。
 
-```Java:TaggedNotification.java
+**`TaggedNotification.java`**
+```java
+package example;
+
 public class TaggedNotification extends Notification {
     private String cssClass;
     private String[] tags;
@@ -611,7 +661,8 @@ public class TaggedNotification extends Notification {
 > `register` メソッドは `Notification` 型を受け取るので、<br>
 > 下記のように変数 `coupon` の型を具体クラス `CardNotification` で宣言するのではなく、
 >
-> ```Java:Main.java
+> **`Main.java`**
+> ```java
 > public class Main {
 >     public static void main(String[] args) {
 >         NotificationManager manager = new NotificationManager();
@@ -627,7 +678,8 @@ public class TaggedNotification extends Notification {
 >
 > 下記のように抽象クラス `Notification` で宣言してもよいのではないか？
 >
-> ```Java:Main.java
+> **`Main.java`**
+> ```java
 > public class Main {
 >     public static void main(String[] args) {
 >         NotificationManager manager = new NotificationManager();

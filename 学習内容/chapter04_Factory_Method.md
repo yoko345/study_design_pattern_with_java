@@ -1,14 +1,11 @@
 # Factory Method（ファクトリーメソッド）パターン ― インスタンス生成をサブクラスに委ねる
 
-次のようなコードを書いた経験はありませんか？
+次のような経験をしたことはありませんか？
 
-> この処理は A 用だから `new ClassA()`、これは B 用だから `new ClassB()`、… と大量の条件ブロックを記述した
+> 「この処理は A 用だから `new ClassA()`、これは B 用だから `new ClassB()`、… 」と大量の条件ブロックを記述した。<br>
+> また、ある時は `new 具体クラス()` が呼び出し元のあちこちに散らばったコードを引き継いだ。
 
-また、次のようなコードを引き継いだ経験はありませんか？
-
-> 呼び出し元のいろいろな所に `new 具体クラス()` が散らばっている
-
-この記事では、社員入退館管理システムに来訪者カード機能を追加するシナリオを通して、Factory Method パターンがこの問題をどのように解決するかを学びます。
+この記事では、社員入退館管理システムに来訪者カード機能を追加するシナリオを通して、Factory Method パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -59,7 +56,10 @@
 | -------- | ---------- | -------------------------------- |
 | `pass`   | `void`     | 社員証でゲートを通過した際の処理 |
 
-```Java:EmployeeCard.java
+**`EmployeeCard.java`**
+```java
+package example;
+
 public class EmployeeCard {
     private String employeeName;
     private int employeeCardNumber;
@@ -87,7 +87,10 @@ public class EmployeeCard {
 
 - `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
@@ -119,7 +122,10 @@ public class Main {
 
 既存のコードがあるので、`EmployeeCard` を参考に、以下のような実装をするのではないでしょうか？
 
-```Java:VisitorCard.java
+**`VisitorCard.java`**
+```java
+package example;
+
 public class VisitorCard {
     private String visitorName;
     private int visitorCardNumber;
@@ -141,7 +147,10 @@ public class VisitorCard {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
 
     public static void main(String[] args) {
@@ -226,27 +235,29 @@ public class Main {
 ※本記事では下記のクラス構成としています。
 
 > ```
-> framework パッケージ（スーパークラス）
+> example.framework パッケージ（スーパークラス）
 >   ├── Management.java    抽象クラス：入退館管理のための共通インターフェース
 >   └── Factory.java       抽象クラス：「発行 → 登録」の手順を定義
 >
-> visitorcard パッケージ（具体的な実装を行うサブクラス）
+> example.visitorcard パッケージ（具体的な実装を行うサブクラス）
 >   ├── VisitorCard.java           Management のサブクラス
 >   └── VisitorCardFactory.java    Factory のサブクラス
 > ```
 
-**framework パッケージ**
+**example.framework パッケージ**
 
-```Java:Management.java
-package framework;
+**`Management.java`**
+```java
+package example.framework;
 
 public abstract class Management {
     public abstract void pass();
 }
 ```
 
-```Java:Factory.java
-package framework;
+**`Factory.java`**
+```java
+package example.framework;
 
 public abstract class Factory {
 
@@ -273,12 +284,13 @@ public abstract class Factory {
 
 次に、サブクラスのコードを見ていきましょう。
 
-**visitorcard パッケージ**
+**example.visitorcard パッケージ**
 
-```Java:VisitorCard.java
-package visitorcard;
+**`VisitorCard.java`**
+```java
+package example.visitorcard;
 
-import framework.Management;
+import example.framework.Management;
 
 public class VisitorCard extends Management {
     private String visitorName;
@@ -302,11 +314,12 @@ public class VisitorCard extends Management {
 }
 ```
 
-```Java:VisitorCardFactory.java
-package visitorcard;
+**`VisitorCardFactory.java`**
+```java
+package example.visitorcard;
 
-import framework.Factory;
-import framework.Management;
+import example.framework.Factory;
+import example.framework.Management;
 
 public class VisitorCardFactory extends Factory {
     private int visitorCardNumber = 0;
@@ -327,10 +340,13 @@ public class VisitorCardFactory extends Factory {
 
 実行クラスは次のコードとなります。
 
-```Java:Main.java
-import framework.Factory;
-import framework.Management;
-import visitorcard.VisitorCardFactory;
+**`Main.java`**
+```java
+package example;
+
+import example.framework.Factory;
+import example.framework.Management;
+import example.visitorcard.VisitorCardFactory;
 
 public class Main {
     public static void main(String[] args) {
@@ -384,15 +400,16 @@ public class Main {
 ※本記事では下記のクラス構成を追加するとします。
 
 ```
-employeecard パッケージ（具体的な実装を行うサブクラス）
+example.employeecard パッケージ（具体的な実装を行うサブクラス）
   ├── EmployeeCard.java           Management のサブクラス
   └── EmployeeCardFactory.java    Factory のサブクラス
 ```
 
-```Java:EmployeeCard.java
-package employeecard;
+**`EmployeeCard.java`**
+```java
+package example.employeecard;
 
-import framework.Management;
+import example.framework.Management;
 
 public class EmployeeCard extends Management {
     private String employeeName;
@@ -416,11 +433,12 @@ public class EmployeeCard extends Management {
 }
 ```
 
-```Java:EmployeeCardFactory.java
-package employeecard;
+**`EmployeeCardFactory.java`**
+```java
+package example.employeecard;
 
-import framework.Factory;
-import framework.Management;
+import example.framework.Factory;
+import example.framework.Management;
 
 public class EmployeeCardFactory extends Factory {
     private int employeeCardNumber = 1000;
@@ -439,11 +457,14 @@ public class EmployeeCardFactory extends Factory {
 }
 ```
 
-```Java:Main.java
-import employeecard.EmployeeCardFactory; // ←ここを追加
-import framework.Factory;
-import framework.Management;
-import visitorcard.VisitorCardFactory;
+**`Main.java`**
+```java
+package example;
+
+import example.employeecard.EmployeeCardFactory; // ←ここを追加
+import example.framework.Factory;
+import example.framework.Management;
+import example.visitorcard.VisitorCardFactory;
 
 public class Main {
     public static void main(String[] args) {
@@ -476,7 +497,10 @@ public class Main {
 
 上記のコードの本質的な部分を抽出したコードが下記となります（社員証の入退館システムの方を提示している）。
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 〜省略〜
 
 public class Main {
@@ -521,10 +545,10 @@ public class Main {
 - 通し番号に関して、`Factory` クラスを継承したサブクラスで管理するため、採番ミスや重複が発生しない
 
 上記以外のメリットとして、別システムへの転用ができることが挙げられます。<br>
-例えば、「病院の受付システムからも同じフレームワークを使いたいという要件が来た」としましょう。その際は、`employeecard` パッケージを作成したときと同様に、下記のパッケージを追加するだけで実装ができます。この時、**スーパークラスのコードは 1 行も変更しません。**
+例えば、「病院の受付システムからも同じフレームワークを使いたいという要件が来た」としましょう。その際は、`example.employeecard` パッケージを作成したときと同様に、下記のパッケージを追加するだけで実装ができます。この時、**スーパークラスのコードは 1 行も変更しません。**
 
 ```
-patientticket パッケージ
+example.patientticket パッケージ
   ├── PatientTicket.java           Management のサブクラス
   └── PatientTicketFactory.java    Factory のサブクラス
 ```
@@ -556,7 +580,10 @@ patientticket パッケージ
 
 本記事の `Factory` クラスを改めて見てみましょう。
 
-```Java:Factory.java
+**`Factory.java`**
+```java
+package example;
+
 public abstract class Factory {
 
     protected abstract Management createManagement(String person);
@@ -600,7 +627,10 @@ Factory Method パターンには、設計原則の観点から 2 つの側面�
 
 正しい実装の本質的な実行クラス（社員証の入退館システム）を見てみましょう。
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         Factory factory = new EmployeeCardFactory();
@@ -625,7 +655,10 @@ DIP を守ることで、スーパークラスを修正することなく具体�
 
 「`EmployeeCardFactory` と `VisitorCardFactory` はほぼ同じコードなので、個別に作るのは冗長だ」という理由で、生成処理を 1 か所にまとめ、インスタンス化も省いた次のようなコードを PR として提出してくるかもしれません。
 
-```Java:CardFactory.java
+**`CardFactory.java`**
+```java
+package example;
+
 public class CardFactory {
     private static int number = 0;
 
@@ -642,7 +675,10 @@ public class CardFactory {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         CardFactory.create("employee", "田中 太郎");
@@ -721,7 +757,10 @@ List<String> list = Arrays.asList("sample1", "sample2", "sample3");
 
 [既存コードの仕様](#既存コードの仕様)を再度示します。
 
-```Java:EmployeeCard.java
+**`EmployeeCard.java`**
+```java
+package example;
+
 public class EmployeeCard {
     private String employeeName;
     private int employeeCardNumber;
@@ -743,7 +782,10 @@ public class EmployeeCard {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
@@ -783,6 +825,8 @@ new StringBuilder().append(this).append(" でゲートを通過します。").to
 `append(Object obj)` では、次のように内部で `String.valueOf(obj)` を呼びます。
 
 ```java
+package java.lang;
+
 public final class StringBuilder
     extends AbstractStringBuilder
     implements Appendable, java.io.Serializable, Comparable<StringBuilder>, CharSequence {
@@ -799,6 +843,8 @@ public final class StringBuilder
 `String.valueOf(Object obj)` は次のように定義されています。
 
 ```java
+package java.lang;
+
 public final class String
     implements java.io.Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc {
 

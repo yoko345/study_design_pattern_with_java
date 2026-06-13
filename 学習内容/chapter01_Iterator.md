@@ -1,10 +1,10 @@
 # Iterator（イテレータ）パターン ― 繰り返し文を実装に依存させない
 
-繰り返し処理に関して以下の経験はないでしょうか？
+次のような経験をしたことはありませんか？
 
-`for` 文の中身が処理対象のデータ構造に依存している関係で、後からリファクタリングを行おうとした際、繰り返し処理以外の部分も修正しないといけなかった。
+> `for` 文の中身が処理対象のデータ構造に依存している関係で、後からリファクタリングや、ちょっとした動作確認をしたいとき（デバッグを行いたいときなど）に、「繰り返し処理」以外の部分まで気にする必要が出てきた。
 
-この記事では、このような問題を解決する「Iterator パターン」を具体例を通して学びます。
+この記事では、そうした「変更や確認のたびに手間がかかる実装」の悪い例と、それを解決する「Iterator パターン」を、具体例を通して紹介します。
 
 ## 目次
 
@@ -32,7 +32,11 @@
 
 今回の具体例では、果物の名前と金額の情報を出力する必要があるので、`Fruit` クラスを事前に作成しておきます。
 
-```Java:Fruit.java
+**`Fruit.java`**
+
+```java
+package example;
+
 public class Fruit {
     private String name;
     private int price;
@@ -53,7 +57,11 @@ public class Fruit {
 
 以下のようになると思います。
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -81,7 +89,11 @@ public class Main {
 
 冒頭の経験のなかで例えば、後から「キウイ（130 円）」を追加したくなったとします。その場合、下記のような実装をしたくなると思います。
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         Fruit[] fruitBasket = new Fruit[3];
@@ -102,7 +114,11 @@ public class Main {
 
 ここで「配列の代わりに `List` を使えばよいのでは？」と思うかもしれません。
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         List<Fruit> fruitBasket = Arrays.asList(
@@ -113,8 +129,8 @@ public class Main {
 
         fruitBasket.add(new Fruit("キウイ", 130));
 
-        for (int i = 0; i < fruitBasket.size(); i++) {
-            System.out.println(fruitBasket.get(i).getFruitInfo());
+        for (int i = 0; i < fruitBasket.size(); i++) { // ←fruitBasket.size() に変更
+            System.out.println(fruitBasket.get(i).getFruitInfo()); // ←fruitBasket.get(i) に変更
         }
     }
 }
@@ -130,7 +146,11 @@ fruitBasket.add(new Fruit("キウイ", 130));
 
 そこで**可変長**の `ArrayList`（→ [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)）を使うことで要素の追加ができるようになります。このことは、下記の実装から分かります。
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         ArrayList<Fruit> fruitBasket = new ArrayList<>(); // ※2
@@ -160,7 +180,7 @@ public class Main {
 
 後から「キウイ（130 円）」を追加するという実装は、`ArrayList` への変更で解決できました。
 
-しかし実装の中身を見てみると、**繰り返し文も修正が必要になった**ことがわかります。
+しかし実装の中身を見てみると、下記のように**繰り返し文も修正が必要になった**ことがわかります。
 
 | 実装        | 繰り返し文での要素取得 |
 | ----------- | ---------------------- |
@@ -200,7 +220,11 @@ public interface Iterator<E> {
 
 これらを使って `FruitBasket` クラスと `FruitBasketIterator` クラスを実装します。
 
-```Java:FruitBasket.java
+**`FruitBasket.java`**
+
+```java
+package example;
+
 public class FruitBasket implements Iterable<Fruit> {
 
     private Fruit[] fruits;
@@ -230,7 +254,11 @@ public class FruitBasket implements Iterable<Fruit> {
 }
 ```
 
-```Java:FruitBasketIterator.java
+**`FruitBasketIterator.java`**
+
+```java
+package example;
+
 public class FruitBasketIterator implements Iterator<Fruit> {
 
     private FruitBasket fruitBasket;
@@ -264,7 +292,11 @@ public class FruitBasketIterator implements Iterator<Fruit> {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -301,7 +333,11 @@ public class Main {
 
 改めて「キウイ（130 円）」を追加したくなったとしましょう。
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -320,11 +356,15 @@ public class Main {
 }
 ```
 
-しかし、実装を見て分かるように `ArrayIndexOutOfBoundsException` が発生します。
+上記実装より、`fruitBasket` には `FruitBasket(3)` のインスタンスが代入されています。`FruitBasket` は内部で `new Fruit[3]` という固定長配列を保持しているため、`appendFruit` で 4 つ目の要素を追加しようとすると、配列のサイズを超えてしまい `ArrayIndexOutOfBoundsException` が発生します。
 
 そこで、`FruitBasket` の内部実装を配列から `ArrayList`（→ [【深堀り②】`List<>` で宣言する理由 ― DIP（依存性逆転の原則）](#深堀り2)）に変えてみましょう。
 
-```Java:FruitBasket.java
+**`FruitBasket.java`**
+
+```java
+package example;
+
 public class FruitBasket implements Iterable<Fruit> {
     private List<Fruit> fruits;
 
@@ -351,7 +391,11 @@ public class FruitBasket implements Iterable<Fruit> {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) throws Exception {
         FruitBasket fruitBasket = new FruitBasket(3);
@@ -379,7 +423,7 @@ public class Main {
 名前：キウイ, 価格：130
 ```
 
-上記を見て分かるように、`FruitBasket` の実装は変わりましたが、**`Main` クラスの繰り返し文はまったく変更されていない**ことがわかります。
+`FruitBasket` クラスの実装に関して、要素の管理の仕方が配列から `ArrayList` に変わっています。しかし、下記の `Main` クラスの繰り返し文は、変更前の `Main` クラスとまったく同じコードのままです。
 
 ```Java
 Iterator<Fruit> iterator = fruitBasket.iterator();
@@ -435,7 +479,6 @@ for (int i = 0; i < fruitBasket.length; i++) {
 以降は「もう少し深く知りたい」という方向けの補足となります。実務でよく遭遇する落とし穴や、今回学んだパターンに繋がる設計原則について触れています。
 
 ---
-
 
 <a id="深堀り1"></a>
 
