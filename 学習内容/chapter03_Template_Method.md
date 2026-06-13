@@ -1,10 +1,12 @@
 # Template Method（テンプレートメソッド）パターン ― 処理の流れをスーパークラスに任せる
 
-追加実装をする際に、同じような処理の流れを持つクラスを何度も書いていませんか？
+次のような経験をしたことはありませんか？
+
+> 追加実装をする際に、同じような処理の流れを持つクラスを何度も書いてしまった。
 
 実務では、このような場面は珍しくありません。確かに最初はクラスの数も少なく、コピーで素早く対応できます。しかし、機能追加を重ねるたびにクラスは増え、仕様変更が起きたときには全クラスを修正しなければなりません。
 
-この記事では、社内通知システムへの通知手段追加というシナリオを通して、Template Method パターンがこの問題をどのように解決するかを学びます。
+この記事では、社内通知システムへの通知手段追加というシナリオを通して、Template Method パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -50,7 +52,10 @@
 | --------------------------- | ------------------------------------------------------------- |
 | `void send(String message)` | 「バリデーション→本文の組み立て→送信→ログ記録」を順に実行する |
 
-```Java:EmailNotification.java
+**`EmailNotification.java`**
+```java
+package example;
+
 public class EmailNotification {
     private String emailAddress;
 
@@ -77,7 +82,10 @@ public class EmailNotification {
 
 - `Main`（実行クラス）
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmailNotification email = new EmailNotification("user@example.com");
@@ -106,7 +114,10 @@ user@example.com にメールを送信しました：[障害通知] DBサーバ�
 
 Slack では、障害発生時用のチャンネルに通知を飛ばすと考えられるので、次のコードになると思います。
 
-```Java:SlackNotification.java
+**`SlackNotification.java`**
+```java
+package example;
+
 public class SlackNotification {
     private String channel;
 
@@ -131,7 +142,10 @@ public class SlackNotification {
 
 SMS では、電話番号が必要になるので、次のコードになると思います。
 
-```Java:SmsNotification.java
+**`SmsNotification.java`**
+```java
+package example;
+
 public class SmsNotification {
     private String phoneNumber;
 
@@ -154,7 +168,10 @@ public class SmsNotification {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmailNotification email = new EmailNotification("user@example.com");
@@ -218,7 +235,10 @@ user@example.com にメールを送信しました：[障害通知] DBサーバ�
 ここでは、コードの重複とは別の問題もあることを見ていきます。<br>
 次の実装を見てください。
 
-```Java:SlackNotification.java
+**`SlackNotification.java`**
+```java
+package example;
+
 public class SlackNotification {
     private String channel;
 
@@ -233,7 +253,10 @@ public class SlackNotification {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         EmailNotification email = new EmailNotification("user@example.com");
@@ -278,7 +301,10 @@ null にSlack通知を送信しました：:warning: DBサーバーの応答が�
 これらの問題を解決するのが **Template Method パターン**です。<br>
 まずは次のコードを見てください。
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public abstract class NotificationSender {
     public abstract void validate();
 
@@ -311,7 +337,10 @@ public abstract class NotificationSender {
 
 次に、サブクラスのコードを見ていきましょう。
 
-```Java:EmailNotification.java
+**`EmailNotification.java`**
+```java
+package example;
+
 public class EmailNotification extends NotificationSender {
     private String emailAddress;
 
@@ -343,7 +372,10 @@ public class EmailNotification extends NotificationSender {
 }
 ```
 
-```Java:SlackNotification.java
+**`SlackNotification.java`**
+```java
+package example;
+
 public class SlackNotification extends NotificationSender {
     private String channel;
 
@@ -375,7 +407,10 @@ public class SlackNotification extends NotificationSender {
 }
 ```
 
-```Java:SmsNotification.java
+**`SmsNotification.java`**
+```java
+package example;
+
 public class SmsNotification extends NotificationSender {
     private String phoneNumber;
 
@@ -409,7 +444,10 @@ public class SmsNotification extends NotificationSender {
 
 実行クラスでは次のようなコードとなり、出力結果は下記となります。
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender email = new EmailNotification("user@example.com");
@@ -495,7 +533,10 @@ Template Method パターンは、次の 2 つの大きな問題を同時に解�
 
 抽象クラス `NotificationSender` をインターフェースに変更すると次のようになると思います。
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public interface NotificationSender {
     public abstract void validate();
 
@@ -541,7 +582,10 @@ Template Method パターンの本質は「流れは固定し、中身だけを�
 
 次のコードは `MAX_RETRY` がインターフェースの定数に当たるのですが、参照するだけで更新ができません。そのため、全クラス・全インスタンスで同じ値を共有するだけとなります。
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public interface NotificationSender {
     public static final int MAX_RETRY = 3;  // 参照するだけで更新できない（全インスタンス共通）
 
@@ -564,7 +608,10 @@ public interface NotificationSender {
 
 一方、次のコードは `retryCount` が抽象クラスのインスタンス変数に当たるのですが、各インスタンスで独立して送信回数を管理することができます。
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public abstract class NotificationSender {
     protected int retryCount = 0;  // インスタンスごとに状態を管理できる
 
@@ -635,7 +682,10 @@ Template Method パターンでは、本記事のように適切な修飾子を�
 
 上記のように考えた場合、次の実装になると思います。（※説明の都合上、メール通知の実装のみ）
 
-```Java:NotificationSender.java
+**`NotificationSender.java`**
+```java
+package example;
+
 public abstract class NotificationSender {
     public abstract void validate();
 
@@ -657,7 +707,10 @@ public abstract class NotificationSender {
 }
 ```
 
-```Java:EmailNotification.java
+**`EmailNotification.java`**
+```java
+package example;
+
 public class EmailNotification extends NotificationSender {
     private String emailAddress;
 
@@ -686,7 +739,10 @@ public class EmailNotification extends NotificationSender {
 }
 ```
 
-```Java:Main.java
+**`Main.java`**
+```java
+package example;
+
 public class Main {
     public static void main(String[] args) {
         NotificationSender email = new EmailNotification("user@example.com");
