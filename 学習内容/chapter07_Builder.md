@@ -1,8 +1,8 @@
 # Builder（ビルダー）パターン ― 複雑なオブジェクトの組み立て手順を統一する
 
-このような経験はありませんか？
+次のような経験をしたことはありませんか？
 
-> 複数の手順を経て完成するオブジェクトを、条件や用途に応じて作り分ける必要が生じた。生成コードを各所に直書きしているうちに重複が膨らんで、新しい種類を追加するたびに似たような変更を何箇所にも加えなければならなくなっていた。
+> 複数の手順を経て完成するオブジェクトを、条件や用途に応じて作り分ける必要が生じた。この際、生成コードを各所に直書きしているうちに重複が膨らんで、新しい種類を追加するたびに似たような変更を何箇所にも加えなければならなくなった。
 
 この記事では、EC サイトの注文管理システムのテストというシナリオを通して、Builder パターンがこの問題をどのように解決するかを紹介します。
 
@@ -11,6 +11,7 @@
 - [【具体例】](#具体例)
     - [シナリオ](#シナリオ)
     - [既存コードの仕様](#既存コードの仕様)
+    - [テストケースの方針](#テストケースの方針)
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
@@ -25,40 +26,84 @@
 
 ### シナリオ
 
-あなたは EC サイトの開発チームにいます。注文管理システムの `OrderService` に対して単体テストを書くことになりました。
-
-`OrderService` は注文を処理するクラスで、`Order` と `Payment` を受け取り、在庫確認・決済処理・注文確定を行います。テストを書くには、その入力となる顧客・注文・支払いのデータを用意する必要があります。
+> あなたは EC サイトの開発チームに所属しています。<br>
+> リリースを間近に控え、注文管理システムの注文を処理するクラス（`OrderService` クラス）に対する単体テストの拡充を任されました。<br>
+> 現在は正常系のテストが 1 件だけ用意されていますが、PM から「テストカバレッジを上げるため、境界値テストと異常系テストも追加してほしい」という要望が来ています。
 
 ### 既存コードの仕様
 
-注文に関わるエンティティは次の 4 つです。
+- `OrderService`（既存クラス）
+
+注文を処理するクラスです。
+
+| メソッド  | 戻り値の型 | 説明                       |
+| --------- | ---------- | -------------------------- |
+| `process` | `boolean`  | 注文処理を行い、成否を返す |
+
+**`OrderService.java`**
+
+```java
+package example;
+
+public class OrderService {
+    public boolean process(Order order, Payment payment) {
+        // 実際には在庫確認・決済処理・注文確定などの処理が行われるが、本記事の主題とは関係ないため省略
+        return true; // 処理が省略されているため便宜上 true を返している
+    }
+}
+```
+
+※テストを書くには、この `process` メソッドの引数となる `Order` と `Payment` のデータを用意する必要があります。
+
+次からは、注文に関わるエンティティクラスの仕様です。<br>
+注文情報を保持する `Order` は顧客情報（`Customer`）や注文明細（`OrderItem`）を、支払い情報を保持する `Payment` は `Order` を、それぞれフィールドとして保持するクラスであることに留意してください。
+
+※一般的に、エンティティはリレーショナル・データベースの表を表現し、各エンティティ・インスタンスはその表の行に相当します（→ [4 エンティティの理解](https://docs.oracle.com/cd/F32751_01/toplink/14.1.1.0/concepts/understanding-entities.html)）。
+
+- `Customer`（既存クラス・注文に関わるエンティティ）
+
+顧客情報を保持するクラスです。
+
+| フィールド | 型       | 説明           |
+| ---------- | -------- | -------------- |
+| `name`     | `String` | 顧客名         |
+| `email`    | `String` | メールアドレス |
+| `tell`     | `String` | 電話番号       |
 
 **`Customer.java`**
 
 ```java
 package example;
 
-// 顧客情報
 public class Customer {
     private final String name;
     private final String email;
-    private final String phone;
+    private final String tell;
 
-    public Customer(String name, String email, String phone) {
+    public Customer(String name, String email, String tell) {
         this.name = name;
         this.email = email;
-        this.phone = phone;
+        this.tell = tell;
     }
-    // getters 省略
+    // 各フィールドに対応する getter メソッドは、本記事の主題とは関係ないため省略
 }
 ```
+
+- `OrderItem`（既存クラス・注文に関わるエンティティ）
+
+注文明細（1 商品分）を保持するクラスです。
+
+| フィールド    | 型       | 説明   |
+| ------------- | -------- | ------ |
+| `productName` | `String` | 商品名 |
+| `unitPrice`   | `int`    | 単価   |
+| `quantity`    | `int`    | 数量   |
 
 **`OrderItem.java`**
 
 ```java
 package example;
 
-// 注文明細（1商品分）
 public class OrderItem {
     private final String productName;
     private final int unitPrice;
@@ -69,16 +114,25 @@ public class OrderItem {
         this.unitPrice = unitPrice;
         this.quantity = quantity;
     }
-    // getters 省略
+    // 各フィールドに対応する getter メソッドは、本記事の主題とは関係ないため省略
 }
 ```
+
+- `Order`（既存クラス・注文に関わるエンティティ）
+
+注文情報を保持するクラスです。
+
+| フィールド  | 型                | 説明             |
+| ----------- | ----------------- | ---------------- |
+| `customer`  | `Customer`        | 注文した顧客     |
+| `items`     | `List<OrderItem>` | 注文明細のリスト |
+| `orderDate` | `LocalDate`       | 注文日           |
 
 **`Order.java`**
 
 ```java
 package example;
 
-// 注文（Customer に依存）
 public class Order {
     private final Customer customer;
     private final List<OrderItem> items;
@@ -89,16 +143,25 @@ public class Order {
         this.items = items;
         this.orderDate = orderDate;
     }
-    // getters 省略
+    // 各フィールドに対応する getter メソッドは、本記事の主題とは関係ないため省略
 }
 ```
+
+- `Payment`（既存クラス・注文に関わるエンティティ）
+
+支払い情報を保持するクラスです。
+
+| フィールド | 型       | 説明       |
+| ---------- | -------- | ---------- |
+| `order`    | `Order`  | 対象の注文 |
+| `method`   | `String` | 支払い方法 |
+| `amount`   | `int`    | 支払い金額 |
 
 **`Payment.java`**
 
 ```java
 package example;
 
-// 支払い（Order に依存）
 public class Payment {
     private final Order order;
     private final String method;
@@ -109,18 +172,20 @@ public class Payment {
         this.method = method;
         this.amount = amount;
     }
-    // getters 省略
+    // 各フィールドに対応する getter メソッドは、本記事の主題とは関係ないため省略
 }
 ```
 
-ここで着目してほしいのが、エンティティ間の **依存関係** です。
+最後に、テストクラスの仕様です。
 
-- `Order` は `Customer` がなければ作れない
-- `Payment` は `Order` がなければ作れない
+- `OrderServiceTest`（既存クラス・テストを行うためのクラス）
 
-つまり、テストデータを作成するには **Customer → Order → Payment** の順で組み立てる必要があります。
+注文を処理するクラス `OrderService` の `process` メソッドの動作を検証するテストクラスです。<br>
+現在は正常系のテストのみが実装されています。
 
-現在のテストコードはこのように書かれています。
+| メソッド               | 戻り値の型 | 説明                                                                                     |
+| ---------------------- | ---------- | ---------------------------------------------------------------------------------------- |
+| 正常な注文が処理される | `void`     | 有効な顧客情報・注文内容を入力値とし、`process` が `true` を返す（正常系）ことを確認する |
 
 **`OrderServiceTest.java`**
 
@@ -145,27 +210,20 @@ class OrderServiceTest {
 }
 ```
 
-3 つのエンティティを毎回手作業で組み立てています。正常系テストが数本なら問題ありませんが、テストケースが増えてくると事情が変わります。
+### テストケースの方針
 
----
-
-## 追加要件
-
-チームから次の要求が来ました。
-
-> 「テストカバレッジを上げるため、正常系に加えて **境界値テスト** と **異常系テスト** も網羅してほしい。」
+テストは一般的に「正常系」「境界値系」「異常系」の確認を行います。<br>
+今回のシナリオでは下記のようなことをテストすることを想定しています。
 
 - **正常系**：有効な顧客情報と通常の注文内容
 - **境界値系**：名前が最大文字数・注文数量が上限値・金額が最小値 など
 - **異常系**：不正なメールアドレス・空の注文リスト・負の金額 など
 
-テストケースがこの 3 種類に増えると、Customer → Order → Payment を組み立てるコードがテストファイル全体に散らばることになります。
-
----
+※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
 
 ## 好ましくない実装
 
-※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
+では、シナリオに従って「境界値テスト」「異常系テスト」実装をしていきましょう。
 
 共通化しようとして、種別を文字列で受け取るファクトリメソッドを作ったとします。
 
@@ -250,7 +308,7 @@ public class TestData {
         this.order = order;
         this.payment = payment;
     }
-    // getters 省略
+    // 各フィールドに対応する getter メソッドは、本記事の主題とは関係ないため省略
 }
 ```
 
