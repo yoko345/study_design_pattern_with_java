@@ -193,19 +193,19 @@ public class Payment {
 package example;
 
 class OrderServiceTest {
+    private final OrderService orderService = new OrderService();
+
+    /**
+     * 正常系
+     */
     @Test
     void 正常な注文が処理される() {
-        Customer customer = new Customer(
-            "田中太郎", "tanaka@example.com", "090-1234-5678");
-        Order order = new Order(
-            customer,
-            List.of(new OrderItem("ノートPC", 100_000, 1)),
-            LocalDate.of(2024, 1, 15));
+        Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)),
+                LocalDate.of(2024, 1, 15));
         Payment payment = new Payment(order, "credit_card", 100_000);
 
-        boolean result = orderService.process(order, payment);
-
-        assertTrue(result);
+        assertTrue(orderService.process(order, payment));
     }
 }
 ```
@@ -216,65 +216,126 @@ class OrderServiceTest {
 今回のシナリオでは下記のようなことをテストすることを想定しています。
 
 - **正常系**：有効な顧客情報と通常の注文内容
-- **境界値系**：名前が最大文字数・注文数量が上限値・金額が最小値 など
+- **境界値系**：名前が最大文字数・メールアドレスが最短形式・注文数量が上限値 など
 - **異常系**：不正なメールアドレス・空の注文リスト・負の金額 など
 
 ※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
 
 ## 好ましくない実装
 
-では、シナリオに従って「境界値テスト」「異常系テスト」実装をしていきましょう。
+では、シナリオに従って「境界値テスト」「異常系テスト」の実装をしていきましょう。
 
-共通化しようとして、種別を文字列で受け取るファクトリメソッドを作ったとします。
+真っ先に思いつくのは、既存の正常系テストをコピペして、設定値だけを変えていく方法ではないでしょうか？
 
-**`TestDataFactory.java`**
+**`OrderServiceTest.java`**
 
 ```java
 package example;
 
-public class TestDataFactory {
-    public static TestData create(String type) {
-        if (type.equals("normal")) {
-            Customer customer = new Customer(
-                "田中太郎", "tanaka@example.com", "090-1234-5678");
-            Order order = new Order(
-                customer,
-                List.of(new OrderItem("ノートPC", 100_000, 1)),
-                LocalDate.of(2024, 1, 15));
-            Payment payment = new Payment(order, "credit_card", 100_000);
-            return new TestData(customer, order, payment);
+class OrderServiceTest {
+    private final OrderService orderService = new OrderService();
 
-        } else if (type.equals("edge")) {
-            Customer customer = new Customer(
-                "あ".repeat(50), "a@b.c", "000-0000-0000");
-            Order order = new Order(
-                customer,
-                List.of(new OrderItem("消耗品", 1, 99)),
-                LocalDate.now());
-            Payment payment = new Payment(order, "cash", 99);
-            return new TestData(customer, order, payment);
+    /**
+     * 正常系
+     */
+    @Test
+    void 正常な注文が処理される() {
+        Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "credit_card", 100_000);
+        assertTrue(orderService.process(order, payment));
+    }
 
-        } else if (type.equals("error")) {
-            Customer customer = new Customer("", "not-an-email", "");
-            Order order = new Order(customer, List.of(), LocalDate.now());
-            Payment payment = new Payment(order, "unknown", -1);
-            return new TestData(customer, order, payment);
-        }
+    /**
+     * 境界値系 - 名前が最大文字数
+     */
+    @Test
+    void 名前が最大文字数の顧客でも処理される() {
+        Customer customer = new Customer("あ".repeat(50), "tanaka@example.com", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "credit_card", 100_000);
+        assertTrue(orderService.process(order, payment));
+    }
 
-        throw new IllegalArgumentException("Unknown type: " + type);
+    /**
+     * 境界値系 - メールアドレスが最短形式
+     */
+    @Test
+    void メールアドレスが最短形式でも処理される() {
+        Customer customer = new Customer("田中太郎", "a@b.c", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "credit_card", 100_000);
+        assertTrue(orderService.process(order, payment));
+    }
+
+    /**
+     * 境界値系 - 注文数量が上限値
+     */
+    @Test
+    void 注文数量が上限値でも処理される() {
+        Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("消耗品", 1, 99)), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "cash", 99);
+        assertTrue(orderService.process(order, payment));
+    }
+
+    /**
+     * 異常系 - 不正なメールアドレス
+     */
+    @Test
+    void 不正なメールアドレスは処理に失敗する() {
+        Customer customer = new Customer("田中太郎", "not-an-email", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "credit_card", 100_000);
+        assertFalse(orderService.process(order, payment));
+    }
+
+    /**
+     * 異常系 - 空の注文リスト
+     */
+    @Test
+    void 空の注文リストは処理に失敗する() {
+        Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+        Order order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "credit_card", 0);
+        assertFalse(orderService.process(order, payment));
+    }
+
+    /**
+     * 異常系 - 負の金額
+     */
+    @Test
+    void 負の金額は処理に失敗する() {
+        Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+        Payment payment = new Payment(order, "credit_card", -1);
+        assertFalse(orderService.process(order, payment));
     }
 }
 ```
 
-呼び出し側はシンプルになりました。
+テストは動きますが、`Customer`・`Order`・`Payment` を生成する 3 行が、テストメソッドのたびに繰り返されています。7 メソッド × 3 行 = 21 行が重複しており、テストケースが増えるほど膨らみます。
+
+「では `@BeforeEach`（各テストの前に自動実行されるセットアップメソッド）で共通化すればよいのでは？」と思うかもしれません。しかし、ここには落とし穴があります。
 
 ```java
-TestData data = TestDataFactory.create("normal");
+@BeforeEach
+void setUp() {
+    customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+    order    = new Order(customer, ...);   // customer に依存
+    payment  = new Payment(order, ...);    // order に依存
+}
+
+@Test
+void 名前が最大文字数の顧客でも処理される() {
+    customer = new Customer("あ".repeat(50), ...);  // customer を差し替えると…
+    order    = new Order(customer, ...);             // Order は Customer に依存するため作り直しが必要
+    payment  = new Payment(order, ...);              // Payment は Order に依存するため作り直しが必要
+    // @BeforeEach の 3 行が無駄になり、結局また 3 行書く羽目になる
+}
 ```
 
-しかしこのコードには問題があります。**新しい種別が必要になるたびに `TestDataFactory` を修正しなければなりません。**
-
-たとえばパフォーマンステスト用に大量の注文明細を持つデータが必要になった場合、`else if (type.equals("stress"))` を追加することになります。種別が増えるほどこのメソッドは肥大化し、テストケースごとの生成ロジックが一箇所に混在してしまいます。
+`Customer` を差し替えると、`Order`（`Customer` に依存）と `Payment`（`Order` に依存）も作り直さなければなりません。**依存チェーンがある限り、`@BeforeEach` で 1 箇所だけ変えることはできません。** 結局、すべてのテストメソッドで 3 行を書き直すことになります。
 
 ---
 
@@ -478,15 +539,18 @@ class OrderServiceTest {
 
 Builder パターンの適用前後を整理します。
 
-|                        | 好ましくない実装                 | Builder パターン                |
-| ---------------------- | -------------------------------- | ------------------------------- |
-| 種別の追加             | `TestDataFactory` を修正する     | 新しい Builder クラスを追加する |
-| 組み立て順序の保証     | 呼び出し側が順序を守る必要がある | Director が順序を強制する       |
-| 種別ごとの生成ロジック | 1 つのメソッドに混在する         | Builder クラスごとに分離される  |
+|                        | 好ましくない実装                                 | Builder パターン                |
+| ---------------------- | ------------------------------------------------ | ------------------------------- |
+| 種別の追加             | テストメソッドのセットアップをコピペして修正する | 新しい Builder クラスを追加する |
+| 組み立て順序の保証     | 呼び出し側が順序を守る必要がある                 | Director が順序を強制する       |
+| 種別ごとの生成ロジック | 各テストメソッドに重複して散在する               | Builder クラスごとに分離される  |
 
 Builder パターンが特に力を発揮するのは、**複数のオブジェクトが依存関係を持ちながら段階的に組み立てる必要がある場合**です。今回のようなテストデータ生成のほか、複雑な設定オブジェクトの生成や環境ごとに異なる構成物を作る場面でも広く使われます。
 
 ---
+
+[メモ]テスト実装に関して、簡単に深堀りを用意する。
+
 
 <a id="深堀り1"></a>
 
@@ -522,7 +586,7 @@ Director はこの **「組み立てには正しい順序がある」という�
 
 新たにパフォーマンステスト用のデータが必要になったとします。
 
-好ましくない実装では `TestDataFactory` に `else if` を追加しなければなりませんでした。一方 Builder パターンなら、新しいクラスを追加するだけです。
+好ましくない実装では、テストメソッドを 1 つ追加するたびに同じ 3 行のセットアップをコピペして修正するしかありませんでした。一方 Builder パターンなら、新しいクラスを追加するだけです。
 
 **`StressTestBuilder.java`**
 
