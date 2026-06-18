@@ -47,8 +47,17 @@ package example;
 
 public class OrderService {
     public boolean process(Order order, Payment payment) {
-        // 実際には在庫確認・決済処理・注文確定などの処理が行われるが、本記事の主題とは関係ないため省略
-        return true; // 処理が省略されているため便宜上 true を返している
+        // メールアドレスは「@」必須
+        if (!order.getCustomer().getEmail().contains("@")) return false;
+
+        // 「注文明細」は 1 件以上必須
+        if (order.getItems().isEmpty()) return false;
+
+        // 「支払金額」は 0 以上
+        if (payment.getAmount() < 0) return false;
+
+        // 実務では必ず実装される在庫確認・決済処理・注文確定は、本記事の主題とは関係ないため省略
+        return true;
     }
 }
 ```
@@ -201,8 +210,7 @@ class OrderServiceTest {
     @Test
     void 正常な注文が処理される() {
         Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
-        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)),
-                LocalDate.of(2024, 1, 15));
+        Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
         Payment payment = new Payment(order, "credit_card", 100_000);
 
         assertTrue(orderService.process(order, payment));
@@ -213,11 +221,16 @@ class OrderServiceTest {
 ### テストケースの方針
 
 テストは一般的に「正常系」「境界値系」「異常系」の確認を行います。<br>
-今回のシナリオでは下記のようなことをテストすることを想定しています。
+今回のシナリオでは下記をテストすることにします。（他にも様々な観点がありますが、本記事の主題から外れるため扱いません。）
 
 - **正常系**：有効な顧客情報と通常の注文内容
-- **境界値系**：名前が最大文字数・メールアドレスが最短形式・注文数量が上限値 など
-- **異常系**：不正なメールアドレス・空の注文リスト・負の金額 など
+- **境界値系**：名前が最大文字数・メールアドレスが最短形式・注文数量が上限値
+- **異常系**：不正なメールアドレス・空の注文リスト・負の金額
+
+※境界値として使用する具体的な値は次のシステム仕様に基づくこととします。
+
+> - 顧客名の上限： 50 文字（顧客テーブルの `name` カラムが `VARCHAR(50)` 制約を持つと仮定しています。）
+> - 注文数量の上限： 99 個（「同一商品を最大 99 個までしか 1 回の注文で頼めない」という業務ルールを仮定しています。）
 
 ※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
 
@@ -251,7 +264,7 @@ class OrderServiceTest {
      */
     @Test
     void 名前が最大文字数の顧客でも処理される() {
-        Customer customer = new Customer("あ".repeat(50), "tanaka@example.com", "090-1234-5678");
+        Customer customer = new Customer("あ".repeat(50), "tanaka@example.com", "090-1234-5678"); // DB における制約
         Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
         Payment payment = new Payment(order, "credit_card", 100_000);
         assertTrue(orderService.process(order, payment));
@@ -262,7 +275,7 @@ class OrderServiceTest {
      */
     @Test
     void メールアドレスが最短形式でも処理される() {
-        Customer customer = new Customer("田中太郎", "a@b.c", "090-1234-5678");
+        Customer customer = new Customer("田中太郎", "a@b.c", "090-1234-5678"); // 最短でも有効と判定されるメールアドレス
         Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
         Payment payment = new Payment(order, "credit_card", 100_000);
         assertTrue(orderService.process(order, payment));
@@ -274,7 +287,7 @@ class OrderServiceTest {
     @Test
     void 注文数量が上限値でも処理される() {
         Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
-        Order order = new Order(customer, List.of(new OrderItem("消耗品", 1, 99)), LocalDate.of(2024, 1, 15));
+        Order order = new Order(customer, List.of(new OrderItem("消耗品", 1, 99)), LocalDate.of(2024, 1, 15)); // 業務ルールより、注文数量の上限を指定
         Payment payment = new Payment(order, "cash", 99);
         assertTrue(orderService.process(order, payment));
     }
@@ -284,7 +297,7 @@ class OrderServiceTest {
      */
     @Test
     void 不正なメールアドレスは処理に失敗する() {
-        Customer customer = new Customer("田中太郎", "not-an-email", "090-1234-5678");
+        Customer customer = new Customer("田中太郎", "not-an-email", "090-1234-5678"); // メールアドレスにて「@」がない
         Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
         Payment payment = new Payment(order, "credit_card", 100_000);
         assertFalse(orderService.process(order, payment));
@@ -296,7 +309,7 @@ class OrderServiceTest {
     @Test
     void 空の注文リストは処理に失敗する() {
         Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
-        Order order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15));
+        Order order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15)); // 「注文明細」がない
         Payment payment = new Payment(order, "credit_card", 0);
         assertFalse(orderService.process(order, payment));
     }
@@ -308,34 +321,113 @@ class OrderServiceTest {
     void 負の金額は処理に失敗する() {
         Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
         Order order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
-        Payment payment = new Payment(order, "credit_card", -1);
+        Payment payment = new Payment(order, "credit_card", -1); // 「支払金額」が負の値
         assertFalse(orderService.process(order, payment));
     }
 }
 ```
 
-テストは動きますが、`Customer`・`Order`・`Payment` を生成する 3 行が、テストメソッドのたびに繰り返されています。7 メソッド × 3 行 = 21 行が重複しており、テストケースが増えるほど膨らみます。
+テストを行うと全て成功します。<br>
+しかし、各テストメソッドには `Customer`・`Order`・`Payment` を生成する 3 行が繰り返されています。<br>
+現時点で 7 メソッド × 3 行 = 21 行が重複しており、他の観点を盛り込むたびに似たコードが増えてしまいます。
 
-「では `@BeforeEach`（各テストの前に自動実行されるセットアップメソッド）で共通化すればよいのでは？」と思うかもしれません。しかし、ここには落とし穴があります。
+では、共通化できればよいのだから「各テストの前に自動実行されるセットアップメソッドである `@BeforeEach` を用いればよい」のではないかと思うかもしれません。<br>
+実際にコードを通して確認してみましょう。
+
+**`OrderServiceTest.java`**
 
 ```java
-@BeforeEach
-void setUp() {
-    customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
-    order    = new Order(customer, ...);   // customer に依存
-    payment  = new Payment(order, ...);    // order に依存
-}
+package example;
 
-@Test
-void 名前が最大文字数の顧客でも処理される() {
-    customer = new Customer("あ".repeat(50), ...);  // customer を差し替えると…
-    order    = new Order(customer, ...);             // Order は Customer に依存するため作り直しが必要
-    payment  = new Payment(order, ...);              // Payment は Order に依存するため作り直しが必要
-    // @BeforeEach の 3 行が無駄になり、結局また 3 行書く羽目になる
+class OrderServiceTest {
+    private final OrderService orderService = new OrderService();
+
+    private Customer customer;
+    private Order order;
+    private Payment payment;
+
+    @BeforeEach
+    void setUp() {
+        customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+        order    = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));   // customer に依存
+        payment  = new Payment(order, "credit_card", 100_000);
+    }
+
+    /**
+     * 正常系
+     */
+    @Test
+    void 正常な注文が処理される() {
+        assertTrue(orderService.process(order, payment)); // setUp メソッドにより、assertTrue のみとなる
+    }
+
+    /**
+     * 境界値系 - 名前が最大文字数
+     */
+    @Test
+    void 名前が最大文字数の顧客でも処理される() {
+        customer = new Customer("あ".repeat(50), "tanaka@example.com", "090-1234-5678"); // setUp メソッドを上書きする必要がある
+        order    = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15)); // Order は Customer に依存するため作り直しが必要
+        payment  = new Payment(order, "credit_card", 100_000); // Payment は Order に依存するため作り直しが必要
+        assertTrue(orderService.process(order, payment));
+    }
+
+    /**
+     * 境界値系 - メールアドレスが最短形式
+     */
+    @Test
+    void メールアドレスが最短形式でも処理される() {
+        customer = new Customer("田中太郎", "a@b.c", "090-1234-5678"); // setUp メソッドを上書きする必要がある
+        order    = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15)); // Order は Customer に依存するため作り直しが必要
+        payment  = new Payment(order, "credit_card", 100_000); // Payment は Order に依存するため作り直しが必要
+        assertTrue(orderService.process(order, payment));
+    }
+
+    /**
+     * 境界値系 - 注文数量が上限値
+     */
+    @Test
+    void 注文数量が上限値でも処理される() {
+        order = new Order(customer, List.of(new OrderItem("消耗品", 1, 99)), LocalDate.of(2024, 1, 15)); // setUp メソッドを上書きする必要がある
+        payment = new Payment(order, "cash", 99); // setUp メソッドを上書きする必要がある
+        assertTrue(orderService.process(order, payment));
+    }
+
+    /**
+     * 異常系 - 不正なメールアドレス
+     */
+    @Test
+    void 不正なメールアドレスは処理に失敗する() {
+        customer = new Customer("田中太郎", "not-an-email", "090-1234-5678"); // setUp メソッドを上書きする必要がある
+        order    = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15)); // Order は Customer に依存するため作り直しが必要
+        payment  = new Payment(order, "credit_card", 100_000); // Payment は Order に依存するため作り直しが必要
+        assertFalse(orderService.process(order, payment));
+    }
+
+    /**
+     * 異常系 - 空の注文リスト
+     */
+    @Test
+    void 空の注文リストは処理に失敗する() {
+        order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15)); // setUp メソッドを上書きする必要がある
+        payment = new Payment(order, "credit_card", 0); // setUp メソッドを上書きする必要がある
+        assertFalse(orderService.process(order, payment));
+    }
+
+    /**
+     * 異常系 - 負の金額
+     */
+    @Test
+    void 負の金額は処理に失敗する() {
+        payment = new Payment(order, "credit_card", -1); // setUp メソッドを上書きする必要がある
+        assertFalse(orderService.process(order, payment));
+    }
 }
 ```
 
-`Customer` を差し替えると、`Order`（`Customer` に依存）と `Payment`（`Order` に依存）も作り直さなければなりません。**依存チェーンがある限り、`@BeforeEach` で 1 箇所だけ変えることはできません。** 結局、すべてのテストメソッドで 3 行を書き直すことになります。
+上記から、`Customer` を差し替えると、`Order`（`Customer` に依存）と `Payment`（`Order` に依存）も作り直さなければなりません。<br>
+つまり、**依存チェーンがある限り、@BeforeEach で 1 箇所だけ変えても、他の修正を省くことはできないのです。**<br>
+結局、`Customer` を差し替えたいテストでは毎回 3 行を書き直すことになります。
 
 ---
 
@@ -550,7 +642,6 @@ Builder パターンが特に力を発揮するのは、**複数のオブジェ�
 ---
 
 [メモ]テスト実装に関して、簡単に深堀りを用意する。
-
 
 <a id="深堀り1"></a>
 
