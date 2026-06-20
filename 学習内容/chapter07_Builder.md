@@ -17,7 +17,8 @@
 - [まとめ](#まとめ)
 - [【深堀り①】OCP（オープン・クローズドの原則）](#深堀り1)
 - [【深堀り②】実行クラスでの型宣言 ― 抽象型 vs 具体型](#深堀り2)
-- [【深堀り③】GoF デザインパターンとの位置づけ](#深堀り3)
+- [【深堀り③】Fluent Builder（メソッドチェーン型）](#深堀り3)
+- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
 
 ---
 
@@ -913,7 +914,66 @@ public class TestDataDirector {
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】GoF デザインパターンとの位置づけ
+## 【深堀り③】Fluent Builder（メソッドチェーン型）
+
+本記事では GoF 原典の Director クラスを介したスタイルを扱いましたが、実務では **Fluent Builder**（メソッドチェーン型）と呼ばれる別スタイルもよく見かけます。
+
+Fluent Builder は、各セッターが `this` を返すことでメソッドチェーンを実現し、最後の `build()` で完成したオブジェクトを受け取る形式です。<br>
+Director クラスが不要となり、呼び出し側でメソッドを自由な順序で繋げられるのが特徴です。
+
+では、Fluent Builder の実装例を見ていきましょう。
+
+**`PersonBuilder.java`**
+
+```java
+package example;
+
+public class PersonBuilder {
+    private String name;
+    private int age;
+
+    public PersonBuilder name(String name) {
+        this.name = name;
+        return this;
+    }
+
+    public PersonBuilder age(int age) {
+        this.age = age;
+        return this;
+    }
+
+    public Person build() {
+        return new Person(name, age);
+    }
+}
+```
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        Person person = new PersonBuilder()
+                .name("田中太郎")
+                .age(30)
+                .build();
+    }
+}
+```
+
+Java の実務コードでは、このスタイルが多く登場します。
+
+例えば、文字結合によく使用する `StringBuilder` では、`append` メソッドが `this` を返しているため、Fluent Builder を採用していると言えます。<br>
+また、Java 11 以降にはなるのですが、HTTP リクエストを組み立てる際に用いる `HttpRequest.Builder` では、`HttpRequest.newBuilder().uri(...).GET().build()` のようなメソッドチェーンを用いた実装を行います。
+
+本記事のスタイルとの違いは、**組み立て順序の保証を誰が担うか**です。Director スタイルは Director が順序を強制するのに対し、Fluent Builder は呼び出し側が自由に順序を決めます。<br>
+本記事のように、`Customer` → `Order` → `Payment` と依存関係のある組み立てには Director スタイルが適しており、単純なフィールドの詰め込みが目的であれば Fluent Builder が適しています。
+
+<a id="深堀り4"></a>
+
+## 【深堀り④】GoF デザインパターンとの位置づけ
 
 今回使った Builder パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「生成パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
