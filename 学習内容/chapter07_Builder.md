@@ -288,7 +288,7 @@ class OrderServiceTest {
     void 注文数量が上限値でも処理される() {
         Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
         Order order = new Order(customer, List.of(new OrderItem("消耗品", 1, 99)), LocalDate.of(2024, 1, 15)); // 業務ルールより、注文数量の上限を指定
-        Payment payment = new Payment(order, "cash", 99);
+        Payment payment = new Payment(order, "cash", 99); // 業務ルールより、注文数量の上限を指定したことによる影響
         assertTrue(orderService.process(order, payment));
     }
 
@@ -309,8 +309,8 @@ class OrderServiceTest {
     @Test
     void 空の注文リストは処理に失敗する() {
         Customer customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
-        Order order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15)); // 「注文明細」がない
-        Payment payment = new Payment(order, "credit_card", 0);
+        Order order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15)); // 「注文明細」が空
+        Payment payment = new Payment(order, "credit_card", 0); // 「注文明細」が空であることによる影響（「支払金額」が 0）
         assertFalse(orderService.process(order, payment));
     }
 
@@ -429,22 +429,20 @@ class OrderServiceTest {
 つまり、**依存チェーンがある限り、@BeforeEach で 1 箇所だけ変えても、他の修正を省くことはできないのです。**<br>
 結局、`Customer` を差し替えたいテストでは毎回 3 行を書き直すことになります。
 
----
+以上からこの実装には、以下の問題点があります。
+
+- 新しい観点を追加するごとに、`Customer`・`Order`・`Payment` の生成コードが各テストメソッド内に重複して増え続ける
+- `Customer`・`Order`・`Payment` の依存関係により、依存チェーンの起点となる `Customer` を変更すると残りの 2 つの `Order` も `Payment` も修正が必要なため、共通化が機能しない
+    - 今回の例で言えば、`@BeforeEach` を用いても簡略化できない
 
 ## 正しい実装
 
-Builder パターンを使って解決します。登場するクラスは次の通りです。
+では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-| クラス                    | 役割                                           |
-| ------------------------- | ---------------------------------------------- |
-| `TestDataBuilder`（抽象） | テストデータ構築の手順（3 ステップ）を定義する |
-| `TestDataDirector`        | 3 ステップを正しい順序で呼び出す               |
-| `NormalCaseBuilder`       | 正常系データを組み立てる                       |
-| `EdgeCaseBuilder`         | 境界値系データを組み立てる                     |
-| `ErrorCaseBuilder`        | 異常系データを組み立てる                       |
-| `TestData`                | 構築済みのテストデータを保持する               |
+これらの問題を解決するのが **Builder パターン**です。
 
-まず、構築済みのデータをまとめて返す `TestData` クラスを定義します。
+まず、`TestData` クラスを見てください。<br>
+本クラスを作成することにより、今回のテストで必要なパラメータである `Customer`・`Order`・`Payment` のテストデータを保持できるようになります。
 
 **`TestData.java`**
 
@@ -461,11 +459,23 @@ public class TestData {
         this.order = order;
         this.payment = payment;
     }
-    // 各フィールドに対応する getter メソッドは、本記事の主題とは関係ないため省略
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public Order getOrder() {
+        return order;
+    }
+
+    public Payment getPayment() {
+        return payment;
+    }
 }
 ```
 
-次に `TestDataBuilder` 抽象クラスです。構築手順を 3 つのメソッドとして定義します。
+次に、抽象クラス `TestDataBuilder` を見てください。<br>
+本クラスにより、今回のテストで必要なパラメータである `Customer`・`Order`・`Payment` の設定を強制できるようになります。
 
 **`TestDataBuilder.java`**
 
@@ -487,7 +497,9 @@ public abstract class TestDataBuilder {
 }
 ```
 
-`TestDataDirector` は、**Customer → Order → Payment** の順序を固定して呼び出します。
+次に、`TestDataDirector` クラスを見てください。<br>
+本クラスの `construct` メソッドにより、抽象クラス `TestDataBuilder` の実装が必須である `buildCustomer`・`buildOrder`・`buildPayment` メソッドを **Customer → Order → Payment** の順序を固定して呼び出せるようになります。<br>
+これにより、`Order` は `Customer` に、`Payment` は `Order` に依存しているため、依存チェーンを破壊することなく、テストデータを設定できるようになります。
 
 **`TestDataDirector.java`**
 
@@ -495,22 +507,29 @@ public abstract class TestDataBuilder {
 package example;
 
 public class TestDataDirector {
-    private final TestDataBuilder builder;
+    private final TestDataBuilder testDataBuilder;
 
-    public TestDataDirector(TestDataBuilder builder) {
-        this.builder = builder;
+    public TestDataDirector(TestDataBuilder testDataBuilder) {
+        this.testDataBuilder = testDataBuilder;
     }
 
     public TestData construct() {
-        builder.buildCustomer();
-        builder.buildOrder();
-        builder.buildPayment();
-        return builder.getTestData();
+        testDataBuilder.buildCustomer();
+        testDataBuilder.buildOrder();
+        testDataBuilder.buildPayment();
+        return testDataBuilder.getTestData();
     }
 }
 ```
 
-3 種類の Builder を実装します。
+次に、抽象クラス `TestDataBuilder` を実装したクラスを見てください。<br>
+正常系・境界値系・異常系それぞれの観点ごとに、個別のクラスとして分離しています。
+
+- 正常系：`NormalCaseBuilder`
+- 境界値系：`NameMaxLengthBuilder`・`EmailMinFormatBuilder`・`MaxQuantityBuilder`
+- 異常系：`InvalidEmailBuilder`・`EmptyOrderBuilder`・`NegativeAmountBuilder`
+
+上記クラスは抽象クラス `TestDataBuilder` を継承しているため、開発側はオーバーライドしたメソッド内（`buildCustomer`・`buildOrder`・`buildPayment`）で、テスト観点を満たすパラメータを設定するだけでよくなります。
 
 **`NormalCaseBuilder.java`**
 
@@ -520,16 +539,12 @@ package example;
 public class NormalCaseBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
-        customer = new Customer(
-            "田中太郎", "tanaka@example.com", "090-1234-5678");
+        customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
     }
 
     @Override
     public void buildOrder() {
-        order = new Order(
-            customer,
-            List.of(new OrderItem("ノートPC", 100_000, 1)),
-            LocalDate.of(2024, 1, 15));
+        order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
     }
 
     @Override
@@ -539,57 +554,147 @@ public class NormalCaseBuilder extends TestDataBuilder {
 }
 ```
 
-**`EdgeCaseBuilder.java`**
+**`NameMaxLengthBuilder.java`**
 
 ```java
 package example;
 
-public class EdgeCaseBuilder extends TestDataBuilder {
+public class NameMaxLengthBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
-        customer = new Customer(
-            "あ".repeat(50), "a@b.c", "000-0000-0000");
+        customer = new Customer("あ".repeat(50), "tanaka@example.com", "090-1234-5678"); // DB における制約
     }
 
     @Override
     public void buildOrder() {
-        order = new Order(
-            customer,
-            List.of(new OrderItem("消耗品", 1, 99)),
-            LocalDate.now());
+        order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
     }
 
     @Override
     public void buildPayment() {
-        payment = new Payment(order, "cash", 99);
+        payment = new Payment(order, "credit_card", 100_000);
     }
 }
 ```
 
-**`ErrorCaseBuilder.java`**
+**`EmailMinFormatBuilder.java`**
 
 ```java
 package example;
 
-public class ErrorCaseBuilder extends TestDataBuilder {
+public class EmailMinFormatBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
-        customer = new Customer("", "not-an-email", "");
+        customer = new Customer("田中太郎", "a@b.c", "090-1234-5678"); // 最短でも有効と判定されるメールアドレス
     }
 
     @Override
     public void buildOrder() {
-        order = new Order(customer, List.of(), LocalDate.now());
+        order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
     }
 
     @Override
     public void buildPayment() {
-        payment = new Payment(order, "unknown", -1);
+        payment = new Payment(order, "credit_card", 100_000);
     }
 }
 ```
 
-テストコードはこう変わります。
+**`MaxQuantityBuilder.java`**
+
+```java
+package example;
+
+public class MaxQuantityBuilder extends TestDataBuilder {
+    @Override
+    public void buildCustomer() {
+        customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+    }
+
+    @Override
+    public void buildOrder() {
+        order = new Order(customer, List.of(new OrderItem("消耗品", 1, 99)), LocalDate.of(2024, 1, 15)); // 業務ルールによる注文数量の上限
+    }
+
+    @Override
+    public void buildPayment() {
+        payment = new Payment(order, "cash", 99); // 業務ルールより、注文数量の上限を指定したことによる影響
+    }
+}
+```
+
+**`InvalidEmailBuilder.java`**
+
+```java
+package example;
+
+public class InvalidEmailBuilder extends TestDataBuilder {
+    @Override
+    public void buildCustomer() {
+        customer = new Customer("田中太郎", "not-an-email", "090-1234-5678"); // 「@」を含まない不正なメールアドレス
+    }
+
+    @Override
+    public void buildOrder() {
+        order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+    }
+
+    @Override
+    public void buildPayment() {
+        payment = new Payment(order, "credit_card", 100_000);
+    }
+}
+```
+
+**`EmptyOrderBuilder.java`**
+
+```java
+package example;
+
+public class EmptyOrderBuilder extends TestDataBuilder {
+    @Override
+    public void buildCustomer() {
+        customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+    }
+
+    @Override
+    public void buildOrder() {
+        order = new Order(customer, List.of(), LocalDate.of(2024, 1, 15)); // 「注文明細」が空
+    }
+
+    @Override
+    public void buildPayment() {
+        payment = new Payment(order, "credit_card", 0); // 「注文明細」が空であることによる影響（「支払金額」が 0）
+    }
+}
+```
+
+**`NegativeAmountBuilder.java`**
+
+```java
+package example;
+
+public class NegativeAmountBuilder extends TestDataBuilder {
+    @Override
+    public void buildCustomer() {
+        customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
+    }
+
+    @Override
+    public void buildOrder() {
+        order = new Order(customer, List.of(new OrderItem("ノートPC", 100_000, 1)), LocalDate.of(2024, 1, 15));
+    }
+
+    @Override
+    public void buildPayment() {
+        payment = new Payment(order, "credit_card", -1); // 支払金額が負の値
+    }
+}
+```
+
+最後に、テストクラス `OrderServiceTest` を見てください。<br>
+`TestDataDirector` クラスの `construct` メソッドは、`buildCustomer`・`buildOrder`・`buildPayment` を `Customer` → `Order` → `Payment` の順に呼び出します。<br>
+そのため、`TestDataDirector` クラスの引数に、テスト観点ごとに対応した実装クラスを指定することで、テストに最適な構築済みのテストデータを取得できるようになります。
 
 **`OrderServiceTest.java`**
 
@@ -597,51 +702,73 @@ public class ErrorCaseBuilder extends TestDataBuilder {
 package example;
 
 class OrderServiceTest {
+    private final OrderService orderService = new OrderService();
+
     @Test
     void 正常な注文が処理される() {
-        TestDataBuilder builder = new NormalCaseBuilder();
-        TestData data = new TestDataDirector(builder).construct();
-
-        boolean result = orderService.process(data.getOrder(), data.getPayment());
-
-        assertTrue(result);
+        TestData testData = new TestDataDirector(new NormalCaseBuilder()).construct();
+        assertTrue(orderService.process(testData.getOrder(), testData.getPayment()));
     }
 
     @Test
-    void 境界値の注文が処理される() {
-        TestDataBuilder builder = new EdgeCaseBuilder();
-        TestData data = new TestDataDirector(builder).construct();
-        // ...
+    void 名前が最大文字数の顧客でも処理される() {
+        TestData testData = new TestDataDirector(new NameMaxLengthBuilder()).construct();
+        assertTrue(orderService.process(testData.getOrder(), testData.getPayment()));
     }
 
     @Test
-    void 不正なデータで注文が拒否される() {
-        TestDataBuilder builder = new ErrorCaseBuilder();
-        TestData data = new TestDataDirector(builder).construct();
-        // ...
+    void メールアドレスが最短形式でも処理される() {
+        TestData testData = new TestDataDirector(new EmailMinFormatBuilder()).construct();
+        assertTrue(orderService.process(testData.getOrder(), testData.getPayment()));
+    }
+
+    @Test
+    void 注文数量が上限値でも処理される() {
+        TestData testData = new TestDataDirector(new MaxQuantityBuilder()).construct();
+        assertTrue(orderService.process(testData.getOrder(), testData.getPayment()));
+    }
+
+    @Test
+    void 不正なメールアドレスは処理に失敗する() {
+        TestData testData = new TestDataDirector(new InvalidEmailBuilder()).construct();
+        assertFalse(orderService.process(testData.getOrder(), testData.getPayment()));
+    }
+
+    @Test
+    void 空の注文リストは処理に失敗する() {
+        TestData testData = new TestDataDirector(new EmptyOrderBuilder()).construct();
+        assertFalse(orderService.process(testData.getOrder(), testData.getPayment()));
+    }
+
+    @Test
+    void 負の金額は処理に失敗する() {
+        TestData testData = new TestDataDirector(new NegativeAmountBuilder()).construct();
+        assertFalse(orderService.process(testData.getOrder(), testData.getPayment()));
     }
 }
 ```
 
-使う側は「どの Builder を渡すか」を選ぶだけで、組み立ての手順や順序を意識する必要がなくなりました。
+以上のような実装を行うことで、次のメリットが得られます。
 
----
+- `Customer`・`Order`・`Payment` の生成コードは抽象クラス `TestDataBuilder` を実装したクラスの中に閉じ込められます。これにより、テストメソッド自体は `TestDataDirector` クラスの引数に渡す `new XXXBuilder()` を変更するだけで済むため、観点を追加しても既存のテストメソッドは肥大化しなくなります。
+- `Customer`・`Order`・`Payment` の組み立て順序は `TestDataDirector` クラスが定めています。これにより、依存関係を考慮してパラメータを構築するため、`@BeforeEach` のように「`Customer` を上書きしたら残りも手動で作り直す」という連鎖が起きません。
+    - また、各観点に対応した抽象クラス `TestDataBuilder` を実装したクラスは「そのシナリオにふさわしい値を設定する」ことだけに集中できます。
 
 ## まとめ
 
-Builder パターンの適用前後を整理します。
+正しい実装では、`Customer`・`Order`・`Payment` の組み立て順序は `TestDataDirector` クラスが一手に担い、抽象クラス `TestDataBuilder` を実装したクラスはテスト観点に合わせた値の設定だけに集中しています。<br>
+これにより、テストメソッドは `new XXXBuilder()` を切り替えるだけで、異なる観点のテストシナリオを扱えるようになります。
 
-|                        | 好ましくない実装                                 | Builder パターン                |
-| ---------------------- | ------------------------------------------------ | ------------------------------- |
-| 種別の追加             | テストメソッドのセットアップをコピペして修正する | 新しい Builder クラスを追加する |
-| 組み立て順序の保証     | 呼び出し側が順序を守る必要がある                 | Director が順序を強制する       |
-| 種別ごとの生成ロジック | 各テストメソッドに重複して散在する               | Builder クラスごとに分離される  |
+Builder パターンは、**複数のオブジェクトが依存関係を持ちながら段階的に組み立てる必要がある場面**で特に力を発揮します。<br>
+なお、今回のようなテストデータ生成に Builder パターンを応用する手法は、**Test Data Builder** と呼ばれています。テスト系の記事や書籍でこの名前を見かけた際は、本記事の実装と同じ考え方だと思ってください。
 
-Builder パターンが特に力を発揮するのは、**複数のオブジェクトが依存関係を持ちながら段階的に組み立てる必要がある場合**です。今回のようなテストデータ生成のほか、複雑な設定オブジェクトの生成や環境ごとに異なる構成物を作る場面でも広く使われます。
+> Test Data Builder：`Growing Object-Oriented Software, Guided by Tests` の著者 Nat Pryce が提唱したプラクティス
+
+本記事の内容はここまでとなります。
+
+以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
 
 ---
-
-[メモ]テスト実装に関して、簡単に深堀りを用意する。
 
 <a id="深堀り1"></a>
 
