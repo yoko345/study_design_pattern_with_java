@@ -15,10 +15,9 @@
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
-- [【深堀り①】Director の役割 ― 組み立て順序の強制](#深堀り1)
-- [【深堀り②】OCP（オープン・クローズドの原則）](#深堀り2)
-- [【深堀り③】実行クラスでの型宣言 ― 抽象型 vs 具体型](#深堀り3)
-- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+- [【深堀り①】OCP（オープン・クローズドの原則）](#深堀り1)
+- [【深堀り②】実行クラスでの型宣言 ― 抽象型 vs 具体型](#深堀り2)
+- [【深堀り③】GoF デザインパターンとの位置づけ](#深堀り3)
 
 ---
 
@@ -500,6 +499,7 @@ public abstract class TestDataBuilder {
 次に、`TestDataDirector` クラスを見てください。<br>
 本クラスの `construct` メソッドにより、抽象クラス `TestDataBuilder` の実装が必須である `buildCustomer`・`buildOrder`・`buildPayment` メソッドを **Customer → Order → Payment** の順序を固定して呼び出せるようになります。<br>
 これにより、`Order` は `Customer` に、`Payment` は `Order` に依存しているため、依存チェーンを破壊することなく、テストデータを設定できるようになります。
+もし `TestDataDirector` を使わず `buildOrder()` を `buildCustomer()` より先に呼び出してしまうと、`Order` の生成時に `Customer` がまだ `null` のため `NullPointerException` が発生します。
 
 **`TestDataDirector.java`**
 
@@ -522,7 +522,7 @@ public class TestDataDirector {
 }
 ```
 
-次に、抽象クラス `TestDataBuilder` を実装したクラスを見てください。<br>
+次に、`TestDataBuilder` の各実装クラスを見てください。<br>
 正常系・境界値系・異常系それぞれの観点ごとに、個別のクラスとして分離しています。
 
 - 正常系：`NormalCaseBuilder`
@@ -750,13 +750,13 @@ class OrderServiceTest {
 
 以上のような実装を行うことで、次のメリットが得られます。
 
-- `Customer`・`Order`・`Payment` の生成コードは抽象クラス `TestDataBuilder` を実装したクラスの中に閉じ込められます。これにより、テストメソッド自体は `TestDataDirector` クラスの引数に渡す `new XXXBuilder()` を変更するだけで済むため、観点を追加しても既存のテストメソッドは肥大化しなくなります。
+- `Customer`・`Order`・`Payment` の生成コードは `TestDataBuilder` の各実装クラスの中に閉じ込められます。これにより、テストメソッド自体は `TestDataDirector` クラスの引数に渡す `new XXXBuilder()` を変更するだけで済むため、観点を追加しても既存のテストメソッドは肥大化しなくなります。
 - `Customer`・`Order`・`Payment` の組み立て順序は `TestDataDirector` クラスが定めています。これにより、依存関係を考慮してパラメータを構築するため、`@BeforeEach` のように「`Customer` を上書きしたら残りも手動で作り直す」という連鎖が起きません。
-    - また、各観点に対応した抽象クラス `TestDataBuilder` を実装したクラスは「そのシナリオにふさわしい値を設定する」ことだけに集中できます。
+    - また、`TestDataBuilder` の各実装クラスは「そのシナリオにふさわしい値を設定する」ことだけに集中できます。
 
 ## まとめ
 
-正しい実装では、`Customer`・`Order`・`Payment` の組み立て順序は `TestDataDirector` クラスが一手に担い、抽象クラス `TestDataBuilder` を実装したクラスはテスト観点に合わせた値の設定だけに集中しています。<br>
+正しい実装では、`Customer`・`Order`・`Payment` の組み立て順序は `TestDataDirector` クラスが一手に担い、`TestDataBuilder` の各実装クラスはテスト観点に合わせた値の設定だけに集中しています。<br>
 これにより、テストメソッドは `new XXXBuilder()` を切り替えるだけで、異なる観点のテストシナリオを扱えるようになります。
 
 Builder パターンは、**複数のオブジェクトが依存関係を持ちながら段階的に組み立てる必要がある場面**で特に力を発揮します。<br>
@@ -772,108 +772,148 @@ Builder パターンは、**複数のオブジェクトが依存関係を持ち�
 
 <a id="深堀り1"></a>
 
-## 【深堀り①】Director の役割 ― 組み立て順序の強制
+## 【深堀り①】OCP（オープン・クローズドの原則）
 
-`TestDataDirector` がなければ、テストコードは Builder のメソッドを直接呼ぶことになります。
+正しい実装を振り返ると、新しいテスト観点を追加することになった場合、`TestDataBuilder` を継承した新しいクラスを追加し、`OrderServiceTest` クラスで先のクラスを `TestDataDirector` クラスの引数に渡すだけで対応できます。その際、既存の `TestDataBuilder` を継承した実装クラスには一切手を加える必要がありません。
 
-```java
-NormalCaseBuilder builder = new NormalCaseBuilder();
-builder.buildCustomer();
-builder.buildOrder();
-builder.buildPayment();
-TestData data = builder.getTestData();
-```
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Builder パターンは OCP を実現するための設計手段の一つと言えます。
 
-一見問題ないように見えますが、呼び出し側がうっかり順序を間違えるリスクがあります。
-
-```java
-// 誤った順序で呼び出してしまうと...
-builder.buildOrder();    // customer がまだ null → NullPointerException
-builder.buildCustomer();
-```
-
-`Order` は `Customer` に依存しているため、`buildCustomer()` を先に呼ばなければ `buildOrder()` の中で `NullPointerException` が発生します。
-
-Director はこの **「組み立てには正しい順序がある」という知識を一箇所に集め、使用者に意識させない** 役割を担っています。テストコードから見れば、「どの Builder を渡すか」だけを決めればよく、「どの順序で呼ぶか」は Director が責任を持ちます。
+詳しくは「OCP」や「オープン・クローズドの原則」で検索してみてください。
 
 ---
 
 <a id="深堀り2"></a>
 
-## 【深堀り②】OCP（オープン・クローズドの原則）
+## 【深堀り②】実行クラスでの型宣言 ― 抽象型 vs 具体型
 
-新たにパフォーマンステスト用のデータが必要になったとします。
+正しい実装を振り返ると、`TestDataDirector` の引数には、`TestDataBuilder` の各実装クラスのインスタンスを直接渡していました。
 
-好ましくない実装では、テストメソッドを 1 つ追加するたびに同じ 3 行のセットアップをコピペして修正するしかありませんでした。一方 Builder パターンなら、新しいクラスを追加するだけです。
+ここで、「ギフト注文でも正常に処理されること」を確認したいという要件が追加されたとしましょう。
 
-**`StressTestBuilder.java`**
+この際、既存のテスト `正常な注文が処理される` メソッドの中で条件分岐を加えることで対応することが考えられます。<br>
+このような修正を行うと、`TestDataDirector` の引数には、対応したテスト観点の実装クラスのインスタンスが代入された変数を渡すことになります。<br>
+その時の変数の型は `TestDataBuilder`（抽象型）にすべきでしょうか、それとも `TestDataBuilder` の各実装クラス（具体型）にすべきでしょうか。
+
+ここでは、どちらの型で宣言するのが好ましいのかを学びます。
+
+### 追加仕様
+
+**`GiftOrderBuilder.java`**
 
 ```java
 package example;
 
-public class StressTestBuilder extends TestDataBuilder {
+public class GiftOrderBuilder extends TestDataBuilder {
     @Override
     public void buildCustomer() {
-        customer = new Customer(
-            "負荷テスト用", "stress@example.com", "000-0000-0000");
+        customer = new Customer("田中太郎", "tanaka@example.com", "090-1234-5678");
     }
 
     @Override
     public void buildOrder() {
-        List<OrderItem> items = new ArrayList<>();
-        for (int i = 0; i < 1000; i++) {
-            items.add(new OrderItem("商品" + i, 100, 1));
-        }
-        order = new Order(customer, items, LocalDate.now());
+        order = new Order(customer, List.of(new OrderItem("ギフトセット", 5_000, 1)), LocalDate.of(2024, 1, 15));
     }
 
     @Override
     public void buildPayment() {
-        payment = new Payment(order, "credit_card", 100_000);
+        payment = new Payment(order, "credit_card", 5_000);
     }
 }
 ```
 
-既存の `NormalCaseBuilder`・`EdgeCaseBuilder`・`ErrorCaseBuilder`・`TestDataDirector` はどれも修正していません。**拡張に対して開いており、修正に対して閉じている**（OCP）状態が実現できています。
+### 抽象型 vs 具体型
 
----
+追加仕様が明らかになったので、注文種別を示す `isGiftOrder` フラグを使って既存のテストメソッドに条件分岐を加えると次のようになります。
+
+**`OrderServiceTest.java`**
+
+```java
+package example;
+
+class OrderServiceTest {
+    private final OrderService orderService = new OrderService();
+
+    @Test
+    void 正常な注文が処理される() {
+        boolean isGiftOrder = true;
+        TestDataBuilder testDataBuilder;
+        if (isGiftOrder) {
+            testDataBuilder = new GiftOrderBuilder();
+        } else {
+            testDataBuilder = new NormalCaseBuilder();
+        }
+        TestData testData = new TestDataDirector(testDataBuilder).construct();
+        assertTrue(orderService.process(testData.getOrder(), testData.getPayment()));
+    }
+
+    // 以降は、本文に関係ないため省略
+}
+```
+
+`testDataBuilder` を抽象型 `TestDataBuilder` で宣言すると、`GiftOrderBuilder` クラスのインスタンスが代入されようが、`NormalCaseBuilder` クラスのインスタンスが代入されようが、条件分岐ブロック以降のコードは変更する必要がありません。
+
+一方で、`testDataBuilder` を `NormalCaseBuilder` 型で宣言した次のコードを見てください。
+
+**`OrderServiceTest.java`**
+
+```java
+package example;
+
+class OrderServiceTest {
+    private final OrderService orderService = new OrderService();
+
+    @Test
+    void 正常な注文が処理される() {
+        boolean isGiftOrder = true;
+        NormalCaseBuilder builder = new NormalCaseBuilder(); // 具体型で宣言
+        if (isGiftOrder) {
+            builder = new GiftOrderBuilder(); // コンパイルエラーが発生
+        }
+        TestData testData = new TestDataDirector(builder).construct();
+        assertTrue(orderService.process(testData.getOrder(), testData.getPayment()));
+    }
+
+    // 以降は、本文に関係ないため省略
+}
+```
+
+`NormalCaseBuilder` 型の変数 `builder` に `GiftOrderBuilder` クラスのインスタンスを代入できないため、コンパイルエラーが発生してコードが動作しなくなります。
+
+### まとめ
+
+具体型で宣言すると別の実装クラスに切り替えるたびに変数の型変更が必要になります。<br>
+そのため、抽象型 `TestDataBuilder` で宣言することが好ましいです。<br>
+その結果、**どの Builder を代入しても条件分岐ブロック以降のコードを一切修正せずに動作できます。**
+
+### DI（依存性の注入）との関係
+
+正しい実装のコードを振り返ると、`TestDataDirector` は使用する `TestDataBuilder` の各実装クラスのインスタンスをコンストラクタ引数で受け取っていました。<br>
+このような、あるクラスが必要とする依存オブジェクト（`TestDataBuilder`）を、内部で生成するのではなく外から渡す設計を **DI（Dependency Injection / 依存性の注入）** と呼びます。
+
+もし `TestDataDirector` クラスが Builder を内部で生成する場合、次のようになります。
+
+**`TestDataDirector.java`（内部生成の場合）**
+
+```java
+public class TestDataDirector {
+    private final TestDataBuilder testDataBuilder;
+
+    public TestDataDirector() {
+        this.testDataBuilder = new NormalCaseBuilder();
+    }
+
+    // construct メソッドに変更はないため省略
+}
+```
+
+この場合、別の `TestDataBuilder` の実装クラスに切り替えるには `TestDataDirector` 自体を修正しなければなりません。<br>
+これは OCP に違反します。<br>
+正しい実装のように、外から渡す設計（DI）にしておくことで、`TestDataDirector` は変更せずに `TestDataBuilder` の実装クラスを差し替えられます。
+なお、今回はコンストラクタを通じて渡しているため、特に **コンストラクタインジェクション** と呼ばれます。
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】実行クラスでの型宣言 ― 抽象型 vs 具体型
-
-テストコードでの Builder の宣言をもう一度見てみます。
-
-```java
-TestDataBuilder builder = new NormalCaseBuilder();
-```
-
-これを具体型で宣言するとどうなるでしょうか。
-
-```java
-NormalCaseBuilder builder = new NormalCaseBuilder();
-```
-
-`TestDataDirector` のコンストラクタは `TestDataBuilder` 型を受け取るため、具体型のまま渡しても動作します。しかし、変数を抽象型で宣言しておくことには意味があります。
-
-```java
-// 条件によって Builder を切り替える場合
-TestDataBuilder builder;
-if (useStressTest) {
-    builder = new StressTestBuilder();
-} else {
-    builder = new NormalCaseBuilder();
-}
-TestData data = new TestDataDirector(builder).construct();
-```
-
-抽象型で宣言しておくことで、**どの Builder を代入しても `Director` 以降のコードを一切修正せずに動作します。** 具体型で宣言してしまうと、別の Builder に切り替えるたびに変数の型も変更しなければならなくなります。
-
----
-
-<a id="深堀り4"></a>
-
-## 【深堀り④】GoF デザインパターンとの位置づけ
+## 【深堀り③】GoF デザインパターンとの位置づけ
 
 今回使った Builder パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「生成パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
