@@ -228,7 +228,6 @@ public interface Iterator<E> {
 package example;
 
 public class FruitBasket implements Iterable<Fruit> {
-
     private Fruit[] fruits;
     private int lastIndex = 0;
 
@@ -262,7 +261,6 @@ public class FruitBasket implements Iterable<Fruit> {
 package example;
 
 public class FruitBasketIterator implements Iterator<Fruit> {
-
     private FruitBasket fruitBasket;
     private int index;
 

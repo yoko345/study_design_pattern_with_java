@@ -156,7 +156,6 @@ public class VisitorCard {
 package example;
 
 public class Main {
-
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
         EmployeeCard employeeCard2 = new EmployeeCard("山田 花子", 1002);
@@ -266,7 +265,6 @@ public abstract class Management {
 package example.framework;
 
 public abstract class Factory {
-
     protected abstract Management createManagement(String person);
 
     protected abstract void registerManagement(Management management);
@@ -599,7 +597,6 @@ example.patientticket パッケージ
 package example.framework;
 
 public abstract class Factory {
-
     protected abstract Management createManagement(String person);
 
     protected abstract void registerManagement(Management management);

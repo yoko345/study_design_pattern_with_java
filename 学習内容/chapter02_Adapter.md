@@ -53,7 +53,6 @@ EC サイトの決済機能における共通インターフェースであり�
 package example;
 
 public interface PaymentProcessor {
-
     void pay(int amount);
 
     String getPaymentMethod();
@@ -78,7 +77,6 @@ public interface PaymentProcessor {
 package example;
 
 public class CreditCardPayment implements PaymentProcessor {
-
     @Override
     public void pay(int amount) {
         System.out.println("クレジットカードで " + amount + "円 支払いました");
@@ -110,7 +108,6 @@ public class CreditCardPayment implements PaymentProcessor {
 package example;
 
 public class SamplePayClient {
-
     public void charge(int yen) {
         System.out.println("サンプルPayで " + yen + "円 決済します");
     }
@@ -174,7 +171,6 @@ public class SamplePayClient implements PaymentProcessor {
 package example;
 
 public class SamplePayClient implements PaymentProcessor {
-
     public void charge(int yen) {
         System.out.println("サンプルPayで " + yen + "円 決済します");
     }
@@ -316,7 +312,6 @@ public class Main {
 package example;
 
 public class SamplePayAdapter implements PaymentProcessor {
-
     private SamplePayClient samplePayClient = new SamplePayClient();
 
     @Override
@@ -390,7 +385,6 @@ public class Main {
 package example;
 
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
-
     @Override
     public void pay(int amount) {
         charge(amount);
@@ -432,7 +426,6 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 package example;
 
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor {
-
     private AppLogger logger = new AppLogger(); // ←ここを追加
 
     @Override
@@ -456,7 +449,6 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 package example;
 
 public class SamplePayAdapter implements PaymentProcessor {
-
     private SamplePayClient samplePayClient = new SamplePayClient();
     private AppLogger logger = new AppLogger(); // ←ここを追加
 

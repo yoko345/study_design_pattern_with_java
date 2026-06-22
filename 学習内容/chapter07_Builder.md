@@ -495,7 +495,9 @@ public abstract class TestDataBuilder {
     protected Payment payment;
 
     public abstract void buildCustomer();
+
     public abstract void buildOrder();
+
     public abstract void buildPayment();
 
     public TestData getTestData() {
