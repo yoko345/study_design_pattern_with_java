@@ -45,6 +45,7 @@
 | `send`   | `String`   | 通知メッセージを文字列として返す |
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -60,6 +61,7 @@ public class NotificationSender {
 - `Main`（実行クラス）
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -98,6 +100,7 @@ public class Main {
 | `send`   | `String`   | カード形式の HTML 文字列を生成して返す |
 
 **`CardNotification.java`**
+
 ```java
 package example;
 
@@ -129,6 +132,7 @@ public class CardNotification {
 | `send`   | `String`   | バナー形式の HTML 文字列を生成して返す |
 
 **`BannerNotification.java`**
+
 ```java
 package example;
 
@@ -154,6 +158,7 @@ public class BannerNotification {
 真っ先に思いつくのは、既存の `NotificationSender` に型ごとの分岐を追加する方法ではないでしょうか？
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -175,6 +180,7 @@ public class NotificationSender {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -215,6 +221,7 @@ public class Main {
 まず、次のコードを見てください。
 
 **`Notification.java`**
+
 ```java
 package example;
 
@@ -246,6 +253,7 @@ public abstract class Notification implements Cloneable {
 次に、抽象クラス `Notification` を継承したクラス（`CardNotification`・`BannerNotification`）を見てください。
 
 **`CardNotification.java`**
+
 ```java
 package example;
 
@@ -264,6 +272,7 @@ public class CardNotification extends Notification {
 ```
 
 **`BannerNotification.java`**
+
 ```java
 package example;
 
@@ -289,6 +298,7 @@ public class BannerNotification extends Notification {
 最後に、新たに追加実装する、通知管理を担う `NotificationManager` クラスを見てください。
 
 **`NotificationManager.java`**
+
 ```java
 package example;
 
@@ -315,6 +325,7 @@ public class NotificationManager {
 実行クラスと実行結果は次のようになります。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -374,6 +385,7 @@ public class Main {
 `Cloneable` はインターフェースで、以下の定義になっています。
 
 **`Cloneable.java`**
+
 ```java
 package java.lang;
 
@@ -391,6 +403,7 @@ public interface Cloneable {
 では、どこで宣言されているかというと `java.lang.Object` クラスの中で宣言されています。
 
 **`Object.java`**
+
 ```java
 package java.lang;
 
@@ -433,6 +446,7 @@ public class Object {
 では、実際にコードを見ていきましょう。
 
 **`Notification.java`**
+
 ```java
 package example;
 
@@ -444,6 +458,7 @@ public abstract class Notification { // ← ここを修正
 ```
 
 **`CardNotification.java`**
+
 ```java
 package example;
 
@@ -486,7 +501,7 @@ public class CardNotification extends Notification {
 <div class="card newsletter"><p>7月のメルマガ</p></div>
 ```
 
-実行結果を見てわかるように、同様の結果を得ることができました。
+実行結果を確認すると、コピーコンストラクタを使った実装でも、`clone` メソッドを使った実装と同じ結果を得られました。
 
 抽象クラス `Notification` では、`createCopy` メソッドを抽象メソッドとします。<br>
 `CardNotification` クラスでは、コピーコンストラクタを実装し、`createCopy` メソッドの具体的な処理として、`this` を引数に渡して `CardNotification` クラスのインスタンスを生成します。<br>
@@ -532,6 +547,7 @@ Prototype パターンは、事前に登録したオブジェクト（プロト�
 > ※下記で使用する `Notification` クラスはコピーコンストラクタを用いる前の抽象クラスです。
 
 **`TaggedNotification.java`**
+
 ```java
 package example;
 
@@ -571,6 +587,7 @@ public class TaggedNotification extends Notification {
 そこで、親クラスの `createCopy` メソッドをオーバーライドし、`tags` を別途 `clone` することで、コピー後のインスタンスが独立した配列を持てるようになります。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -610,6 +627,7 @@ public class Main {
 > とはいえ、`TaggedNotification` クラス内にキャストの処理が無くなるメリットはそれなりに大きいと思います。
 
 **`TaggedNotification.java`**
+
 ```java
 package example;
 
@@ -662,6 +680,7 @@ public class TaggedNotification extends Notification {
 > 下記のように変数 `coupon` の型を具体クラス `CardNotification` で宣言するのではなく、
 >
 > **`Main.java`**
+>
 > ```java
 > public class Main {
 >     public static void main(String[] args) {
@@ -679,6 +698,7 @@ public class TaggedNotification extends Notification {
 > 下記のように抽象クラス `Notification` で宣言してもよいのではないか？
 >
 > **`Main.java`**
+>
 > ```java
 > public class Main {
 >     public static void main(String[] args) {

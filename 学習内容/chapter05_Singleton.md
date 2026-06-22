@@ -23,7 +23,7 @@
     - [正しい実装（早期初期化）](#正しい実装早期初期化)
     - [補足（synchronized）](#補足synchronized)
 - [【深堀り③】あらかじめ決めた n 個のインスタンスに制限する](#深堀り3)
-- [【深堀り④】`enum` （列挙型）を使った Singleton](#深堀り4)
+- [【深堀り④】`enum`（列挙型）を使った Singleton](#深堀り4)
     - [`enum` の特徴](#enumの特徴)
     - [Singleton との共通点](#Singletonとの共通点)
     - [`Logger` クラスを `enum` で実装する](#LoggerをenumでImplementする)
@@ -50,6 +50,7 @@
 | `placeOrder` | `void`     | 注文を受け付ける |
 
 **`OrderService.java`**
+
 ```java
 package example;
 
@@ -71,6 +72,7 @@ public class OrderService {
 | `processPayment` | `void`     | 決済処理を開始する |
 
 **`PaymentService.java`**
+
 ```java
 package example;
 
@@ -87,6 +89,7 @@ public class PaymentService {
 - `Main`（実行クラス）
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -123,6 +126,7 @@ public class Main {
 | `log`    | `void`     | ログメッセージをコンソールへ出力する |
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -149,6 +153,7 @@ public class Logger {
 「各サービスでログが出力されればよい」と考え、次のような実装をするのではないでしょうか？
 
 **`OrderService.java`**
+
 ```java
 package example;
 
@@ -163,6 +168,7 @@ public class OrderService {
 ```
 
 **`PaymentService.java`**
+
 ```java
 package example;
 
@@ -193,7 +199,7 @@ Logger を生成しました。[logLevel=INFO]
 
 しかし、この実装には以下の問題点があります。
 
-- 各クラスが独立してインスタンスを生成すると、実装者により設定がバラバラになりやすいため、設計者の意図と異なる設定となってしまう（実行結果を見てわかるように `[DEBUG]` と `[INFO]` が混在していて、アプリ全体で統一した設定になっていない）
+- 各クラスが独立してインスタンスを生成すると、実装者により設定がバラバラになりやすいため、設計者の意図と異なる設定となってしまう（実行結果を確認すると `[DEBUG]` と `[INFO]` が混在しており、アプリ全体で統一した設定になっていない）
 - 仕様変更のたびに、全クラスへの修正が必要になる
     - その結果、追加実装時はクラスが増えるので、仕様変更に伴う修正漏れのリスクが高くなる
 - 同じ設定のインスタンスが、意図せず複数存在してしまう場合がある
@@ -208,6 +214,7 @@ Logger を生成しました。[logLevel=INFO]
 まずは、次のコードを見てください。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -246,6 +253,7 @@ public class Logger {
 次に、`Logger` を利用するクラスの実装を見てください。
 
 **`OrderService.java`**
+
 ```java
 package example;
 
@@ -258,6 +266,7 @@ public class OrderService {
 ```
 
 **`PaymentService.java`**
+
 ```java
 package example;
 
@@ -287,6 +296,7 @@ Logger を生成しました。[logLevel=INFO]
 試しに `getInstance` メソッドを 2 回呼び出し、同一のインスタンスかどうか確認してみましょう。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -362,6 +372,7 @@ logger1 と logger2 は同じインスタンスです。
 次のコードのように、コンストラクタを `public`（もしくは修飾子なし）にすると、クラスの外から自由にインスタンスを生成できるようになります。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -386,6 +397,7 @@ public class Logger {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -427,6 +439,7 @@ EC サイトでは、同時に複数のリクエストをさばくために、�
 ※レースコンディション（競合状態）：複数のスレッドが同じリソースにほぼ同時にアクセスし、処理の順序によって結果が変わってしまう状態のこと。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -460,6 +473,7 @@ public class Logger {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -513,6 +527,7 @@ Logger を生成しました。[logLevel=INFO]
 ※早期初期化（Eager Initialization）：クラスがロードされるタイミングでインスタンスを生成する方法（ここでは `static` フィールドの宣言時にインスタンスを生成する実装に当たる）。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -565,6 +580,7 @@ Logger を生成しました。[logLevel=INFO]
 この解決策の一つが `synchronized` です。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -627,6 +643,7 @@ Logger を生成しました。[logLevel=INFO]
 次のコードを見てください。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -674,6 +691,7 @@ public class Logger {
 では、呼び出し側の実装を見ていきましょう。
 
 **`OrderService.java`**
+
 ```java
 package example;
 
@@ -693,6 +711,7 @@ public class OrderService {
 ```
 
 **`PaymentService.java`**
+
 ```java
 package example;
 
@@ -712,6 +731,7 @@ public class PaymentService {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -750,7 +770,7 @@ Logger を生成しました。[logLevel=ERROR]
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】`enum` （列挙型）を使った Singleton
+## 【深堀り④】`enum`（列挙型）を使った Singleton
 
 本記事の `Logger` クラスを `enum` で実装する場合を見ていく前に、`enum` の特徴から確認していきましょう。
 
@@ -787,6 +807,7 @@ Logger を生成しました。[logLevel=ERROR]
 では、本記事の `Logger` クラスを `enum` で実装してみましょう。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -810,6 +831,7 @@ public enum Logger {
 `Logger.INSTANCE` で呼び出すことで、インスタンスを取得することができます。
 
 **`OrderService.java`**
+
 ```java
 package example;
 
@@ -822,6 +844,7 @@ public class OrderService {
 ```
 
 **`PaymentService.java`**
+
 ```java
 package example;
 
@@ -850,6 +873,7 @@ Logger を生成しました。[logLevel=INFO]
 なお、[【深堀り③】](#深堀り3) で扱った「あらかじめ決めた n 個のインスタンスに制限する」実装も、`enum` で表現できます。
 
 **`Logger.java`**
+
 ```java
 package example;
 
@@ -863,6 +887,7 @@ public enum Logger {
 ```
 
 **`OrderService.java`**
+
 ```java
 package example;
 

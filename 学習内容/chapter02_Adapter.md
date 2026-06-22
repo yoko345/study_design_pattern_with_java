@@ -48,11 +48,14 @@ EC サイトの決済機能における共通インターフェースであり�
 | `String getPaymentMethod()` | 決済手段の名称を返す |
 
 **`PaymentProcessor.java`**
+
 ```java
 package example;
 
 public interface PaymentProcessor {
+
     void pay(int amount);
+
     String getPaymentMethod();
 }
 ```
@@ -70,6 +73,7 @@ public interface PaymentProcessor {
 | `getPaymentMethod()` | 「クレジットカード」という名称を返す                   |
 
 **`CreditCardPayment.java`**
+
 ```java
 package example;
 
@@ -101,6 +105,7 @@ public class CreditCardPayment implements PaymentProcessor {
 | `String getServiceName()` | 「サンプル Pay」という名称を返す               |
 
 **`SamplePayClient.java`**
+
 ```java
 package example;
 
@@ -121,6 +126,7 @@ public class SamplePayClient {
 - `Main`（実行クラス）
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -150,7 +156,7 @@ public class Main {
 
 仕様から「すべての決済クラス」は `PaymentProcessor` インターフェースを実現する必要があるので、下記のように記述すると思います。
 
-```Java
+```java
 public class SamplePayClient implements PaymentProcessor {
 ```
 
@@ -163,6 +169,7 @@ public class SamplePayClient implements PaymentProcessor {
 最終的に、以下のような実装になると思います。
 
 **`SamplePayClient.java`**
+
 ```java
 package example;
 
@@ -191,6 +198,7 @@ public class SamplePayClient implements PaymentProcessor {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -252,6 +260,7 @@ public class Main {
 以上から次のような実装をしてしまうと考えられます。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -302,6 +311,7 @@ public class Main {
 以下の具体的な実装コードを見てみましょう。
 
 **`SamplePayAdapter.java`**
+
 ```java
 package example;
 
@@ -322,6 +332,7 @@ public class SamplePayAdapter implements PaymentProcessor {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -374,6 +385,7 @@ public class Main {
 `Main` クラスは正しい実装①と同様なので、`SamplePayAdapter` クラスのコードを次に示します。
 
 **`SamplePayAdapter.java`**
+
 ```java
 package example;
 
@@ -415,6 +427,7 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 そのため、次のように `new` でインスタンス化することになります。
 
 **`SamplePayAdapter.java`**
+
 ```java
 package example;
 
@@ -438,6 +451,7 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 一方、委譲を使ったパターンでは、`SamplePayClient` も `AppLogger` もどちらも `new` でインスタンス化する形で統一されます。
 
 **`SamplePayAdapter.java`**
+
 ```java
 package example;
 
@@ -476,7 +490,7 @@ public class SamplePayAdapter implements PaymentProcessor {
 
 > 追加実装をする際に、既存のコードを修正することなく実装をするにはどうすればよいでしょうか？
 
-正しい実装①・②から分かるように、Adapter パターンを使用することで、既存のコードに一切手を加えることなく追加実装を行えます。<br>
+正しい実装①・②を振り返ると、`PaymentProcessor` インターフェースを実現した `SamplePayAdapter` クラスを追加するだけで、既存のコードに一切手を加えることなく追加実装を行えました。<br>
 また、既存コードはすでにテスト済みのため再テストは不要で、変更が行われた Adapter クラスのみテストを行えばよいことから、テスト範囲を最小限に抑えることができます。
 
 冒頭でも述べましたが、「動いているコードには触れたくない」という気持ちは、実務でも自然な感覚です。<br>
@@ -487,7 +501,6 @@ Adapter パターンはその感覚を設計として実現する手段の一つ
 以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
 
 ---
-
 
 <a id="深堀り1"></a>
 
@@ -513,7 +526,7 @@ Adapter パターンはその感覚を設計として実現する手段の一つ
 
 Java では、`extends` によるクラスの継承は 1 つしかできません（単一継承）。これを「単一継承の制約」といいます。
 
-```Java
+```java
 // コンパイルエラー（Javaでは多重継承は不可）
 public class SamplePayAdapter extends SamplePayClient extends AppLogger {
 ```
@@ -524,7 +537,7 @@ public class SamplePayAdapter extends SamplePayClient extends AppLogger {
 一方、インターフェースは複数 `implements` できます。<br>
 インターフェースはメソッドの実装を持たないため、ダイヤモンド問題が起きません。
 
-```Java
+```java
 // OK: インターフェースは複数implements可能
 public class SamplePayAdapter extends SamplePayClient implements PaymentProcessor, Serializable {
 ```
