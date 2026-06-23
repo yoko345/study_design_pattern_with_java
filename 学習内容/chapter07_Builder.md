@@ -528,6 +528,7 @@ public class TestDataDirector {
         testDataBuilder.buildCustomer();
         testDataBuilder.buildOrder();
         testDataBuilder.buildPayment();
+
         return testDataBuilder.getTestData();
     }
 }
@@ -923,11 +924,13 @@ public class PersonBuilder {
 
     public PersonBuilder name(String name) {
         this.name = name;
+
         return this;
     }
 
     public PersonBuilder age(int age) {
         this.age = age;
+
         return this;
     }
 

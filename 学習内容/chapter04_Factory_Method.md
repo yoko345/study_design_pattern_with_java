@@ -67,6 +67,7 @@ public class EmployeeCard {
 
     public EmployeeCard(String employeeName, int employeeCardNumber) {
         System.out.println(employeeName + " さんの社員証を " + employeeCardNumber + " 番で発行します。");
+
         this.employeeName = employeeName;
         this.employeeCardNumber = employeeCardNumber;
     }
@@ -82,7 +83,7 @@ public class EmployeeCard {
 }
 ```
 
-※`pass` メソッドの `this` に関する説明[^1]
+※`pass` メソッドの `this` に関する説明（→ [【深堀り④】文字列連結時の `toString` メソッド自動呼び出し](#深堀り4)）
 
 <br>
 
@@ -135,6 +136,7 @@ public class VisitorCard {
 
     public VisitorCard(String visitorName, int visitorCardNumber) {
         System.out.println(visitorName + " さんの来訪者カードを " + visitorCardNumber + " 番で発行します。");
+
         this.visitorName = visitorName;
         this.visitorCardNumber = visitorCardNumber;
     }
@@ -303,6 +305,7 @@ public class VisitorCard extends Management {
 
     public VisitorCard(String visitorName, int visitorCardNumber) {
         System.out.println(visitorName + " さんの来訪者カードを " + visitorCardNumber + " 番で発行します。");
+
         this.visitorName = visitorName;
         this.visitorCardNumber = visitorCardNumber;
     }
@@ -425,6 +428,7 @@ public class EmployeeCard extends Management {
 
     public EmployeeCard(String employeeName, int employeeCardNumber) {
         System.out.println(employeeName + " さんの社員証を " + employeeCardNumber + " 番で発行します。");
+
         this.employeeName = employeeName;
         this.employeeCardNumber = employeeCardNumber;
     }
@@ -541,6 +545,7 @@ public class Main {
     ```java
     Factory employeeCardFactory = new EmployeeCardFactory();
     Factory visitorCardFactory = new VisitorCardFactory();
+
     // 共通の型で定めることができる
     List<Management> managements = new ArrayList<>();
     managements.add(employeeCardFactory.create("田中 太郎"));
@@ -578,10 +583,6 @@ example.patientticket パッケージ
 本記事の内容はここまでとなります。
 
 以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
-
----
-
-[^1]: `pass` メソッド内の `this + "..."` という書き方は、Java の文字列連結時に `toString` メソッドが自動呼び出しされる仕組みを利用しています。詳細は[【深堀り④】](#深堀り4)を参照。
 
 ---
 
@@ -782,6 +783,7 @@ public class EmployeeCard {
 
     public EmployeeCard(String employeeName, int employeeCardNumber) {
         System.out.println(employeeName + " さんの社員証を " + employeeCardNumber + " 番で発行します。");
+
         this.employeeName = employeeName;
         this.employeeCardNumber = employeeCardNumber;
     }

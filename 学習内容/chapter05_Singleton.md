@@ -135,6 +135,7 @@ public class Logger {
 
     public Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -162,6 +163,7 @@ public class OrderService {
 
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
+
         logger.log("注文を受け付けました: " + orderId); // ←ここを追加
     }
 }
@@ -177,6 +179,7 @@ public class PaymentService {
 
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
+
         logger.log("決済処理を開始しました: " + paymentId); // ←ここを追加
     }
 }
@@ -224,6 +227,7 @@ public class Logger {
 
     private Logger(String logLevel) { // ←ここを修正
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -260,6 +264,7 @@ package example;
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
+
         Logger.getInstance().log("注文を受け付けました: " + orderId); // ←ここを追加
     }
 }
@@ -273,6 +278,7 @@ package example;
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId); // 本来ここは様々な処理（DB の操作など）が入るので、わざと残している
+
         Logger.getInstance().log("決済処理を開始しました: " + paymentId); // ←ここを追加
     }
 }
@@ -383,6 +389,7 @@ public class Logger {
     // コンストラクタに public をつけている
     public Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -449,6 +456,7 @@ public class Logger {
 
     private Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -481,11 +489,13 @@ public class Main {
     public static void main(String[] args) {
         Thread threadA = new Thread(() -> {
             Logger logger = Logger.getInstance();
+
             System.out.println("スレッドA（OrderService）が取得したインスタンス: " + logger);
         });
 
         Thread threadB = new Thread(() -> {
             Logger logger = Logger.getInstance();
+
             System.out.println("スレッドB（PaymentService）が取得したインスタンス: " + logger);
         });
 
@@ -537,6 +547,7 @@ public class Logger {
 
     private Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -590,6 +601,7 @@ public class Logger {
 
     private Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -660,6 +672,7 @@ public class Logger {
 
     private Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -818,6 +831,7 @@ public enum Logger {
 
     Logger(String logLevel) {
         System.out.println("Logger を生成しました。[logLevel=" + logLevel + "]");
+
         this.logLevel = logLevel;
     }
 
@@ -838,6 +852,7 @@ package example;
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);
+
         Logger.INSTANCE.log("注文を受け付けました: " + orderId);
     }
 }
@@ -851,6 +866,7 @@ package example;
 public class PaymentService {
     public void processPayment(String paymentId) {
         System.out.println("決済処理を開始します: " + paymentId);
+
         Logger.INSTANCE.log("決済処理を開始しました: " + paymentId);
     }
 }
@@ -894,6 +910,7 @@ package example;
 public class OrderService {
     public void placeOrder(String orderId) {
         System.out.println("注文を受け付けました: " + orderId);
+
         if (orderId.equals("warning_id")) {
             Logger.WARNING.log("注文を受け付けました: " + orderId);
         } else {

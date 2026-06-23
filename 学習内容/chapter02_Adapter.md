@@ -436,7 +436,7 @@ public class SamplePayAdapter extends SamplePayClient implements PaymentProcesso
 
     @Override
     public String getPaymentMethod() {
-        ...
+        return getServiceName();
     }
 }
 ```
@@ -460,7 +460,7 @@ public class SamplePayAdapter implements PaymentProcessor {
 
     @Override
     public String getPaymentMethod() {
-        ...
+        return samplePayClient.getServiceName();
     }
 }
 ```

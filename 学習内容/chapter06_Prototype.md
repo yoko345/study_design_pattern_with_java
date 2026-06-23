@@ -174,6 +174,7 @@ public class NotificationSender {
             CardNotification cardNotification = new CardNotification(type);
             return cardNotification.send(message);
         }
+
         return "";
     }
 }
@@ -311,6 +312,7 @@ public class NotificationManager {
 
     public Notification create(String name) {
         Notification notification = map.get(name);
+
         return notification.createCopy();
     }
 }
@@ -564,12 +566,14 @@ public class TaggedNotification extends Notification {
     public Notification createCopy() {
         TaggedNotification taggedNotification = (TaggedNotification) super.createCopy();
         taggedNotification.tags = tags.clone();
+
         return taggedNotification;
     }
 
     @Override
     public String send(String message) {
         String tagStr = String.join(", ", tags);
+
         return "<div class=\"tagged " + cssClass + "\"><p>[タグ: " + tagStr + "] " + message + "</p></div>";
     }
 }
@@ -653,6 +657,7 @@ public class TaggedNotification extends Notification {
     @Override
     public String send(String message) {
         String tagStr = String.join(", ", tags);
+
         return "<div class=\"tagged " + cssClass + "\"><p>[タグ: " + tagStr + "] " + message + "</p></div>";
     }
 }

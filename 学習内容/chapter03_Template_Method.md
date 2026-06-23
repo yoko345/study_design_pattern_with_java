@@ -69,6 +69,7 @@ public class EmailNotification {
         if (emailAddress == null || emailAddress.isEmpty()) {
             throw new IllegalArgumentException("メールアドレスが設定されていません");
         }
+
         // 本文の組み立て
         String body = "[障害通知] " + message;
         // 送信処理
@@ -133,6 +134,7 @@ public class SlackNotification {
         if (channel == null || channel.isEmpty()) {
             throw new IllegalArgumentException("チャンネルが設定されていません");
         }
+
         // 本文の組み立て
         String body = ":warning: " + message;
         // 送信処理
@@ -162,6 +164,7 @@ public class SmsNotification {
         if (phoneNumber == null || phoneNumber.isEmpty()) {
             throw new IllegalArgumentException("電話番号が設定されていません");
         }
+
         // 本文の組み立て
         String body = "【障害】" + message;
         // 送信処理
@@ -640,6 +643,7 @@ public abstract class NotificationSender {
 
     public final void send(String message) {
         retryCount++;  // 送信のたびにカウントアップ
+
         validate();
         String body = buildMessage(message);
         sendNotification(body);
