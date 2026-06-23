@@ -53,6 +53,7 @@
 | `void send(String message)` | 「バリデーション→本文の組み立て→送信→ログ記録」を順に実行する |
 
 **`EmailNotification.java`**
+
 ```java
 package example;
 
@@ -68,6 +69,7 @@ public class EmailNotification {
         if (emailAddress == null || emailAddress.isEmpty()) {
             throw new IllegalArgumentException("メールアドレスが設定されていません");
         }
+
         // 本文の組み立て
         String body = "[障害通知] " + message;
         // 送信処理
@@ -83,6 +85,7 @@ public class EmailNotification {
 - `Main`（実行クラス）
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -115,6 +118,7 @@ user@example.com にメールを送信しました：[障害通知] DBサーバ�
 Slack では、障害発生時用のチャンネルに通知を飛ばすと考えられるので、次のコードになると思います。
 
 **`SlackNotification.java`**
+
 ```java
 package example;
 
@@ -130,6 +134,7 @@ public class SlackNotification {
         if (channel == null || channel.isEmpty()) {
             throw new IllegalArgumentException("チャンネルが設定されていません");
         }
+
         // 本文の組み立て
         String body = ":warning: " + message;
         // 送信処理
@@ -143,6 +148,7 @@ public class SlackNotification {
 SMS では、電話番号が必要になるので、次のコードになると思います。
 
 **`SmsNotification.java`**
+
 ```java
 package example;
 
@@ -158,6 +164,7 @@ public class SmsNotification {
         if (phoneNumber == null || phoneNumber.isEmpty()) {
             throw new IllegalArgumentException("電話番号が設定されていません");
         }
+
         // 本文の組み立て
         String body = "【障害】" + message;
         // 送信処理
@@ -169,6 +176,7 @@ public class SmsNotification {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -236,6 +244,7 @@ user@example.com にメールを送信しました：[障害通知] DBサーバ�
 次の実装を見てください。
 
 **`SlackNotification.java`**
+
 ```java
 package example;
 
@@ -254,6 +263,7 @@ public class SlackNotification {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -302,6 +312,7 @@ null にSlack通知を送信しました：:warning: DBサーバーの応答が�
 まずは次のコードを見てください。
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -338,6 +349,7 @@ public abstract class NotificationSender {
 次に、サブクラスのコードを見ていきましょう。
 
 **`EmailNotification.java`**
+
 ```java
 package example;
 
@@ -373,6 +385,7 @@ public class EmailNotification extends NotificationSender {
 ```
 
 **`SlackNotification.java`**
+
 ```java
 package example;
 
@@ -408,6 +421,7 @@ public class SlackNotification extends NotificationSender {
 ```
 
 **`SmsNotification.java`**
+
 ```java
 package example;
 
@@ -445,6 +459,7 @@ public class SmsNotification extends NotificationSender {
 実行クラスでは次のようなコードとなり、出力結果は下記となります。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -534,6 +549,7 @@ Template Method パターンは、次の 2 つの大きな問題を同時に解�
 抽象クラス `NotificationSender` をインターフェースに変更すると次のようになると思います。
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -563,7 +579,7 @@ public interface NotificationSender {
 しかし、`send` メソッドでは Template Method パターンとは異なり、下記のように修飾子 `final` をつけることができないため、`NotificationSender` を実現したクラスでメソッドの上書きができてしまいます。<br>
 そのため、[問題点②](#問題点一貫性の欠如)で触れた「`send` メソッドに実装すべきルールがないため、… 設計の一貫性が失われる」が発生してしまいます。
 
-```Java
+```java
 // コンパイルエラーが発生
 public final default void send(String message) {
     validate();
@@ -583,6 +599,7 @@ Template Method パターンの本質は「流れは固定し、中身だけを�
 次のコードは `MAX_RETRY` がインターフェースの定数に当たるのですが、参照するだけで更新ができません。そのため、全クラス・全インスタンスで同じ値を共有するだけとなります。
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -609,6 +626,7 @@ public interface NotificationSender {
 一方、次のコードは `retryCount` が抽象クラスのインスタンス変数に当たるのですが、各インスタンスで独立して送信回数を管理することができます。
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -625,6 +643,7 @@ public abstract class NotificationSender {
 
     public final void send(String message) {
         retryCount++;  // 送信のたびにカウントアップ
+
         validate();
         String body = buildMessage(message);
         sendNotification(body);
@@ -659,7 +678,7 @@ public abstract class NotificationSender {
 | 状態（フィールド）         | 持てない（定数のみ）                                             | 持てる                                     |
 | 設計の意図                 | 「何ができるか（契約）」を表現する                               | 「どう動くべきか（骨格＋制御）」を表現する |
 
-この表を見ても分かるように、Template Method パターンは「制限された自由」を提供するパターンとも言えるため、抽象クラスを用いる必要があるのです。
+この表から、インターフェースは抽象クラスと異なり、実装の強制やメソッドの上書き禁止、状態の保持ができません。そのため、「制限された自由」を提供するパターンとも言える Template Method パターンでは、抽象クラスを用いる必要があるのです。
 
 <a id="深堀り2"></a>
 
@@ -683,6 +702,7 @@ Template Method パターンでは、本記事のように適切な修飾子を�
 上記のように考えた場合、次の実装になると思います。（※説明の都合上、メール通知の実装のみ）
 
 **`NotificationSender.java`**
+
 ```java
 package example;
 
@@ -693,7 +713,7 @@ public abstract class NotificationSender {
 
     public abstract void sendNotification(String body);
 
-    // デフォルトの実装にしている
+    // 「デフォルトの実装」にしている
     public void logResult() {
         System.out.println("[LOG] 通知送信完了");
     }
@@ -708,6 +728,7 @@ public abstract class NotificationSender {
 ```
 
 **`EmailNotification.java`**
+
 ```java
 package example;
 
@@ -740,6 +761,7 @@ public class EmailNotification extends NotificationSender {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -761,7 +783,7 @@ user@example.com にメールを送信しました：[障害通知] DBサーバ�
 [LOG] 通知送信完了
 ```
 
-出力結果から分かるように正しく動きます。
+出力結果を確認すると、`logResult` メソッドをデフォルトの実装にしても、ログが問題なく出力されています。
 
 もしログ記録の文言を変更したい場合は、本記事と同様にオーバーライドすれば良いだけとなります。<br>
 このように、`abstract` ではなく、デフォルトの実装を持ちながらサブクラスで上書き可能なメソッドのことを「フック（hook）メソッド」といいます。

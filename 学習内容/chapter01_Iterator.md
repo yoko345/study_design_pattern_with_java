@@ -52,6 +52,8 @@ public class Fruit {
 }
 ```
 
+※実務では、`Fruit` のようなエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
+
 準備ができたので、繰り返し処理の実装を行いましょう。<br>
 ※もし、ご自身でコーディングを行う場合は一旦ここで読むのを止めて実装してみてください。その後で、続きを読んでください。
 
@@ -201,7 +203,7 @@ public class Main {
 | `Iterable<T>` | T 型が集まったもの                        |
 | `Iterator<E>` | 1 つ 1 つの要素の処理を繰り返すためのもの |
 
-```Java
+```java
 public interface Iterable<T> {
     Iterator<T> iterator();
 }
@@ -209,7 +211,7 @@ public interface Iterable<T> {
 
 > 引用元: OpenJDK [Iterable.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/lang/Iterable.java)
 
-```Java
+```java
 public interface Iterator<E> {
     boolean hasNext();
     E next();
@@ -226,7 +228,6 @@ public interface Iterator<E> {
 package example;
 
 public class FruitBasket implements Iterable<Fruit> {
-
     private Fruit[] fruits;
     private int lastIndex = 0;
 
@@ -260,7 +261,6 @@ public class FruitBasket implements Iterable<Fruit> {
 package example;
 
 public class FruitBasketIterator implements Iterator<Fruit> {
-
     private FruitBasket fruitBasket;
     private int index;
 
@@ -425,7 +425,7 @@ public class Main {
 
 `FruitBasket` クラスの実装に関して、要素の管理の仕方が配列から `ArrayList` に変わっています。しかし、下記の `Main` クラスの繰り返し文は、変更前の `Main` クラスとまったく同じコードのままです。
 
-```Java
+```java
 Iterator<Fruit> iterator = fruitBasket.iterator();
 while (iterator.hasNext()) {
     Fruit fruit = iterator.next();
@@ -439,7 +439,7 @@ while (iterator.hasNext()) {
 
 先ほどの `while` ループは、拡張 `for` 文で書き換えることができます。
 
-```Java
+```java
 Iterator<Fruit> iterator = fruitBasket.iterator();
 while (iterator.hasNext()) {
     Fruit fruit = iterator.next();
@@ -449,7 +449,7 @@ while (iterator.hasNext()) {
 
 上記のコードは下記のように書き換えられます。
 
-```Java
+```java
 for (Fruit fruit : fruitBasket) {
     System.out.println(fruit.getFruitInfo());
 }
@@ -459,7 +459,7 @@ for (Fruit fruit : fruitBasket) {
 
 ちなみに、**配列**に対して拡張 `for` 文を使った場合は、`Iterator` ではなく通常の `for` 文に変換されます。
 
-```Java
+```java
 for (int i = 0; i < fruitBasket.length; i++) {
     System.out.println(fruitBasket[i].getFruitInfo());
 }
@@ -476,7 +476,7 @@ for (int i = 0; i < fruitBasket.length; i++) {
 
 本記事の内容はここまでとなります。
 
-以降は「もう少し深く知りたい」という方向けの補足となります。実務でよく遭遇する落とし穴や、今回学んだパターンに繋がる設計原則について触れています。
+以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
 
 ---
 
@@ -501,7 +501,7 @@ for (int i = 0; i < fruitBasket.length; i++) {
 
 `ArrayList<Fruit> fruitBasket` ではなく `List<Fruit> fruitBasket` と宣言する方が良いとされています。
 
-```Java
+```java
 // 推奨
 List<Fruit> fruitBasket = new ArrayList<>();
 
@@ -513,7 +513,7 @@ ArrayList<Fruit> fruitBasket = new ArrayList<>();
 
 これにより、後から `LinkedList` など別の実装に変えても呼び出し元を修正せずに済みます。
 
-```Java
+```java
 List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードはそのまま
 ```
 
@@ -529,7 +529,7 @@ List<Fruit> fruitBasket = new LinkedList<>(); // 呼び出し元のコードは�
 
 実際に `ArrayList` のソースコードを見てみましょう。
 
-```Java
+```java
 // ArrayListのクラス宣言（抜粋）
 public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
@@ -558,7 +558,7 @@ List<Fruit> fruitBasket = new ArrayList<>()
 
 以下の実装を見てみましょう。
 
-```Java
+```java
 List<Fruit> fruits = new ArrayList<>();
 
 fruits.add(new Fruit("りんご", 150));

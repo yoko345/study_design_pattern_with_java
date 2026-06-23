@@ -57,6 +57,7 @@
 | `pass`   | `void`     | 社員証でゲートを通過した際の処理 |
 
 **`EmployeeCard.java`**
+
 ```java
 package example;
 
@@ -66,6 +67,7 @@ public class EmployeeCard {
 
     public EmployeeCard(String employeeName, int employeeCardNumber) {
         System.out.println(employeeName + " さんの社員証を " + employeeCardNumber + " 番で発行します。");
+
         this.employeeName = employeeName;
         this.employeeCardNumber = employeeCardNumber;
     }
@@ -81,13 +83,14 @@ public class EmployeeCard {
 }
 ```
 
-※`pass` メソッドの `this` に関する説明[^1]
+※`pass` メソッドの `this` に関する説明（→ [【深堀り④】文字列連結時の `toString` メソッド自動呼び出し](#深堀り4)）
 
 <br>
 
 - `Main`（実行クラス）
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -123,6 +126,7 @@ public class Main {
 既存のコードがあるので、`EmployeeCard` を参考に、以下のような実装をするのではないでしょうか？
 
 **`VisitorCard.java`**
+
 ```java
 package example;
 
@@ -132,6 +136,7 @@ public class VisitorCard {
 
     public VisitorCard(String visitorName, int visitorCardNumber) {
         System.out.println(visitorName + " さんの来訪者カードを " + visitorCardNumber + " 番で発行します。");
+
         this.visitorName = visitorName;
         this.visitorCardNumber = visitorCardNumber;
     }
@@ -148,11 +153,11 @@ public class VisitorCard {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
 public class Main {
-
     public static void main(String[] args) {
         EmployeeCard employeeCard1 = new EmployeeCard("田中 太郎", 1001);
         EmployeeCard employeeCard2 = new EmployeeCard("山田 花子", 1002);
@@ -247,6 +252,7 @@ public class Main {
 **example.framework パッケージ**
 
 **`Management.java`**
+
 ```java
 package example.framework;
 
@@ -256,11 +262,11 @@ public abstract class Management {
 ```
 
 **`Factory.java`**
+
 ```java
 package example.framework;
 
 public abstract class Factory {
-
     protected abstract Management createManagement(String person);
 
     protected abstract void registerManagement(Management management);
@@ -287,6 +293,7 @@ public abstract class Factory {
 **example.visitorcard パッケージ**
 
 **`VisitorCard.java`**
+
 ```java
 package example.visitorcard;
 
@@ -298,6 +305,7 @@ public class VisitorCard extends Management {
 
     public VisitorCard(String visitorName, int visitorCardNumber) {
         System.out.println(visitorName + " さんの来訪者カードを " + visitorCardNumber + " 番で発行します。");
+
         this.visitorName = visitorName;
         this.visitorCardNumber = visitorCardNumber;
     }
@@ -315,6 +323,7 @@ public class VisitorCard extends Management {
 ```
 
 **`VisitorCardFactory.java`**
+
 ```java
 package example.visitorcard;
 
@@ -341,6 +350,7 @@ public class VisitorCardFactory extends Factory {
 実行クラスは次のコードとなります。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -406,6 +416,7 @@ example.employeecard パッケージ（具体的な実装を行うサブクラ�
 ```
 
 **`EmployeeCard.java`**
+
 ```java
 package example.employeecard;
 
@@ -417,6 +428,7 @@ public class EmployeeCard extends Management {
 
     public EmployeeCard(String employeeName, int employeeCardNumber) {
         System.out.println(employeeName + " さんの社員証を " + employeeCardNumber + " 番で発行します。");
+
         this.employeeName = employeeName;
         this.employeeCardNumber = employeeCardNumber;
     }
@@ -434,6 +446,7 @@ public class EmployeeCard extends Management {
 ```
 
 **`EmployeeCardFactory.java`**
+
 ```java
 package example.employeecard;
 
@@ -458,6 +471,7 @@ public class EmployeeCardFactory extends Factory {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -498,6 +512,7 @@ public class Main {
 上記のコードの本質的な部分を抽出したコードが下記となります（社員証の入退館システムの方を提示している）。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -530,6 +545,7 @@ public class Main {
     ```java
     Factory employeeCardFactory = new EmployeeCardFactory();
     Factory visitorCardFactory = new VisitorCardFactory();
+
     // 共通の型で定めることができる
     List<Management> managements = new ArrayList<>();
     managements.add(employeeCardFactory.create("田中 太郎"));
@@ -570,10 +586,6 @@ example.patientticket パッケージ
 
 ---
 
-[^1]: `pass` メソッド内の `this + "..."` という書き方は、Java の文字列連結時に `toString` メソッドが自動呼び出しされる仕組みを利用しています。詳細は[【深堀り④】](#深堀り4)を参照。
-
----
-
 <a id="深堀り1"></a>
 
 ## 【深堀り①】Template Method パターンとの関係
@@ -581,11 +593,11 @@ example.patientticket パッケージ
 本記事の `Factory` クラスを改めて見てみましょう。
 
 **`Factory.java`**
+
 ```java
-package example;
+package example.framework;
 
 public abstract class Factory {
-
     protected abstract Management createManagement(String person);
 
     protected abstract void registerManagement(Management management);
@@ -628,6 +640,7 @@ Factory Method パターンには、設計原則の観点から 2 つの側面�
 正しい実装の本質的な実行クラス（社員証の入退館システム）を見てみましょう。
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -656,6 +669,7 @@ DIP を守ることで、スーパークラスを修正することなく具体�
 「`EmployeeCardFactory` と `VisitorCardFactory` はほぼ同じコードなので、個別に作るのは冗長だ」という理由で、生成処理を 1 か所にまとめ、インスタンス化も省いた次のようなコードを PR として提出してくるかもしれません。
 
 **`CardFactory.java`**
+
 ```java
 package example;
 
@@ -676,6 +690,7 @@ public class CardFactory {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
@@ -730,7 +745,7 @@ Factory Method パターンは、スーパークラスや既存のサブクラ�
 
 `Arrays` の `asList` メソッドを例に見ていきましょう。
 
-```Java
+```java
 public final class Arrays {
     public static <T> List<T> asList(T... a) {
         return new ArrayList<>(a);
@@ -740,7 +755,7 @@ public final class Arrays {
 
 > 引用元: OpenJDK [Arrays.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Arrays.java)
 
-```Java
+```java
 List<String> list = Arrays.asList("sample1", "sample2", "sample3");
 ```
 
@@ -758,6 +773,7 @@ List<String> list = Arrays.asList("sample1", "sample2", "sample3");
 [既存コードの仕様](#既存コードの仕様)を再度示します。
 
 **`EmployeeCard.java`**
+
 ```java
 package example;
 
@@ -767,6 +783,7 @@ public class EmployeeCard {
 
     public EmployeeCard(String employeeName, int employeeCardNumber) {
         System.out.println(employeeName + " さんの社員証を " + employeeCardNumber + " 番で発行します。");
+
         this.employeeName = employeeName;
         this.employeeCardNumber = employeeCardNumber;
     }
@@ -783,6 +800,7 @@ public class EmployeeCard {
 ```
 
 **`Main.java`**
+
 ```java
 package example;
 
