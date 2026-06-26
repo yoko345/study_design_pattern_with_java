@@ -28,5 +28,5 @@ public abstract class Factory {
         Page page = createPage("Yahoo!", "Yahoo!");
         page.add(link);
         return page;
-    };
+    }
 }

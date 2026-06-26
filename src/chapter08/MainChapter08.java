@@ -7,7 +7,7 @@ import chapter08.factory.Tray;
 
 public class MainChapter08 {
     public static void main(String[] args) {
-        if (args.length > 2) {
+        if (args.length != 2) {
             usage();
             System.exit(0);
         }
@@ -55,7 +55,7 @@ public class MainChapter08 {
     }
 
     private static void usage() {
-        System.out.println("Usage: java Main filename.html class.name.of.ConcreteFactory");
+        System.out.println("Usage: java -cp bin Main filename.html class.name.of.ConcreteFactory");
 
         System.out.println(
                 "Example 1: java -cp bin chapter08.MainChapter08 list.html chapter08.listfactory.ListFactory");
