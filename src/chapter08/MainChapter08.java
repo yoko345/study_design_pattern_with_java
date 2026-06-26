@@ -48,6 +48,10 @@ public class MainChapter08 {
 
         // ファイルの出力
         page.output(fileName);
+
+        // 練習問題8-2
+        Page pageYahoo = factory.createYahooPage();
+        pageYahoo.output("yahoo.html");
     }
 
     private static void usage() {
