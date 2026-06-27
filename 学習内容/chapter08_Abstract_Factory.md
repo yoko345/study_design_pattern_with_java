@@ -160,7 +160,7 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        ShippingLabel label = new ShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "A-001");
+        ShippingLabel label = new ShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "既存-001");
         DeliveryNote note = new DeliveryNote("ORDER-1001", List.of("ノートPC", "マウス"));
         ReceiptForm receipt = new ReceiptForm("ORDER-1001", "田中 太郎");
 
@@ -174,7 +174,7 @@ public class Main {
 **実行結果**
 
 ```
-[配送ラベル] お問い合わせ番号：A-001 / 宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
+[配送ラベル] お問い合わせ番号：既存-001 / 宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
 [納品書] 注文番号：ORDER-1001 / 商品：[ノートPC, マウス]
 [受領書] 注文番号：ORDER-1001 / 受取人：田中 太郎
 ```
@@ -185,7 +185,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-既存の `ShippingLabel`・`DeliveryNote`・`ReceiptForm` を参考に、ラクダ運輸用のクラスをそれぞれ複製し、呼び出し元で配送会社ごとに分岐させる、という実装をするのではないでしょうか？
+真っ先に思いつくのは、既存コードの仕様で示したクラスを参考に、ラクダ運輸用のクラスをそれぞれ複製し、実行クラスで配送会社ごとに分岐させる、という実装ではないでしょうか？
 
 **`RakudaShippingLabel.java`**
 
@@ -204,7 +204,29 @@ public class RakudaShippingLabel {
     }
 
     public String print() {
-        return "〔ラクダ運輸 配送ラベル〕問い合わせ番号：" + trackingNumber + " ｜宛先：" + recipientName + " " + address;
+        return "[ラクダ運輸 配送ラベル] 問い合わせ番号：" + trackingNumber + " / 宛先：" + recipientName + " " + address;
+    }
+}
+```
+
+**`RakudaDeliveryNote.java`**
+
+```java
+package example;
+
+import java.util.List;
+
+public class RakudaDeliveryNote {
+    private String orderId;
+    private List<String> items;
+
+    public RakudaDeliveryNote(String orderId, List<String> items) {
+        this.orderId = orderId;
+        this.items = items;
+    }
+
+    public String print() {
+        return "[ラクダ運輸 納品書] 注文番号：" + orderId + " / 商品：" + items;
     }
 }
 ```
@@ -224,7 +246,7 @@ public class RakudaReceiptForm {
     }
 
     public String print() {
-        return "〔ラクダ運輸 受領書〕注文番号：" + orderId + " ｜受取人：" + recipientName;
+        return "[ラクダ運輸 受領書] 注文番号：" + orderId + " / 受取人：" + recipientName;
     }
 }
 ```
@@ -238,22 +260,27 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        String carrierType = "rakuda";
+        if (args.length != 1) {
+            throw new IllegalArgumentException("配送会社名を 1 つだけ指定してください");
+        }
+
+        String carrierType = args[0];
 
         /* ここを追加（ここから） */
         if (carrierType.equals("rakuda")) {
-            RakudaShippingLabel label = new RakudaShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "R-001");
+            RakudaShippingLabel label = new RakudaShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "ラクダ-001");
             DeliveryNote note = new DeliveryNote("ORDER-1001", List.of("ノートPC", "マウス"));
             RakudaReceiptForm receipt = new RakudaReceiptForm("ORDER-1001", "田中 太郎");
 
             System.out.println(label.print());
             System.out.println(note.print());
             System.out.println(receipt.print());
+
             return;
         }
         /* ここを追加（ここまで） */
 
-        ShippingLabel label = new ShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "A-001");
+        ShippingLabel label = new ShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "既存-001");
         DeliveryNote note = new DeliveryNote("ORDER-1001", List.of("ノートPC", "マウス"));
         ReceiptForm receipt = new ReceiptForm("ORDER-1001", "田中 太郎");
 
@@ -266,20 +293,23 @@ public class Main {
 
 **実行結果**
 
+※ `args[0]` に `rakuda` を指定して実行した結果です。
+
 ```
-〔ラクダ運輸 配送ラベル〕問い合わせ番号：R-001 ｜宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
+[ラクダ運輸 配送ラベル] 問い合わせ番号：ラクダ-001 / 宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
 [納品書] 注文番号：ORDER-1001 / 商品：[ノートPC, マウス]
-〔ラクダ運輸 受領書〕注文番号：ORDER-1001 ｜受取人：田中 太郎
+[ラクダ運輸 受領書] 注文番号：ORDER-1001 / 受取人：田中 太郎
 ```
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
 
-しかし、出力結果をよく見ると、配送ラベルと受領書は「ラクダ運輸」表記になっているのに対し、納品書だけ表記が変わっておらず、3 点の書類フォーマットが揃っていません。`DeliveryNote` をラクダ運輸用に切り替える分岐を書き忘れたことが原因です。
+しかし、出力結果をよく見ると、配送ラベルと受領書は「ラクダ運輸」表記になっているのに対し、納品書だけ表記が変わっておらず、3 点の書類フォーマットが揃っていません。<br>
+これは、`DeliveryNote` をラクダ運輸用に切り替え忘れたことが原因です。
 
-この実装には以下の問題点があります。
+このように、この実装には以下の問題点があります。
 
-- 配送会社が増えるたびに、`if` の分岐と書類クラスの複製がさらに増えていく
-- 3 つの書類のうち 1 つだけ切り替えを書き忘れてもコンパイルエラーにならないため、今回のような不整合に気づきにくい
+- 配送会社が増えるたびに、`if` の分岐と書類クラス（`RakudaShippingLabel`・`RakudaDeliveryNote`・`RakudaReceiptForm`）の複製がさらに増えていく
+- 複製時に、3 つの書類のうち 1 つだけ切り替えを書き忘れてもコンパイルエラーにならないため、今回のような不整合に気づきにくい
 - `RakudaShippingLabel` と `ShippingLabel` に共通の型がないため、呼び出し元のコードを分岐ごとに丸ごと複製する必要がある
 - 配送会社の追加・変更のたびに `Main` クラス（呼び出し元）を直接修正する必要があり、修正範囲が広がる
 
@@ -508,7 +538,7 @@ public class RakudaShippingLabel extends ShippingLabel {
 
     @Override
     public String print() {
-        return "〔ラクダ運輸 配送ラベル〕問い合わせ番号：" + trackingNumber + " ｜宛先：" + recipientName + " " + address;
+        return "[ラクダ運輸 配送ラベル] 問い合わせ番号：" + trackingNumber + " / 宛先：" + recipientName + " " + address;
     }
 }
 ```
@@ -529,7 +559,7 @@ public class RakudaDeliveryNote extends DeliveryNote {
 
     @Override
     public String print() {
-        return "〔ラクダ運輸 納品書〕注文番号：" + orderId + " ｜商品：" + items;
+        return "[ラクダ運輸 納品書] 注文番号：" + orderId + " / 商品：" + items;
     }
 }
 ```
@@ -549,7 +579,7 @@ public class RakudaReceiptForm extends ReceiptForm {
 
     @Override
     public String print() {
-        return "〔ラクダ運輸 受領書〕注文番号：" + orderId + " ｜受取人：" + recipientName;
+        return "[ラクダ運輸 受領書] 注文番号：" + orderId + " / 受取人：" + recipientName;
     }
 }
 ```
