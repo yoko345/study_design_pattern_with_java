@@ -2,13 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> 複数の関連するオブジェクトを、状況に応じてセットで切り替えたいのに、それぞれを別々の場所で生成していた。<br>
-> その結果、一部だけ切り替えを忘れてしまい、組み合わせの一部だけが古い仕様のまま残ってしまった。
-
-実務では、関連するもの同士を一貫した組み合わせで扱いたいという要求は珍しくありません。<br>
-しかし、それぞれの生成処理を個別に管理してしまうと、関連性を保証する仕組みがどこにもないため、組み合わせの一部だけ更新を忘れるリスクを常に抱えることになります。
-
-そのための設計が **Abstract Factory パターン**です。関連する複数の生成物を「抽象的な工場（Abstract Factory）」としてひとまとめにし、生成物の組み合わせ自体を 1 つの単位として切り替えられるようにする、という役割を持つパターンです。
+> 複数の関連するオブジェクトを、状況に応じて一括で切り替えて使用していたのに、それぞれを別々の場所で生成をしてしまった。その結果、一部だけ切り替えを忘れてしまい、一部の組み合わせが古い仕様のままで残ってしまった。
 
 この記事では、EC サイトの配送業務で複数の配送会社に対応するというシナリオを通して、Abstract Factory パターンがこの問題をどのように解決するかを紹介します。
 
@@ -32,9 +26,9 @@
 ### シナリオ
 
 > あなたは EC サイトの開発チームに所属しています。<br>
-> 現在、商品の配送は外部の配送会社「サンプルA運輸」のみに対応しており、出荷時には「配送ラベル」「納品書」「受領書」の 3 点をサンプルA運輸所定のフォーマットで作成しています。<br>
-> ある日、物流コスト削減のため、もう一社「サンプルB運輸」とも提携することになりました。<br>
-> あなたは、サンプルB運輸で出荷する場合も、同じ 3 点の書類をサンプルB運輸所定のフォーマットで作成できるようにする実装を担当します。
+> 現在、商品の配送は外部の配送会社「ゴリラ運輸」のみに対応しており、出荷時にはゴリラ運輸所定のフォーマットで「配送ラベル」「納品書」「受領書」の 3 点を作成しています。<br>
+> ある日、物流コスト削減のため、もう一社「ラクダ運輸」とも提携することになりました。<br>
+> あなたは、ラクダ運輸で出荷する場合も、同じ 3 点の書類をラクダ運輸所定のフォーマットで作成できるようにする実装を担当します。
 
 ※実際の配送会社との連携では、各社が提供する API や SDK を呼び出すのが一般的ですが、本記事では Abstract Factory パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
@@ -188,46 +182,46 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-既存の `ShippingLabel`・`DeliveryNote`・`ReceiptForm` を参考に、サンプルB運輸用のクラスをそれぞれ複製し、呼び出し元で配送会社ごとに分岐させる、という実装をするのではないでしょうか？
+既存の `ShippingLabel`・`DeliveryNote`・`ReceiptForm` を参考に、ラクダ運輸用のクラスをそれぞれ複製し、呼び出し元で配送会社ごとに分岐させる、という実装をするのではないでしょうか？
 
-**`SampleBShippingLabel.java`**
+**`CamelShippingLabel.java`**
 
 ```java
 package example;
 
-public class SampleBShippingLabel {
+public class CamelShippingLabel {
     private String recipientName;
     private String address;
     private String trackingNumber;
 
-    public SampleBShippingLabel(String recipientName, String address, String trackingNumber) {
+    public CamelShippingLabel(String recipientName, String address, String trackingNumber) {
         this.recipientName = recipientName;
         this.address = address;
         this.trackingNumber = trackingNumber;
     }
 
     public String print() {
-        return "〔サンプルB運輸 配送ラベル〕問い合わせ番号：" + trackingNumber + " ｜宛先：" + recipientName + " " + address;
+        return "〔ラクダ運輸 配送ラベル〕問い合わせ番号：" + trackingNumber + " ｜宛先：" + recipientName + " " + address;
     }
 }
 ```
 
-**`SampleBReceiptForm.java`**
+**`CamelReceiptForm.java`**
 
 ```java
 package example;
 
-public class SampleBReceiptForm {
+public class CamelReceiptForm {
     private String orderId;
     private String recipientName;
 
-    public SampleBReceiptForm(String orderId, String recipientName) {
+    public CamelReceiptForm(String orderId, String recipientName) {
         this.orderId = orderId;
         this.recipientName = recipientName;
     }
 
     public String print() {
-        return "〔サンプルB運輸 受領書〕注文番号：" + orderId + " ｜受取人：" + recipientName;
+        return "〔ラクダ運輸 受領書〕注文番号：" + orderId + " ｜受取人：" + recipientName;
     }
 }
 ```
@@ -241,13 +235,13 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        String carrierType = "sampleB";
+        String carrierType = "camel";
 
         /* ここを追加（ここから） */
-        if (carrierType.equals("sampleB")) {
-            SampleBShippingLabel label = new SampleBShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "B-001");
+        if (carrierType.equals("camel")) {
+            CamelShippingLabel label = new CamelShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3", "C-001");
             DeliveryNote note = new DeliveryNote("ORDER-1001", List.of("ノートPC", "マウス"));
-            SampleBReceiptForm receipt = new SampleBReceiptForm("ORDER-1001", "田中 太郎");
+            CamelReceiptForm receipt = new CamelReceiptForm("ORDER-1001", "田中 太郎");
 
             System.out.println(label.print());
             System.out.println(note.print());
@@ -270,20 +264,20 @@ public class Main {
 **実行結果**
 
 ```
-〔サンプルB運輸 配送ラベル〕問い合わせ番号：B-001 ｜宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
+〔ラクダ運輸 配送ラベル〕問い合わせ番号：C-001 ｜宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
 [納品書] 注文番号：ORDER-1001 / 商品：[ノートPC, マウス]
-〔サンプルB運輸 受領書〕注文番号：ORDER-1001 ｜受取人：田中 太郎
+〔ラクダ運輸 受領書〕注文番号：ORDER-1001 ｜受取人：田中 太郎
 ```
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
 
-しかし、出力結果をよく見ると、配送ラベルと受領書は「サンプルB運輸」表記になっているのに対し、納品書だけ表記が変わっておらず、3 点の書類フォーマットが揃っていません。`DeliveryNote` をサンプルB運輸用に切り替える分岐を書き忘れたことが原因です。
+しかし、出力結果をよく見ると、配送ラベルと受領書は「ラクダ運輸」表記になっているのに対し、納品書だけ表記が変わっておらず、3 点の書類フォーマットが揃っていません。`DeliveryNote` をラクダ運輸用に切り替える分岐を書き忘れたことが原因です。
 
 この実装には以下の問題点があります。
 
 - 配送会社が増えるたびに、`if` の分岐と書類クラスの複製がさらに増えていく
 - 3 つの書類のうち 1 つだけ切り替えを書き忘れてもコンパイルエラーにならないため、今回のような不整合に気づきにくい
-- `SampleBShippingLabel` と `ShippingLabel` に共通の型がないため、呼び出し元のコードを分岐ごとに丸ごと複製する必要がある
+- `CamelShippingLabel` と `ShippingLabel` に共通の型がないため、呼び出し元のコードを分岐ごとに丸ごと複製する必要がある
 - 配送会社の追加・変更のたびに `Main` クラス（呼び出し元）を直接修正する必要があり、修正範囲が広がる
 
 ## 正しい実装
@@ -302,17 +296,17 @@ public class Main {
 >   ├── ReceiptForm.java        抽象クラス：受領書の共通インターフェース
 >   └── ShippingFactory.java    抽象クラス：3 点の書類をまとめて生成する窓口
 >
-> example.shipping.samplea パッケージ（サンプルA運輸向けの具体的な実装）
->   ├── SampleAShippingLabel.java
->   ├── SampleADeliveryNote.java
->   ├── SampleAReceiptForm.java
->   └── SampleAShippingFactory.java
+> example.shipping.gorilla パッケージ（ゴリラ運輸向けの具体的な実装）
+>   ├── GorillaShippingLabel.java
+>   ├── GorillaDeliveryNote.java
+>   ├── GorillaReceiptForm.java
+>   └── GorillaShippingFactory.java
 >
-> example.shipping.sampleb パッケージ（サンプルB運輸向けの具体的な実装）
->   ├── SampleBShippingLabel.java
->   ├── SampleBDeliveryNote.java
->   ├── SampleBReceiptForm.java
->   └── SampleBShippingFactory.java
+> example.shipping.camel パッケージ（ラクダ運輸向けの具体的な実装）
+>   ├── CamelShippingLabel.java
+>   ├── CamelDeliveryNote.java
+>   ├── CamelReceiptForm.java
+>   └── CamelShippingFactory.java
 > ```
 
 **example.shipping パッケージ**
@@ -398,73 +392,73 @@ public abstract class ShippingFactory {
 
 <br>
 
-**example.shipping.samplea パッケージ**
+**example.shipping.gorilla パッケージ**
 
-**`SampleAShippingLabel.java`**
+**`GorillaShippingLabel.java`**
 
 ```java
-package example.shipping.samplea;
+package example.shipping.gorilla;
 
 import example.shipping.ShippingLabel;
 
-public class SampleAShippingLabel extends ShippingLabel {
+public class GorillaShippingLabel extends ShippingLabel {
 
-    public SampleAShippingLabel(String recipientName, String address, String trackingNumber) {
+    public GorillaShippingLabel(String recipientName, String address, String trackingNumber) {
         super(recipientName, address, trackingNumber);
     }
 
     @Override
     public String print() {
-        return "[サンプルA運輸 配送ラベル] お問い合わせ番号：" + trackingNumber + " / 宛先：" + recipientName + " " + address;
+        return "[ゴリラ運輸 配送ラベル] お問い合わせ番号：" + trackingNumber + " / 宛先：" + recipientName + " " + address;
     }
 }
 ```
 
-**`SampleADeliveryNote.java`**
+**`GorillaDeliveryNote.java`**
 
 ```java
-package example.shipping.samplea;
+package example.shipping.gorilla;
 
 import example.shipping.DeliveryNote;
 import java.util.List;
 
-public class SampleADeliveryNote extends DeliveryNote {
+public class GorillaDeliveryNote extends DeliveryNote {
 
-    public SampleADeliveryNote(String orderId, List<String> items) {
+    public GorillaDeliveryNote(String orderId, List<String> items) {
         super(orderId, items);
     }
 
     @Override
     public String print() {
-        return "[サンプルA運輸 納品書] 注文番号：" + orderId + " / 商品：" + items;
+        return "[ゴリラ運輸 納品書] 注文番号：" + orderId + " / 商品：" + items;
     }
 }
 ```
 
-**`SampleAReceiptForm.java`**
+**`GorillaReceiptForm.java`**
 
 ```java
-package example.shipping.samplea;
+package example.shipping.gorilla;
 
 import example.shipping.ReceiptForm;
 
-public class SampleAReceiptForm extends ReceiptForm {
+public class GorillaReceiptForm extends ReceiptForm {
 
-    public SampleAReceiptForm(String orderId, String recipientName) {
+    public GorillaReceiptForm(String orderId, String recipientName) {
         super(orderId, recipientName);
     }
 
     @Override
     public String print() {
-        return "[サンプルA運輸 受領書] 注文番号：" + orderId + " / 受取人：" + recipientName;
+        return "[ゴリラ運輸 受領書] 注文番号：" + orderId + " / 受取人：" + recipientName;
     }
 }
 ```
 
-**`SampleAShippingFactory.java`**
+**`GorillaShippingFactory.java`**
 
 ```java
-package example.shipping.samplea;
+package example.shipping.gorilla;
 
 import example.shipping.DeliveryNote;
 import example.shipping.ReceiptForm;
@@ -472,95 +466,95 @@ import example.shipping.ShippingFactory;
 import example.shipping.ShippingLabel;
 import java.util.List;
 
-public class SampleAShippingFactory extends ShippingFactory {
+public class GorillaShippingFactory extends ShippingFactory {
     private int labelCount = 0;
 
     @Override
     public ShippingLabel createShippingLabel(String recipientName, String address) {
-        return new SampleAShippingLabel(recipientName, address, "A-" + (++labelCount));
+        return new GorillaShippingLabel(recipientName, address, "G-" + (++labelCount));
     }
 
     @Override
     public DeliveryNote createDeliveryNote(String orderId, List<String> items) {
-        return new SampleADeliveryNote(orderId, items);
+        return new GorillaDeliveryNote(orderId, items);
     }
 
     @Override
     public ReceiptForm createReceiptForm(String orderId, String recipientName) {
-        return new SampleAReceiptForm(orderId, recipientName);
+        return new GorillaReceiptForm(orderId, recipientName);
     }
 }
 ```
 
 <br>
 
-**example.shipping.sampleb パッケージ**
+**example.shipping.camel パッケージ**
 
-**`SampleBShippingLabel.java`**
+**`CamelShippingLabel.java`**
 
 ```java
-package example.shipping.sampleb;
+package example.shipping.camel;
 
 import example.shipping.ShippingLabel;
 
-public class SampleBShippingLabel extends ShippingLabel {
+public class CamelShippingLabel extends ShippingLabel {
 
-    public SampleBShippingLabel(String recipientName, String address, String trackingNumber) {
+    public CamelShippingLabel(String recipientName, String address, String trackingNumber) {
         super(recipientName, address, trackingNumber);
     }
 
     @Override
     public String print() {
-        return "〔サンプルB運輸 配送ラベル〕問い合わせ番号：" + trackingNumber + " ｜宛先：" + recipientName + " " + address;
+        return "〔ラクダ運輸 配送ラベル〕問い合わせ番号：" + trackingNumber + " ｜宛先：" + recipientName + " " + address;
     }
 }
 ```
 
-**`SampleBDeliveryNote.java`**
+**`CamelDeliveryNote.java`**
 
 ```java
-package example.shipping.sampleb;
+package example.shipping.camel;
 
 import example.shipping.DeliveryNote;
 import java.util.List;
 
-public class SampleBDeliveryNote extends DeliveryNote {
+public class CamelDeliveryNote extends DeliveryNote {
 
-    public SampleBDeliveryNote(String orderId, List<String> items) {
+    public CamelDeliveryNote(String orderId, List<String> items) {
         super(orderId, items);
     }
 
     @Override
     public String print() {
-        return "〔サンプルB運輸 納品書〕注文番号：" + orderId + " ｜商品：" + items;
+        return "〔ラクダ運輸 納品書〕注文番号：" + orderId + " ｜商品：" + items;
     }
 }
 ```
 
-**`SampleBReceiptForm.java`**
+**`CamelReceiptForm.java`**
 
 ```java
-package example.shipping.sampleb;
+package example.shipping.camel;
 
 import example.shipping.ReceiptForm;
 
-public class SampleBReceiptForm extends ReceiptForm {
+public class CamelReceiptForm extends ReceiptForm {
 
-    public SampleBReceiptForm(String orderId, String recipientName) {
+    public CamelReceiptForm(String orderId, String recipientName) {
         super(orderId, recipientName);
     }
 
     @Override
     public String print() {
-        return "〔サンプルB運輸 受領書〕注文番号：" + orderId + " ｜受取人：" + recipientName;
+        return "〔ラクダ運輸 受領書〕注文番号：" + orderId + " ｜受取人：" + recipientName;
     }
 }
 ```
 
-**`SampleBShippingFactory.java`**
+**`CamelShippingFactory.java`**
 
 ```java
-package example.shipping.sampleb;
+package example.shipping.camel;
 
 import example.shipping.DeliveryNote;
 import example.shipping.ReceiptForm;
@@ -568,27 +562,27 @@ import example.shipping.ShippingFactory;
 import example.shipping.ShippingLabel;
 import java.util.List;
 
-public class SampleBShippingFactory extends ShippingFactory {
+public class CamelShippingFactory extends ShippingFactory {
     private int labelCount = 0;
 
     @Override
     public ShippingLabel createShippingLabel(String recipientName, String address) {
-        return new SampleBShippingLabel(recipientName, address, "B-" + (++labelCount));
+        return new CamelShippingLabel(recipientName, address, "C-" + (++labelCount));
     }
 
     @Override
     public DeliveryNote createDeliveryNote(String orderId, List<String> items) {
-        return new SampleBDeliveryNote(orderId, items);
+        return new CamelDeliveryNote(orderId, items);
     }
 
     @Override
     public ReceiptForm createReceiptForm(String orderId, String recipientName) {
-        return new SampleBReceiptForm(orderId, recipientName);
+        return new CamelReceiptForm(orderId, recipientName);
     }
 }
 ```
 
-`SampleAShippingFactory`・`SampleBShippingFactory` を見ると、それぞれ `ShippingFactory` を継承し、3 つの生成メソッドの中で、対応する配送会社専用の具体クラス（`SampleAShippingLabel` など）を生成していることがわかります。<br>
+`GorillaShippingFactory`・`CamelShippingFactory` を見ると、それぞれ `ShippingFactory` を継承し、3 つの生成メソッドの中で、対応する配送会社専用の具体クラス（`GorillaShippingLabel` など）を生成していることがわかります。<br>
 お問い合わせ番号も、呼び出し元から渡すのではなく `labelCount` フィールドで各工場が自分で管理しています。そのため、配送会社をまたいで番号が混ざったり、採番が重複したりする心配がありません。
 
 実行クラスは次のコードとなります。
@@ -604,14 +598,14 @@ import example.shipping.DeliveryNote;
 import example.shipping.ReceiptForm;
 import example.shipping.ShippingFactory;
 import example.shipping.ShippingLabel;
-import example.shipping.samplea.SampleAShippingFactory;
-import example.shipping.sampleb.SampleBShippingFactory;
+import example.shipping.gorilla.GorillaShippingFactory;
+import example.shipping.camel.CamelShippingFactory;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        ShippingFactory factory = new SampleAShippingFactory();
-        // ShippingFactory factory = new SampleBShippingFactory();
+        ShippingFactory factory = new GorillaShippingFactory();
+        // ShippingFactory factory = new CamelShippingFactory();
 
         ShippingLabel label = factory.createShippingLabel("田中 太郎", "東京都渋谷区サンプル町 1-2-3");
         DeliveryNote note = factory.createDeliveryNote("ORDER-1001", List.of("ノートPC", "マウス"));
@@ -627,14 +621,14 @@ public class Main {
 **実行結果**
 
 ```
-[サンプルA運輸 配送ラベル] お問い合わせ番号：A-1 / 宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
-[サンプルA運輸 納品書] 注文番号：ORDER-1001 / 商品：[ノートPC, マウス]
-[サンプルA運輸 受領書] 注文番号：ORDER-1001 / 受取人：田中 太郎
+[ゴリラ運輸 配送ラベル] お問い合わせ番号：G-1 / 宛先：田中 太郎 東京都渋谷区サンプル町 1-2-3
+[ゴリラ運輸 納品書] 注文番号：ORDER-1001 / 商品：[ノートPC, マウス]
+[ゴリラ運輸 受領書] 注文番号：ORDER-1001 / 受取人：田中 太郎
 ```
 
-`Main` クラスを見ると、変数の型は全て抽象クラス（`ShippingFactory`・`ShippingLabel`・`DeliveryNote`・`ReceiptForm`）です。そのため、呼び出し元は `SampleAShippingFactory` や `SampleAShippingLabel` といった具体クラスの内部実装を知らなくても、3 点の書類を生成・出力できます。
+`Main` クラスを見ると、変数の型は全て抽象クラス（`ShippingFactory`・`ShippingLabel`・`DeliveryNote`・`ReceiptForm`）です。そのため、呼び出し元は `GorillaShippingFactory` や `GorillaShippingLabel` といった具体クラスの内部実装を知らなくても、3 点の書類を生成・出力できます。
 
-ここで `ShippingFactory factory = new SampleAShippingFactory();` の行をコメントアウトしている `new SampleBShippingFactory()` に変更してみましょう。`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` の呼び出し方は 1 行も変えていないにもかかわらず、3 点の書類すべてがサンプルB運輸仕様の出力に切り替わります。好ましくない実装で起きていた「納品書だけ切り替えを忘れる」というミスは、この構造では起こり得ません。
+ここで `ShippingFactory factory = new GorillaShippingFactory();` の行をコメントアウトしている `new CamelShippingFactory()` に変更してみましょう。`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` の呼び出し方は 1 行も変えていないにもかかわらず、3 点の書類すべてがラクダ運輸仕様の出力に切り替わります。好ましくない実装で起きていた「納品書だけ切り替えを忘れる」というミスは、この構造では起こり得ません。
 
 このような Abstract Factory パターンの実装を行うと、以下のメリットがあります。
 
@@ -665,9 +659,9 @@ Factory Method パターンを思い出してみましょう。`Factory` 抽象�
 
 本記事の `ShippingFactory` を見ると、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` という 3 つの生成メソッドを持っています。この 1 つひとつのメソッドだけを取り出すと、それぞれ単体で Factory Method パターンと同じ構造（抽象クラスが生成方法を定義し、サブクラスが具体的な生成を行う）をしていることがわかります。
 
-つまり、Abstract Factory パターンは、関連する複数の Factory Method を 1 つの窓口（`ShippingFactory`）にまとめ、「どの具体的な組み合わせ（サンプルA運輸 or サンプルB運輸）を使うか」を 1 か所の `new` だけで切り替えられるようにしたパターンと言えます。
+つまり、Abstract Factory パターンは、関連する複数の Factory Method を 1 つの窓口（`ShippingFactory`）にまとめ、「どの具体的な組み合わせ（ゴリラ運輸 or ラクダ運輸）を使うか」を 1 か所の `new` だけで切り替えられるようにしたパターンと言えます。
 
-`ShippingFactory factory = new SampleAShippingFactory();` の 1 行を変更するだけで、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` の 3 つすべてが連動してサンプルB運輸仕様に切り替わります。これは Factory Method パターンを 3 つ別々に使った場合には保証できません。仮に 3 つの `Factory` を個別に持っていた場合、ラベル用だけサンプルA運輸、納品書用だけサンプルB運輸、というような取り違えが起きてしまう可能性があります。Abstract Factory パターンは、この「関連する生成物の組み合わせを一貫させる」という制約を設計レベルで保証する点が、Factory Method パターンとの違いです。
+`ShippingFactory factory = new GorillaShippingFactory();` の 1 行を変更するだけで、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` の 3 つすべてが連動してラクダ運輸仕様に切り替わります。これは Factory Method パターンを 3 つ別々に使った場合には保証できません。仮に 3 つの `Factory` を個別に持っていた場合、ラベル用だけゴリラ運輸、納品書用だけラクダ運輸、というような取り違えが起きてしまう可能性があります。Abstract Factory パターンは、この「関連する生成物の組み合わせを一貫させる」という制約を設計レベルで保証する点が、Factory Method パターンとの違いです。
 
 <a id="深堀り2"></a>
 
@@ -675,9 +669,9 @@ Factory Method パターンを思い出してみましょう。`Factory` 抽象�
 
 Abstract Factory パターンには、見落とされやすいトレードオフがあります。
 
-例えば、配送会社をもう 1 社（サンプルC運輸など）追加したくなったとします。この場合は `example.shipping.samplec` パッケージを新設し、`SampleCShippingLabel`・`SampleCDeliveryNote`・`SampleCReceiptForm`・`SampleCShippingFactory` を追加するだけで済みます。既存のクラスは 1 行も変更する必要がありません。
+例えば、配送会社をもう 1 社（パンダ運輸など）追加したくなったとします。この場合は `example.shipping.panda` パッケージを新設し、`PandaShippingLabel`・`PandaDeliveryNote`・`PandaReceiptForm`・`PandaShippingFactory` を追加するだけで済みます。既存のクラスは 1 行も変更する必要がありません。
 
-一方で、書類の「種類」を増やしたい場合（例えば「着払い控え」を新たに追加したい場合）はどうでしょうか。この場合、抽象クラス `ShippingFactory` に `createCashOnDeliverySlip` のような抽象メソッドを追加する必要があり、それに連動して `SampleAShippingFactory`・`SampleBShippingFactory` の両方に実装を追加しなければなりません。
+一方で、書類の「種類」を増やしたい場合（例えば「着払い控え」を新たに追加したい場合）はどうでしょうか。この場合、抽象クラス `ShippingFactory` に `createCashOnDeliverySlip` のような抽象メソッドを追加する必要があり、それに連動して `GorillaShippingFactory`・`CamelShippingFactory` の両方に実装を追加しなければなりません。
 
 つまり、Abstract Factory パターンは「ファミリー（配送会社）の追加」には強い一方、「生成物の種類（書類の種類）の追加」には弱いという非対称な性質を持っています。新しい配送会社が増えやすいのか、新しい書類の種類が増えやすいのか、要件の変化の方向性を見極めたうえで採用することが大切です。
 
@@ -685,7 +679,7 @@ Abstract Factory パターンには、見落とされやすいトレードオフ
 
 ## 【深堀り③】ファクトリの選択方法と実務での扱い
 
-正しい実装の `Main` クラスでは、コメントアウトで `SampleAShippingFactory` と `SampleBShippingFactory` を切り替えています。しかし実務では、これをソースコードのコメントアウトで切り替えることはありません。
+正しい実装の `Main` クラスでは、コメントアウトで `GorillaShippingFactory` と `CamelShippingFactory` を切り替えています。しかし実務では、これをソースコードのコメントアウトで切り替えることはありません。
 
 例えば、注文データに保持されている「配送会社コード」を読み取り、`if` 文や `switch` 式で対応する `ShippingFactory` を選択する、設定ファイル（`application.properties` など）で配送会社を指定し、起動時にどちらの `ShippingFactory` を使うかを決定する、といった方法が考えられます。
 
