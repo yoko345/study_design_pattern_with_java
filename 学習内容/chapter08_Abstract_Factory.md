@@ -15,9 +15,8 @@
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
 - [【深堀り①】Factory Method パターンとの違い](#深堀り1)
-- [【深堀り②】新しい「種類」を追加する際のトレードオフ](#深堀り2)
-- [【深堀り③】ファクトリの選択方法と実務での扱い](#深堀り3)
-- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+- [【深堀り②】拡張の方向性によるトレードオフ](#深堀り2)
+- [【深堀り③】GoF デザインパターンとの位置づけ](#深堀り3)
 
 ---
 
@@ -702,6 +701,7 @@ public class Main {
 - 配送会社の切り替えだけで、3 点の配送会社専用の書類がすべて連動して切り替わるため、組み合わせの取り違えが構造的に発生しない
 - 配送会社を追加する際は、新しい具体クラス一式の追加と呼び出し元の修正をするだけでよく、既存のクラスを変更する必要がない
 - 抽象クラス `ShippingFactory` を継承した実装クラスのインスタンスを生成する際に、番号を渡すだけで 3 点の書類すべてに一貫して反映されるため、`create` メソッドをどの順番で呼んでも番号がずれたり重複したりする心配がない
+- 配送会社の選択方法を実務向け（例えば、注文データの配送会社コードの判定、設定ファイルでの指定など）に変更しても、条件分岐の条件式が変わるだけで住むため、呼び出し元のコードは具体的な配送会社を意識せずに済む
 
 ## まとめ
 
@@ -721,39 +721,41 @@ public class Main {
 
 ## 【深堀り①】Factory Method パターンとの違い
 
-Factory Method パターンを思い出してみましょう。`Factory` 抽象クラスが `createManagement` のような 1 つの生成メソッドを持ち、サブクラスが 1 種類の抽象生成物（`Management`）をどう作るかを決める、という構造でした。
+Factory Method パターンとは、抽象クラスが 1 つのインスタンスを生成するためのメソッドを持ち、「具体的にどのクラスのインスタンスを生成するか」をサブクラスに委ねるパターンです。サブクラスでは、その抽象クラスを継承した実装クラスのインスタンスを生成し、型は抽象クラスのまま返すため、呼び出し元はサブクラスが何であるかを知らずに、共通の型として扱うことができます。
 
-本記事の `ShippingFactory` を見ると、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` という 3 つの生成メソッドを持っています。この 1 つひとつのメソッドだけを取り出すと、それぞれ単体で Factory Method パターンと同じ構造（抽象クラスが生成方法を定義し、サブクラスが具体的な生成を行う）をしていることがわかります。
+本記事の `ShippingFactory` を振り返ると、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` という 3 つの生成メソッドを持っています。この 1 つひとつのメソッドだけを取り出すと、先程の Factory Method パターンと同じ構造をしていることがわかります。<br>
+つまり、Abstract Factory パターンは、関連する複数の Factory Method を 1 つの窓口（`ShippingFactory`）にまとめ、「どの具体的な組み合わせ（`GoriraShippingFactory`・`RakudaShippingFactory`）を使うか」を 1 か所の `new` だけで切り替えられるようにしたパターンと言えます。
 
-つまり、Abstract Factory パターンは、関連する複数の Factory Method を 1 つの窓口（`ShippingFactory`）にまとめ、「どの具体的な組み合わせ（ゴリラ運輸 or ラクダ運輸）を使うか」を 1 か所の `new` だけで切り替えられるようにしたパターンと言えます。
+Factory Method パターンでは、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` という 3 つの生成メソッドをそれぞれのクラスで定義することになるため、関連する生成物の組み合わせを一貫させる保証ができません。<br>
+一方で、Abstract Factory パターンは、この「関連する生成物の組み合わせを一貫させる」という制約を設計レベルで保証するパターンとなります。
 
-`ShippingFactory factory = new GoriraShippingFactory();` の 1 行を変更するだけで、`createShippingLabel`・`createDeliveryNote`・`createReceiptForm` の 3 つすべてが連動してラクダ運輸仕様に切り替わります。これは Factory Method パターンを 3 つ別々に使った場合には保証できません。仮に 3 つの `Factory` を個別に持っていた場合、ラベル用だけゴリラ運輸、納品書用だけラクダ運輸、というような取り違えが起きてしまう可能性があります。Abstract Factory パターンは、この「関連する生成物の組み合わせを一貫させる」という制約を設計レベルで保証する点が、Factory Method パターンとの違いです。
+> 本記事でもし Factory Method パターンを使用すると、ラベル用だけゴリラ運輸、納品書用だけラクダ運輸、というような取り違えが起きてしまう可能性があります。
 
 <a id="深堀り2"></a>
 
-## 【深堀り②】新しい「種類」を追加する際のトレードオフ
+## 【深堀り②】拡張の方向性によるトレードオフ
 
-Abstract Factory パターンには、見落とされやすいトレードオフがあります。
+追加実装をする際、Abstract Factory パターンには、見落とされやすいトレードオフがあります。<br>
+本記事を例に見ていきましょう。
 
-例えば、配送会社をもう 1 社（パンダ運輸など）追加したくなったとします。この場合は `example.shipping.panda` パッケージを新設し、`PandaShippingLabel`・`PandaDeliveryNote`・`PandaReceiptForm`・`PandaShippingFactory` を追加するだけで済みます。既存のクラスは 1 行も変更する必要がありません。
+**配送会社を追加する場合**
 
-一方で、書類の「種類」を増やしたい場合（例えば「着払い控え」を新たに追加したい場合）はどうでしょうか。この場合、抽象クラス `ShippingFactory` に `createCashOnDeliverySlip` のような抽象メソッドを追加する必要があり、それに連動して `GoriraShippingFactory`・`RakudaShippingFactory` の両方に実装を追加しなければなりません。
+例えば、「パンダ運輸」を追加で実装する必要が出てきた場合を考えてみましょう。<br>
+この場合、ラクダ運輸と同様、`example.panda` パッケージを新設し、`PandaShippingLabel`・`PandaDeliveryNote`・`PandaReceiptForm`・`PandaShippingFactory` を追加します。<br>
+一方、既存のクラスは 1 行も変更する必要がありません。
 
-つまり、Abstract Factory パターンは「配送会社の追加」には強い一方、「生成物の種類（書類の種類）の追加」には弱いという非対称な性質を持っています。新しい配送会社が増えやすいのか、新しい書類の種類が増えやすいのか、要件の変化の方向性を見極めたうえで採用することが大切です。
+**書類の種類を追加する場合**
+
+例えば、「着払い控え」を追加で実装する必要が出てきた場合を考えてみましょう。<br>
+この場合、抽象クラス `ShippingFactory` に `createCashOnDeliverySlip` のような抽象メソッドを追加する必要があります。これに連動して、サブクラス（`GoriraShippingFactory`・`RakudaShippingFactory`）に `createCashOnDeliverySlip` メソッドの具体的な実装を追加しなければなりません。<br>
+つまり、既存のクラスの変更を行う必要が出てくるのです。
+
+以上のように、Abstract Factory パターンは「関連する複数の生成物をまとめて追加すること（配送会社の追加）」には強い一方、「生成物自体の種類を追加すること（書類の種類の追加）」には弱いという特徴があります。<br>
+Abstract Factory パターンを用いる際は、要件の変化の方向性を見極めたうえで採用することが大切です。
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】ファクトリの選択方法と実務での扱い
-
-正しい実装の `Main` クラスでは、コメントアウトで `GoriraShippingFactory` と `RakudaShippingFactory` を切り替えています。しかし実務では、これをソースコードのコメントアウトで切り替えることはありません。
-
-例えば、注文データに保持されている「配送会社コード」を読み取り、`if` 文や `switch` 式で対応する `ShippingFactory` を選択する、設定ファイル（`application.properties` など）で配送会社を指定し、起動時にどちらの `ShippingFactory` を使うかを決定する、といった方法が考えられます。
-
-どの方法であっても、生成方法を切り替えるための条件分岐が 1 か所（ファクトリを選ぶ部分）に閉じ込められ、`ShippingLabel`・`DeliveryNote`・`ReceiptForm` を使う側のコードは具体的な配送会社を意識せずに済む、という点は変わりません。
-
-<a id="深堀り4"></a>
-
-## 【深堀り④】GoF デザインパターンとの位置づけ
+## 【深堀り③】GoF デザインパターンとの位置づけ
 
 今回使った Abstract Factory パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「生成パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
