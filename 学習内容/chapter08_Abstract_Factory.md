@@ -255,7 +255,7 @@ public class Main {
     public static void main(String[] args) {
         /* ここを追加（ここから） */
         if (args.length != 1) {
-            throw new IllegalArgumentException("配送会社名を 1 つだけ指定してください");
+            throw new IllegalArgumentException("配送会社名を1つだけ指定してください");
         }
 
         if (args[0].equals("rakuda")) {
@@ -629,17 +629,17 @@ public class RakudaShippingFactory extends ShippingFactory {
 ```java
 package example;
 
+import example.gorira.GoriraShippingFactory;
+import example.rakuda.RakudaShippingFactory;
 import example.shipping.DeliveryNote;
 import example.shipping.ReceiptForm;
 import example.shipping.ShippingFactory;
 import example.shipping.ShippingLabel;
-import example.gorira.GoriraShippingFactory;
-import example.rakuda.RakudaShippingFactory;
 
 public class Main {
     public static void main(String[] args) {
         if (args.length != 1) {
-            throw new IllegalArgumentException("配送会社名を 1 つだけ指定してください");
+            throw new IllegalArgumentException("配送会社名を1つだけ指定してください");
         }
 
         // 実際は DB の自動採番（INSERT 時に発行される連番）などを使う想定
