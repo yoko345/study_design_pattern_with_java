@@ -12,7 +12,7 @@ public class MainChapter09 {
         d3.display();
         d3.multiDisplay(5);
 
-        RandomDisplay d4 = new RandomDisplay(new StringDisplayImp("Hello, Rondom."));
+        RandomCountDisplay d4 = new RandomCountDisplay(new StringDisplayImp("Hello, Rondom."));
         d4.display();
         d4.randomDisplay(5);
     }
