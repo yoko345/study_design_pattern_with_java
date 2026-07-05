@@ -12,8 +12,13 @@ public class MainChapter09 {
         d3.display();
         d3.multiDisplay(5);
 
+        // 練習問題9-1
         RandomCountDisplay d4 = new RandomCountDisplay(new StringDisplayImp("Hello, Rondom."));
         d4.display();
         d4.randomDisplay(5);
+
+        // 練習問題9-2
+        Display d5 = new Display(new FileContentDisplayImp("practice9-2.txt"));
+        d5.display();
     }
 }
