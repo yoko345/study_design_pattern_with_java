@@ -1,0 +1,512 @@
+# Bridge（ブリッジ）パターン ― 抽象化と実装を分離し、独立して拡張する
+
+次のような経験をしたことはありませんか？
+
+> ある機能に、後から複数の実行先（送信経路や出力先など）を追加しようとしたら、機能の種類と実行先の組み合わせの数だけクラスを用意する羽目になった。<br>
+> その結果、実行先を 1 つ追加するだけなのに、既存の機能の数だけクラスを複製しなければならなくなった。
+
+この記事では、社内向け通知システムに Slack 通知と緊急時の繰り返し送信機能を追加するシナリオを通して、Bridge パターンがこの問題をどのように解決するかを紹介します。
+
+## 目次
+
+- [【具体例】](#具体例)
+    - [シナリオ](#シナリオ)
+    - [既存コードの仕様](#既存コードの仕様)
+- [好ましくない実装](#好ましくない実装)
+- [正しい実装](#正しい実装)
+- [まとめ](#まとめ)
+- [【深堀り①】Template Method パターンとの複合](#深堀り1)
+- [【深堀り②】Strategy パターンとの類似点](#深堀り2)
+- [【深堀り③】OCP（オープン・クローズドの原則）](#深堀り3)
+- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+
+---
+
+## 【具体例】
+
+### シナリオ
+
+> あなたは社内向け通知システムの開発チームに所属しています。<br>
+> 現在は、メールでの通知にのみ対応しています。<br>
+> ある日、Slack を主要な連絡手段として使う部署が増えてきたため、Slack でも同じ通知を送れるようにしてほしいという要望が届きました。<br>
+> さらに、システム障害などの緊急時には担当者が見逃さないよう、同じ内容を複数回連続で送信する「緊急通知」機能も、メール・Slack の両方で使えるようにしてほしいとのことです。
+
+### 既存コードの仕様
+
+※実務では、次の `EmailNotification` のような外部サービス（メール送信）と連携するクラスは `infrastructure` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
+
+- `EmailNotification`（既存クラス）
+
+通知内容をメールとして送信するクラスです。<br>
+宛先メールアドレス・件名・本文を保持し、SMTP サーバーへの接続から切断までの一連の処理を行います。
+
+| フィールド       | 型       | 説明               |
+| ---------------- | -------- | ------------------ |
+| `recipientEmail` | `String` | 宛先メールアドレス |
+| `subject`        | `String` | 件名               |
+| `body`           | `String` | 本文               |
+
+| メソッド | 戻り値の型 | 説明                                             |
+| -------- | ---------- | ------------------------------------------------ |
+| `send`   | `void`     | 通知を送信する（接続 → 送信 → 切断の一連の処理） |
+
+**`EmailNotification.java`**
+
+```java
+package example;
+
+public class EmailNotification {
+    private String recipientEmail;
+    private String subject;
+    private String body;
+
+    public EmailNotification(String recipientEmail, String subject, String body) {
+        this.recipientEmail = recipientEmail;
+        this.subject = subject;
+        this.body = body;
+    }
+
+    private void connect() {
+        System.out.println("[Email] SMTPサーバーに接続：" + recipientEmail);
+    }
+
+    private void transmit() {
+        System.out.println("[Email] 件名：" + subject + " / 本文：" + body);
+    }
+
+    private void disconnect() {
+        System.out.println("[Email] 接続を切断しました");
+    }
+
+    public void send() {
+        connect();
+        transmit();
+        disconnect();
+    }
+}
+```
+
+<br>
+
+- `Main`（実行クラス）
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        EmailNotification notification = new EmailNotification(
+                "suzuki@example.com", "定例会議のご案内", "本日15時から会議室Aで定例会議を行います。");
+        notification.send();
+    }
+}
+```
+
+**実行結果**
+
+```
+[Email] SMTPサーバーに接続：suzuki@example.com
+[Email] 件名：定例会議のご案内 / 本文：本日15時から会議室Aで定例会議を行います。
+[Email] 接続を切断しました
+```
+
+※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
+
+## 好ましくない実装
+
+では、シナリオに従い追加実装をしていきましょう。
+
+真っ先に思いつくのは、Slack 用に `SlackNotification` クラスを複製し、緊急通知用にそれぞれの継承クラス（`UrgentEmailNotification`・`UrgentSlackNotification`）を追加する、という実装ではないでしょうか？
+
+**`SlackNotification.java`**
+
+```java
+package example;
+
+public class SlackNotification {
+    private String channelName;
+    private String message;
+
+    public SlackNotification(String channelName, String message) {
+        this.channelName = channelName;
+        this.message = message;
+    }
+
+    private void connect() {
+        System.out.println("[Slack] Webhookへ接続：#" + channelName);
+    }
+
+    private void transmit() {
+        System.out.println("[Slack] メッセージ：" + message);
+    }
+
+    private void disconnect() {
+        System.out.println("[Slack] 接続を切断しました");
+    }
+
+    public void send() {
+        connect();
+        transmit();
+        disconnect();
+    }
+}
+```
+
+**`UrgentEmailNotification.java`**
+
+```java
+package example;
+
+public class UrgentEmailNotification extends EmailNotification {
+    public UrgentEmailNotification(String recipientEmail, String subject, String body) {
+        super(recipientEmail, subject, body);
+    }
+
+    public void sendRepeatedly(int times) {
+        for (int i = 0; i < times; i++) {
+            send();
+        }
+    }
+}
+```
+
+**`UrgentSlackNotification.java`**
+
+```java
+package example;
+
+public class UrgentSlackNotification extends SlackNotification {
+    public UrgentSlackNotification(String channelName, String message) {
+        super(channelName, message);
+    }
+
+    public void sendRepeatedly(int times) {
+        for (int i = 0; i < times; i++) {
+            send();
+        }
+    }
+}
+```
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        EmailNotification notification = new EmailNotification(
+                "suzuki@example.com", "定例会議のご案内", "本日15時から会議室Aで定例会議を行います。");
+        notification.send();
+
+        /* ここを追加（ここから） */
+        SlackNotification slackNotification = new SlackNotification("general", "本日の定例会議は15時からです。");
+        slackNotification.send();
+
+        UrgentEmailNotification urgentEmail = new UrgentEmailNotification(
+                "suzuki@example.com", "【緊急】本番サーバー障害", "本番サーバーで障害が発生しました。至急対応してください。");
+        urgentEmail.sendRepeatedly(3);
+
+        UrgentSlackNotification urgentSlack = new UrgentSlackNotification(
+                "infra-alert", "本番サーバーで障害が発生しました。至急対応してください。");
+        urgentSlack.sendRepeatedly(3);
+        /* ここを追加（ここまで） */
+    }
+}
+```
+
+**実行結果**
+
+```
+[Email] SMTPサーバーに接続：suzuki@example.com
+[Email] 件名：定例会議のご案内 / 本文：本日15時から会議室Aで定例会議を行います。
+[Email] 接続を切断しました
+[Slack] Webhookへ接続：#general
+[Slack] メッセージ：本日の定例会議は15時からです。
+[Slack] 接続を切断しました
+[Email] SMTPサーバーに接続：suzuki@example.com
+[Email] 件名：【緊急】本番サーバー障害 / 本文：本番サーバーで障害が発生しました。至急対応してください。
+[Email] 接続を切断しました
+[Email] SMTPサーバーに接続：suzuki@example.com
+[Email] 件名：【緊急】本番サーバー障害 / 本文：本番サーバーで障害が発生しました。至急対応してください。
+[Email] 接続を切断しました
+[Email] SMTPサーバーに接続：suzuki@example.com
+[Email] 件名：【緊急】本番サーバー障害 / 本文：本番サーバーで障害が発生しました。至急対応してください。
+[Email] 接続を切断しました
+[Slack] Webhookへ接続：#infra-alert
+[Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
+[Slack] 接続を切断しました
+[Slack] Webhookへ接続：#infra-alert
+[Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
+[Slack] 接続を切断しました
+[Slack] Webhookへ接続：#infra-alert
+[Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
+[Slack] 接続を切断しました
+```
+
+コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
+
+しかし、この実装には以下の問題点があります。
+
+- 通知の機能（通常・緊急）と通知の手段（メール・Slack）の組み合わせごとにクラスが必要になり、クラス数が「機能の数 × 手段の数」で増えていく。
+    - 例えば SMS 通知を追加する場合、`SmsNotification` と `UrgentSmsNotification` の 2 クラスを新たに追加しなければならない。
+    - 逆に、緊急通知以外の新しい機能（例えば定期リマインド通知）を追加する場合も、メール・Slack それぞれに対応するクラスを個別に作る必要がある。
+- `UrgentEmailNotification` と `UrgentSlackNotification` の `sendRepeatedly` メソッドはまったく同じ処理であるにもかかわらず、継承元のクラスが異なるため共通化できず、コードが重複している。
+    - 繰り返し送信のロジックを変更したい場合、`Urgent` が付くクラスすべてを個別に修正する必要があり、修正漏れが起きやすい。
+- `sendRepeatedly` メソッドは、継承元の `send` メソッドをそのまま繰り返し呼び出しているだけのため、送信のたびに接続・切断を繰り返してしまう。本来は 1 回接続したまま複数回送信すれば済むはずである。
+
+## 正しい実装
+
+では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
+
+これらの問題を解決するのが **Bridge パターン**です。<br>
+「通知の機能（何を行うか）」と「通知の手段（どうやって送るか）」を、それぞれ独立した継承階層に分離し、両者を委譲でつなぐことで、機能と手段を自由に組み合わせられるようにします。
+
+まず、通知の手段側から見ていきましょう。
+
+**`NotificationChannel.java`**
+
+```java
+package example;
+
+public abstract class NotificationChannel {
+    public abstract void rawConnect();
+
+    public abstract void rawSend();
+
+    public abstract void rawDisconnect();
+}
+```
+
+`NotificationChannel` クラスは、通知手段（後述の `EmailNotificationChannel`・`SlackNotificationChannel`）に共通の抽象メソッドを定義しています。<br>
+`rawConnect`・`rawSend`・`rawDisconnect` という接続・送信・切断の 3 つの処理をサブクラスに実装させることで、通知手段ごとの具体的な通信方法を切り替えられるようにしています。
+
+**`EmailNotificationChannel.java`**
+
+```java
+package example;
+
+public class EmailNotificationChannel extends NotificationChannel {
+    private String recipientEmail;
+    private String subject;
+    private String body;
+
+    public EmailNotificationChannel(String recipientEmail, String subject, String body) {
+        this.recipientEmail = recipientEmail;
+        this.subject = subject;
+        this.body = body;
+    }
+
+    @Override
+    public void rawConnect() {
+        System.out.println("[Email] SMTPサーバーに接続：" + recipientEmail);
+    }
+
+    @Override
+    public void rawSend() {
+        System.out.println("[Email] 件名：" + subject + " / 本文：" + body);
+    }
+
+    @Override
+    public void rawDisconnect() {
+        System.out.println("[Email] 接続を切断しました");
+    }
+}
+```
+
+**`SlackNotificationChannel.java`**
+
+```java
+package example;
+
+public class SlackNotificationChannel extends NotificationChannel {
+    private String channelName;
+    private String message;
+
+    public SlackNotificationChannel(String channelName, String message) {
+        this.channelName = channelName;
+        this.message = message;
+    }
+
+    @Override
+    public void rawConnect() {
+        System.out.println("[Slack] Webhookへ接続：#" + channelName);
+    }
+
+    @Override
+    public void rawSend() {
+        System.out.println("[Slack] メッセージ：" + message);
+    }
+
+    @Override
+    public void rawDisconnect() {
+        System.out.println("[Slack] 接続を切断しました");
+    }
+}
+```
+
+`EmailNotificationChannel`・`SlackNotificationChannel` クラスを振り返ると、既存の仕様（`EmailNotification`・`SlackNotification`）から `NotificationChannel` を継承し、各メソッドをオーバーライドする変更のみが加えられています。処理内容自体に変更はありません。
+
+<br>
+
+次に、通知の機能側を見ていきましょう。
+
+**`Notification.java`**
+
+```java
+package example;
+
+public class Notification {
+    private NotificationChannel channel;
+
+    public Notification(NotificationChannel channel) {
+        this.channel = channel;
+    }
+
+    protected void connect() {
+        channel.rawConnect();
+    }
+
+    protected void send() {
+        channel.rawSend();
+    }
+
+    protected void disconnect() {
+        channel.rawDisconnect();
+    }
+
+    public final void deliver() {
+        connect();
+        send();
+        disconnect();
+    }
+}
+```
+
+`Notification` クラスは、フィールドとして `NotificationChannel` 型のインスタンスを保持し、`connect`・`send`・`disconnect` メソッドの中でその処理を委譲しています。<br>
+つまり `Notification` は「通知を送る」という手順（接続 → 送信 → 切断）だけを知っており、実際にどう接続し、どう送信するかは `NotificationChannel` 側に委ねています。<br>
+また、`deliver` メソッドを `final` にすることで、この手順の順序をサブクラスが変更できないようにしています。
+
+**`UrgentNotification.java`**
+
+```java
+package example;
+
+public class UrgentNotification extends Notification {
+    public UrgentNotification(NotificationChannel channel) {
+        super(channel);
+    }
+
+    public void deliverRepeatedly(int times) {
+        connect();
+        for (int i = 0; i < times; i++) {
+            send();
+        }
+        disconnect();
+    }
+}
+```
+
+`UrgentNotification` クラスは `Notification` を継承し、`deliverRepeatedly` メソッドを追加しています。<br>
+このメソッドは接続を 1 回行った後、送信だけを指定回数繰り返し、最後に切断を 1 回行います。継承元の `connect`・`send`・`disconnect` メソッドを呼び出しているだけで、`NotificationChannel` の具体的な実装は一切意識していません。
+
+<br>
+
+最後に、実行クラスの実装を見ていきましょう。
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        Notification emailNotification = new Notification(
+                new EmailNotificationChannel("suzuki@example.com", "定例会議のご案内", "本日15時から会議室Aで定例会議を行います。"));
+        emailNotification.deliver();
+
+        UrgentNotification urgentSlackNotification = new UrgentNotification(
+                new SlackNotificationChannel("infra-alert", "本番サーバーで障害が発生しました。至急対応してください。"));
+        urgentSlackNotification.deliverRepeatedly(3);
+    }
+}
+```
+
+**実行結果**
+
+```
+[Email] SMTPサーバーに接続：suzuki@example.com
+[Email] 件名：定例会議のご案内 / 本文：本日15時から会議室Aで定例会議を行います。
+[Email] 接続を切断しました
+[Slack] Webhookへ接続：#infra-alert
+[Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
+[Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
+[Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
+[Slack] 接続を切断しました
+```
+
+`Main` クラスを振り返ると、`Notification`（または `UrgentNotification`）のコンストラクタにどの `NotificationChannel` を渡すかを指定するだけで、通知の機能と手段を自由に組み合わせられることがわかります。
+
+以上のような実装を行うと、以下のメリットがあります。
+
+- 通知の機能（`Notification`・`UrgentNotification`）と通知の手段（`EmailNotificationChannel`・`SlackNotificationChannel`）が別々の継承階層に分かれたことで、クラス数は「機能の数 + 手段の数」で済むようになる（好ましくない実装のような「機能の数 × 手段の数」の掛け算にならない）。
+    - 例えば SMS 通知を追加する場合も、`SmsNotificationChannel` を 1 つ追加するだけで、既存の `Notification`・`UrgentNotification` の両方でそのまま使えるようになる。
+- 緊急通知の繰り返しロジック（`deliverRepeatedly`）は `UrgentNotification` に 1 箇所だけ実装すればよく、通知手段ごとに重複して実装する必要がない。
+- `deliverRepeatedly` は接続・切断をそれぞれ 1 回だけ行い、送信だけを複数回行う実装になっており、好ましくない実装で見られた「送信のたびに接続し直す」という無駄を解消できている。
+- `Notification`・`UrgentNotification` は抽象クラス `NotificationChannel` だけに依存しているため、具体的な通知手段が増えても機能側のクラスを変更する必要がない。
+
+## まとめ
+
+正しい実装を振り返ると、`Notification`（機能側）と `NotificationChannel`（手段側）が別々の継承階層に分かれ、コンストラクタでの委譲によって結びついています。<br>
+このように、Bridge パターンは、「何を行うか（抽象化）」と「どう行うか（実装）」という 2 つの軸を分離し、それぞれを独立して拡張できるようにするパターンです。
+
+また、通知手段を追加する際も、新しい `NotificationChannel` の実装クラスを 1 つ追加するだけで済み、既存の `Notification`・`UrgentNotification` に変更を加える必要はありません。<br>
+そのため、機能と手段の組み合わせが増えるほど、Bridge パターンの効果を実感しやすくなります。
+
+本記事の内容はここまでとなります。
+
+以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
+
+---
+
+<a id="深堀り1"></a>
+
+## 【深堀り①】Template Method パターンとの複合
+
+本記事の `Notification` クラスの `deliver` メソッドを振り返ると、`connect → send → disconnect` という決まった手順を `final` メソッドとして固定し、`UrgentNotification` はこの手順自体を変更せず、そのまま利用する実装になっていました。
+
+このように、処理の手順（骨組み）をスーパークラスで固定し、手順の中身をサブクラスや委譲先に委ねる設計は、「**Template Method パターン**」と呼ばれる別のパターンの考え方です。
+
+ただし、Template Method パターンでは、手順の中身（本記事の `connect` などに相当する処理）を抽象メソッドとして定義し、**継承**したサブクラスにオーバーライドさせるのが基本形です。一方、本記事の `connect`・`send`・`disconnect` は抽象メソッドではなく、`NotificationChannel` 型のフィールドへの**委譲**によって処理を切り替えています。
+
+つまり本記事の `Notification` クラスは、「手順を固定する」という点では Template Method パターンと同じ考え方を使いながら、「手順の中身を切り替える」という点では Bridge パターンの委譲の仕組みを使っている、という 2 つのパターンを組み合わせた構造になっています。
+
+<a id="深堀り2"></a>
+
+## 【深堀り②】Strategy パターンとの類似点
+
+`NotificationChannel` を振り返ると、`Notification` は `NotificationChannel` 型のフィールドを持ち、`connect`・`send`・`disconnect` の具体的な処理をそのインスタンスに委譲していました。この「処理の一部を、切り替え可能なオブジェクトに委譲する」という構造は、「**Strategy パターン**」の構造とよく似ています。
+
+Strategy パターンは、アルゴリズム（処理内容）を切り替え可能にすることを主目的とし、通常は 1 つの振る舞いを差し替えます。一方、Bridge パターンは、抽象化（機能）と実装（手段）という 2 つの継承階層そのものを分離することを目的としており、`NotificationChannel` 側のように複数のメソッド（`rawConnect`・`rawSend`・`rawDisconnect`）をまとめて 1 つの実装として切り替えます。
+
+つまり、Bridge パターンの実装側（`NotificationChannel`）だけを取り出して見ると、Strategy パターンと同じ「委譲によるアルゴリズムの切り替え」という構造をしています。両者の違いは、切り替える対象が「1 つのメソッド」なのか「複数のメソッドからなる実装階層全体」なのか、という点にあります。
+
+<a id="深堀り3"></a>
+
+## 【深堀り③】OCP（オープン・クローズドの原則）
+
+正しい実装を振り返ると、通知手段を追加する際に必要だったのは、新しい `NotificationChannel` の実装クラスを追加することだけで、既存の `Notification`・`UrgentNotification`・`NotificationChannel` には一切手を加えていません。<br>
+`Notification`・`UrgentNotification` が依存しているのは抽象クラス `NotificationChannel` だけであるため、具体的な通知手段が何であっても対応できます。
+
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Bridge パターンは OCP を実現するための設計手段の一つと言えます。
+
+詳しくは「OCP」や「オープン・クローズドの原則」で検索してみてください。
+
+<a id="深堀り4"></a>
+
+## 【深堀り④】GoF デザインパターンとの位置づけ
+
+今回使った Bridge パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「構造パターン」に分類されます。<br>
+詳しくは「GoF」で検索してみてください。
