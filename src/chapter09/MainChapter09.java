@@ -11,5 +11,9 @@ public class MainChapter09 {
         CountDisplay d3 = new CountDisplay(new StringDisplayImp("Hello, Universe."));
         d3.display();
         d3.multiDisplay(5);
+
+        RandomDisplay d4 = new RandomDisplay(new StringDisplayImp("Hello, Rondom."));
+        d4.display();
+        d4.randomDisplay(5);
     }
 }
