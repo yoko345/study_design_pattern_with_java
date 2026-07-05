@@ -22,9 +22,13 @@ public class MainChapter09 {
         d5.display();
 
         // 練習問題9-3
-        DesignPattern1Display d6 = new DesignPattern1Display(new DesignDisplayImp("<","+",">"));
+        // DesignPattern1Display d6 = new DesignPattern1Display(new DesignDisplayImp("<","+",">"));
+        // d6.patternDisplay(4);
+        // DesignPattern2Display d7 = new DesignPattern2Display(new DesignDisplayImp("|","#","-"));
+        // d7.patternDisplay(6);
+        DesignPatternDisplay d6 = new DesignPatternDisplay(new DesignDisplayImp("<", "+", ">"), 1);
         d6.patternDisplay(4);
-        DesignPattern2Display d7 = new DesignPattern2Display(new DesignDisplayImp("|","#","-"));
+        DesignPatternDisplay d7 = new DesignPatternDisplay(new DesignDisplayImp("|", "#", "-"), 2);
         d7.patternDisplay(6);
     }
 }
