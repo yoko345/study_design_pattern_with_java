@@ -2,8 +2,8 @@
 
 次のような経験をしたことはありませんか？
 
-> ある機能に、後から複数の実行先（送信経路や出力先など）を追加しようとしたら、機能の種類と実行先の組み合わせの数だけクラスを用意する羽目になった。<br>
-> その結果、実行先を 1 つ追加するだけなのに、既存の機能の数だけクラスを複製しなければならなくなった。
+> 既存の複数の機能に対して、後から具体的な処理を行う実装を追加しようとしたら、機能の種類と実装の組み合わせの数だけクラスを用意する羽目になった。<br>
+> その結果、実装を 1 つ追加するだけなのに、既存の機能の数だけクラスを複製しなければならなくなった。
 
 この記事では、社内向け通知システムに Slack 通知と緊急時の繰り返し送信機能を追加するシナリオを通して、Bridge パターンがこの問題をどのように解決するかを紹介します。
 
@@ -27,9 +27,11 @@
 ### シナリオ
 
 > あなたは社内向け通知システムの開発チームに所属しています。<br>
-> 現在は、メールでの通知にのみ対応しています。<br>
-> ある日、Slack を主要な連絡手段として使う部署が増えてきたため、Slack でも同じ通知を送れるようにしてほしいという要望が届きました。<br>
-> さらに、システム障害などの緊急時には担当者が見逃さないよう、同じ内容を複数回連続で送信する「緊急通知」機能も、メール・Slack の両方で使えるようにしてほしいとのことです。
+> 現在、障害発生時の通知はメールでの送信のみに対応しています。<br>
+> ある日、大規模なシステム障害が発生した際、Slack を主要な連絡手段とする部署がメールの受信に気づくのが遅れ、対応が大幅に遅れるという事態が起きました。<br>
+> この反省を踏まえ、経営陣から「メールに加えて Slack でも通知できるようにすること」「緊急時には同じ内容を複数回連続送信できるようにすること」を満たす通知システムへの改善を求められました。
+
+※実際のメール送信・Slack 送信では、それぞれ SMTP サーバーや Slack API との通信を行う実装が必要ですが、本記事では Bridge パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
 ### 既存コードの仕様
 
@@ -97,8 +99,7 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
-        EmailNotification notification = new EmailNotification(
-                "suzuki@example.com", "定例会議のご案内", "本日15時から会議室Aで定例会議を行います。");
+        EmailNotification notification = new EmailNotification("suzuki@example.com", "定期ヘルスチェック結果のお知らせ", "全システム正常に稼働しています。");
         notification.send();
     }
 }
@@ -108,7 +109,7 @@ public class Main {
 
 ```
 [Email] SMTPサーバーに接続：suzuki@example.com
-[Email] 件名：定例会議のご案内 / 本文：本日15時から会議室Aで定例会議を行います。
+[Email] 件名：定期ヘルスチェック結果のお知らせ / 本文：全システム正常に稼働しています。
 [Email] 接続を切断しました
 ```
 
@@ -198,11 +199,11 @@ package example;
 public class Main {
     public static void main(String[] args) {
         EmailNotification notification = new EmailNotification(
-                "suzuki@example.com", "定例会議のご案内", "本日15時から会議室Aで定例会議を行います。");
+                "suzuki@example.com", "定期ヘルスチェック結果のお知らせ", "全システム正常に稼働しています。");
         notification.send();
 
         /* ここを追加（ここから） */
-        SlackNotification slackNotification = new SlackNotification("general", "本日の定例会議は15時からです。");
+        SlackNotification slackNotification = new SlackNotification("general", "全システム正常に稼働しています。");
         slackNotification.send();
 
         UrgentEmailNotification urgentEmail = new UrgentEmailNotification(
@@ -221,10 +222,10 @@ public class Main {
 
 ```
 [Email] SMTPサーバーに接続：suzuki@example.com
-[Email] 件名：定例会議のご案内 / 本文：本日15時から会議室Aで定例会議を行います。
+[Email] 件名：定期ヘルスチェック結果のお知らせ / 本文：全システム正常に稼働しています。
 [Email] 接続を切断しました
 [Slack] Webhookへ接続：#general
-[Slack] メッセージ：本日の定例会議は15時からです。
+[Slack] メッセージ：全システム正常に稼働しています。
 [Slack] 接続を切断しました
 [Email] SMTPサーバーに接続：suzuki@example.com
 [Email] 件名：【緊急】本番サーバー障害 / 本文：本番サーバーで障害が発生しました。至急対応してください。
@@ -424,7 +425,7 @@ package example;
 public class Main {
     public static void main(String[] args) {
         Notification emailNotification = new Notification(
-                new EmailNotificationChannel("suzuki@example.com", "定例会議のご案内", "本日15時から会議室Aで定例会議を行います。"));
+                new EmailNotificationChannel("suzuki@example.com", "定期ヘルスチェック結果のお知らせ", "全システム正常に稼働しています。"));
         emailNotification.deliver();
 
         UrgentNotification urgentSlackNotification = new UrgentNotification(
@@ -438,7 +439,7 @@ public class Main {
 
 ```
 [Email] SMTPサーバーに接続：suzuki@example.com
-[Email] 件名：定例会議のご案内 / 本文：本日15時から会議室Aで定例会議を行います。
+[Email] 件名：定期ヘルスチェック結果のお知らせ / 本文：全システム正常に稼働しています。
 [Email] 接続を切断しました
 [Slack] Webhookへ接続：#infra-alert
 [Slack] メッセージ：本番サーバーで障害が発生しました。至急対応してください。
