@@ -2,10 +2,9 @@
 
 次のような経験をしたことはありませんか？
 
-> 既存の複数の機能に対して、後から具体的な処理を行う実装を追加しようとしたら、機能の種類と実装の組み合わせの数だけクラスを用意する羽目になった。<br>
-> その結果、実装を 1 つ追加するだけなのに、既存の機能の数だけクラスを複製しなければならなくなった。
+> 既存の複数の機能に対して、後から具体的な処理を行う実装を追加しようとしたら、機能の種類と実装の組み合わせの数だけクラスを用意する羽目になり、実装を 1 つ追加するだけなのに、既存の機能の数だけクラスを複製しなければならなくなった。
 
-この記事では、社内向け通知システムに Slack 通知と緊急時の繰り返し送信機能を追加するシナリオを通して、Bridge パターンがこの問題をどのように解決するかを紹介します。
+この記事では、社内向け通知システムに新しい通知手段と機能をそれぞれ追加するシナリオを通して、Bridge パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -119,7 +118,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-真っ先に思いつくのは、Slack 用に `SlackNotification` クラスを複製し、緊急通知用にそれぞれの継承クラス（`UrgentEmailNotification`・`UrgentSlackNotification`）を追加する、という実装ではないでしょうか？
+真っ先に思いつくのは、既存コードを参考に Slack 用の通常の通知を行うクラスを複製し、緊急通知用に通常の通知を行うクラスを継承したクラスをそれぞれ追加する、という実装ではないでしょうか？
 
 **`SlackNotification.java`**
 
@@ -258,10 +257,10 @@ public class Main {
 しかし、この実装には以下の問題点があります。
 
 - 通知の手段（メール・Slack）と通知の機能（通常・緊急）の組み合わせごとにクラスが必要になり、クラス数が「手段の数 × 機能の数」で増えていく。
-    - **通知の手段の追加**：例えば、SMS 通知を追加する場合を考えてみましょう。手段の数が 2 から 3 に増えるため、`SmsNotification` と `UrgentSmsNotification` の 2 クラスを新たに追加しなければなりません。これにより、クラス数は 2 手段 × 2 機能 = 4 から、3 手段 × 2 機能 = 6 に増加してしまう。
-    - **通知の機能の追加**：例えば、定期リマインド通知を追加する場合を考えてみましょう。機能の数が 2 から 3 に増えるため、`ReminderEmailNotification` と `ReminderSlackNotification` の 2 クラスを新たに追加しなければなりません。これにより、クラス数は 2 手段 × 2 機能 = 4 から、2 手段 × 3 機能 = 6 に増加してしまう。
-- `UrgentEmailNotification` クラスと `UrgentSlackNotification` クラスの `sendRepeatedly` メソッドはまったく同じ処理であるにもかかわらず、継承元のクラスが異なるため共通化できず、コードが重複している。
-    - 繰り返し送信のロジックを変更したい場合、`Urgent` が付くクラスすべてを個別に修正する必要があり、修正漏れが起きやすい。
+    - **通知の手段の追加**：例えば、SMS 通知を追加する場合を考えてみましょう。手段の数が 2 から 3 に増えるため、`SmsNotification` と `UrgentSmsNotification` の 2 クラスを新たに追加する必要がある。これにより、クラス数は 2 手段 × 2 機能 = 4 から、3 手段 × 2 機能 = 6 に増加してしまう。
+    - **通知の機能の追加**：例えば、定期リマインド通知を追加する場合を考えてみましょう。機能の数が 2 から 3 に増えるため、`ReminderEmailNotification` と `ReminderSlackNotification` の 2 クラスを新たに追加する必要がある。これにより、クラス数は 2 手段 × 2 機能 = 4 から、2 手段 × 3 機能 = 6 に増加してしまう。
+- 緊急通知用の 2 つのクラス（`UrgentEmailNotification`・`UrgentSlackNotification`）にそれぞれ実装している `sendRepeatedly` メソッドは、どちらもまったく同じ処理であるにもかかわらず、継承元のクラスが異なるため共通化できず、コードが重複している。
+    - 緊急通知の送信ロジックを変更したい場合、緊急通知用のクラスすべてを個別に修正する必要があり、修正漏れが起きやすい。
 - `sendRepeatedly` メソッドは、継承元の `send` メソッドをそのまま繰り返し呼び出しているだけのため、送信のたびに接続・切断を繰り返してしまう。
     - 実務では、接続・切断を繰り返すとサーバーに負荷がかかるため、1 セッションにつき接続・切断は 1 回だけ行い、そのセッションの中で送信だけを繰り返すのが望ましい。
 
@@ -282,14 +281,14 @@ package example;
 public abstract class NotificationChannel {
     public abstract void rawConnect();
 
-    public abstract void rawSend();
+    public abstract void rawTransmit();
 
     public abstract void rawDisconnect();
 }
 ```
 
 `NotificationChannel` は新たに追加した抽象クラスで、通知手段の共通の抽象メソッドを定義しています。<br>
-また、接続・送信・切断を担う `rawConnect`・`rawSend`・`rawDisconnect` メソッドを抽象メソッドとすることで、具体的な通信処理をサブクラスに委ねています。
+また、接続・送信・切断を担う `rawConnect`・`rawTransmit`・`rawDisconnect` メソッドを抽象メソッドとすることで、具体的な通信処理をサブクラスに委ねています。
 
 次に、通知の手段側の具体的な実装を見ていきましょう。
 
@@ -315,7 +314,7 @@ public class EmailNotificationChannel extends NotificationChannel {
     }
 
     @Override
-    public void rawSend() {
+    public void rawTransmit() {
         System.out.println("[Email] 件名：" + subject + " / 本文：" + body);
     }
 
@@ -346,7 +345,7 @@ public class SlackNotificationChannel extends NotificationChannel {
     }
 
     @Override
-    public void rawSend() {
+    public void rawTransmit() {
         System.out.println("[Slack] メッセージ：" + message);
     }
 
@@ -359,7 +358,7 @@ public class SlackNotificationChannel extends NotificationChannel {
 
 `EmailNotificationChannel`・`SlackNotificationChannel` クラスを振り返ると、抽象クラス `NotificationChannel` を継承しています。<br>
 これに伴い、メソッド名やアクセス修飾子が `NotificationChannel` クラスの抽象メソッドに合わせて変更されています。<br>
-しかし、接続・送信・切断それぞれの処理内容自体は、既存の仕様（`EmailNotification`・`SlackNotification`）から変更されていません。
+しかし、接続・送信・切断それぞれの処理内容自体は、既存の仕様（`EmailNotification`）から変更されていません。
 
 次に、通知の機能側を見ていきましょう。
 
@@ -369,33 +368,33 @@ public class SlackNotificationChannel extends NotificationChannel {
 package example;
 
 public class Notification {
-    private NotificationChannel channel;
+    private NotificationChannel notificationChannel;
 
-    public Notification(NotificationChannel channel) {
-        this.channel = channel;
+    public Notification(NotificationChannel notificationChannel) {
+        this.notificationChannel = notificationChannel;
     }
 
     protected void connect() {
-        channel.rawConnect();
+        notificationChannel.rawConnect();
     }
 
-    protected void send() {
-        channel.rawSend();
+    protected void transmit() {
+        notificationChannel.rawTransmit();
     }
 
     protected void disconnect() {
-        channel.rawDisconnect();
+        notificationChannel.rawDisconnect();
     }
 
-    public final void deliver() {
+    public final void send() {
         connect();
-        send();
+        transmit();
         disconnect();
     }
 }
 ```
 
-`Notification` クラスを振り返ると、フィールドとして `NotificationChannel` 型のインスタンスを保持し、`connect`・`send`・`disconnect` メソッドの中でその処理を委譲しています。また、`deliver` メソッドを `final` にすることで、この手順の順序をサブクラスが変更できないようにしています。<br>
+`Notification` クラスを振り返ると、フィールドとして `NotificationChannel` 型のインスタンスを保持し、`connect`・`transmit`・`disconnect` メソッドの中で処理を委譲しています（`notificationChannel.rawConnect()` などに相当）。また、`send` メソッドを `final` にすることで、この手順の順序をサブクラスが変更できないようにしています。<br>
 つまり、`Notification` クラスは「通知を送る」という手順（接続 → 送信 → 切断）だけを知っており、実際にどう接続し、どう送信するかという具体的な実装は通知の手段側に委ねています。<br>
 なお、この「手順を固定する」という設計は Template Method パターンの考え方と重なります（→ [【深堀り①】Template Method パターンとの複合](#深堀り1)）。
 
@@ -407,22 +406,22 @@ public class Notification {
 package example;
 
 public class UrgentNotification extends Notification {
-    public UrgentNotification(NotificationChannel channel) {
-        super(channel);
+    public UrgentNotification(NotificationChannel notificationChannel) {
+        super(notificationChannel);
     }
 
-    public void deliverRepeatedly(int times) {
+    public void sendRepeatedly(int times) {
         connect();
         for (int i = 0; i < times; i++) {
-            send();
+            transmit();
         }
         disconnect();
     }
 }
 ```
 
-`UrgentNotification` クラスは `Notification` クラスを継承したうえで、`deliverRepeatedly` という新しいメソッドを追加しています。<br>
-`Notification` クラスを継承しているため、`deliverRepeatedly` メソッドの中でスーパークラスの `connect`・`send`・`disconnect` メソッドをそのまま呼び出すことができます。<br>
+`UrgentNotification` クラスを振り返ると、`Notification` クラスを継承し、`sendRepeatedly` という新しいメソッドを追加しています。<br>
+`Notification` クラスを継承しているため、`sendRepeatedly` メソッドの中でスーパークラスの `connect`・`transmit`・`disconnect` メソッドをそのまま呼び出すことができます。<br>
 処理の流れを見てみると、接続を 1 回行った後、送信だけを指定回数繰り返し、最後に切断を 1 回行っており、`NotificationChannel` クラスの具体的な実装は一切意識していません。
 
 最後に、実行クラスの実装を見ていきましょう。
@@ -437,28 +436,30 @@ public class Main {
         Notification emailNotification = new Notification(
             new EmailNotificationChannel("suzuki@example.com", "定期ヘルスチェック結果のお知らせ", "全システム正常に稼働しています。")
         );
-        emailNotification.deliver();
+        emailNotification.send();
 
+        /* ここを追加（ここから） */
         System.out.println("");
 
         Notification slackNotification = new Notification(
             new SlackNotificationChannel("general", "全システム正常に稼働しています。")
         );
-        slackNotification.deliver();
+        slackNotification.send();
 
         System.out.println("");
 
         UrgentNotification urgentEmailNotification = new UrgentNotification(
             new EmailNotificationChannel("suzuki@example.com", "【緊急】本番サーバー障害", "本番サーバーで障害が発生しました。至急対応してください。")
         );
-        urgentEmailNotification.deliverRepeatedly(3);
+        urgentEmailNotification.sendRepeatedly(3);
 
         System.out.println("");
 
         UrgentNotification urgentSlackNotification = new UrgentNotification(
             new SlackNotificationChannel("infra-alert", "本番サーバーで障害が発生しました。至急対応してください。")
         );
-        urgentSlackNotification.deliverRepeatedly(3);
+        urgentSlackNotification.sendRepeatedly(3);
+        /* ここを追加（ここまで） */
     }
 }
 ```
@@ -491,12 +492,12 @@ public class Main {
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 通知の手段（メール・Slack）と通知の機能（通常・緊急）が別々の継承階層に分かれたことで、クラス数は「手段の数 + 機能の数」で済むようになり、好ましくない実装のような「手段の数 × 機能の数」の掛け算にならない。
-    - **通知の手段の追加**：例えば、SMS 通知を追加する場合を考えてみましょう。手段の数が 2 から 3 に増えても、通知の機能（`Notification`・`UrgentNotification`）は抽象クラス `NotificationChannel` にのみ依存しているため、この抽象クラスを実装した `SmsNotificationChannel` クラスを 1 つ追加するだけで済みます。そのため、クラス数は 2 手段 + 2 機能 = 4 から 3 手段 + 2 機能 = 5 に留まります（好ましくない実装だと 6 に増加していた）。
-    - **通知の機能の追加**：例えば、定期リマインド通知を追加する場合を考えてみましょう。機能の数が 2 から 3 に増えても、`Notification` クラスを継承すれば `NotificationChannel` クラスへの委譲処理（接続・送信・切断）をそのまま利用できるため、`ReminderNotification` クラスを 1 つ追加するだけで済みます。そのため、クラス数は 2 手段 + 2 機能 = 4 から 2 手段 + 3 機能 = 5 に留まります（好ましくない実装だと 6 に増加していた）。
-- 緊急通知の繰り返しロジック（`deliverRepeatedly` メソッド）は `UrgentNotification` クラスに集約すれば良く、通知手段に依存しない。
-    - つまり、共通化できているため、好ましくない実装の問題点で挙げた「修正漏れが起きやすい」という心配がない。
-- `UrgentNotification` クラスの `deliverRepeatedly` メソッドは接続・切断をそれぞれ 1 回だけ行い、送信だけを複数回行う実装になっており、好ましくない実装で見られた「送信のたびに接続し直す」という無駄を解消できている。
+- 通知の手段（メール・Slack）と通知の機能（通常・緊急）が別々の継承階層に分かれたことで、クラス数は「手段の数 + 機能の数」で済むようになる（好ましくない実装のような「手段の数 × 機能の数」の掛け算にならない）。
+    - **通知の手段の追加**：例えば、SMS 通知を追加する場合を考えてみましょう。手段の数が 2 から 3 に増えても、通知の機能（`Notification`・`UrgentNotification`）は抽象クラス `NotificationChannel` にのみ依存しているため、この抽象クラスを実装した `SmsNotificationChannel` クラスを 1 つ追加するだけで済む。そのため、クラス数は 2 手段 + 2 機能 = 4 から 3 手段 + 2 機能 = 5 に留まる（好ましくない実装だと 6 に増加していた）。
+    - **通知の機能の追加**：例えば、定期リマインド通知を追加する場合を考えてみましょう。機能の数が 2 から 3 に増えても、`Notification` クラスを継承すれば `NotificationChannel` クラスへの委譲処理（接続・送信・切断）をそのまま利用できるため、`ReminderNotification` クラスを 1 つ追加するだけで済む。そのため、クラス数は 2 手段 + 2 機能 = 4 から 2 手段 + 3 機能 = 5 に留まる（好ましくない実装だと 6 に増加していた）。
+- `UrgentNotification` クラスの `sendRepeatedly` メソッドは、通知手段に依存していないため処理の共通化ができている。
+    - 緊急通知の送信ロジックを変更したい場合、`UrgentNotification` クラスに実装を集約すれば、すべての通知手段で使用可能になるため、好ましくない実装の問題点で触れた修正漏れの心配がない。
+- `UrgentNotification` クラスの `sendRepeatedly` メソッドは接続・切断をそれぞれ 1 回だけ行い、送信だけを複数回行う実装になっており、好ましくない実装で見られた「送信のたびに接続し直す」という無駄を解消できている。
 
 ## まとめ
 
@@ -516,20 +517,20 @@ public class Main {
 
 ## 【深堀り①】Template Method パターンとの複合
 
-本記事の `Notification` クラスの `deliver` メソッドを振り返ると、`connect → send → disconnect` という決まった手順を `final` メソッドとして固定し、継承したクラス（`UrgentNotification`）はこの手順自体を変更せず、そのまま利用する実装になっていました。
+本記事の `Notification` クラスの `send` メソッドを振り返ると、`connect → transmit → disconnect` という決まった手順を `final` メソッドとして固定し、継承したクラス（`UrgentNotification`）はこの手順自体を変更せず、そのまま利用する実装になっていました。
 
 このように、処理の手順（骨組み）をスーパークラスで固定し、手順の中身をサブクラスや委譲先に委ねる設計は、「**Template Method パターン**」の考え方です。
 
 ただし、Template Method パターンでは、手順の中身（本記事の `connect` メソッドなどに相当する処理）を抽象メソッドとして定義し、**継承**したサブクラスにオーバーライドさせるのが基本形です。<br>
-一方、本記事の `connect`・`send`・`disconnect` は具体メソッドで、`NotificationChannel` 型のフィールドへの**委譲**（本記事の `channel.rawConnect()` などに相当）によって処理を切り替えています。そのため、`connect`・`send`・`disconnect` メソッドのコード自体を書き換えることなく、コンストラクタに渡す通知の手段を変えるだけで、通知機能の中身が切り替わります。
+一方、本記事の `connect`・`transmit`・`disconnect` は具体メソッドで、`NotificationChannel` 型のフィールドへの**委譲**（本記事の `notificationChannel.rawConnect()` などに相当）によって処理を切り替えています。そのため、`connect`・`transmit`・`disconnect` メソッドのコード自体を書き換えることなく、コンストラクタに渡す通知の手段を変えるだけで、通知機能の中身が切り替わります。
 
-つまり本記事の `Notification` クラスは、「手順を固定する」という点では Template Method パターンと同じ考え方を使いながら、「コンストラクタに渡す通知の手段を変えることで通知機能の中身を切り替える」という点では Bridge パターンの委譲の仕組みを使っている、という 2 つのパターンを組み合わせた構造になっています。
+つまり、本記事の `Notification` クラスは、「手順を固定する」という点では Template Method パターンと同じ考え方を使いながら、「コンストラクタに渡す通知の手段を変えることで通知機能の中身を切り替える」という点では Bridge パターンの委譲の仕組みを使っている、という 2 つのパターンを組み合わせた構造になっています。
 
 <a id="深堀り2"></a>
 
 ## 【深堀り②】Adapter パターンとの関係
 
-本記事の `Notification` クラスを振り返ると、`NotificationChannel` 型のフィールドを持ち、`connect`・`send`・`disconnect` メソッドの処理を委譲している構造をしています。<br>
+本記事の `Notification` クラスを振り返ると、`NotificationChannel` 型のフィールドを持ち、`connect`・`transmit`・`disconnect` メソッドの処理を委譲している構造をしています。<br>
 これは、「**Adapter パターン**」の「委譲を使った Adapter パターン」と似ています。Adapter パターンには、既存クラスを継承する版と委譲する版があり、【深堀り①】（→ [Template Method パターンとの複合](#深堀り1)）で触れた「継承か委譲か」という選択は、Adapter パターンにも共通する論点です。
 
 ただし、両者の目的は異なります。<br>
@@ -542,9 +543,8 @@ Adapter パターンは、呼び出し側がすでに期待しているインタ
 
 ## 【深堀り③】OCP（オープン・クローズドの原則）
 
-正しい実装を振り返ると、通知手段を追加する際に必要だったのは、新しい `NotificationChannel` の実装クラスを追加することだけで、既存の `Notification`・`UrgentNotification`・`NotificationChannel` クラスには一切手を加えていません。<br>
-`Notification`・`UrgentNotification` クラスが依存しているのは抽象クラス `NotificationChannel` だけであるため、具体的な通知手段が何であっても対応できます。<br>
-同様に、通知機能を追加する場合も、新しい `Notification` のサブクラスを追加するだけで済み、既存の `NotificationChannel` の実装クラスや `Notification` の他のサブクラスには手を加える必要はありません。
+正しい実装を振り返ると、通知手段を追加する際に必要だったのは、新しい `NotificationChannel` の実装クラスを追加することだけで、既存の `Notification`・`UrgentNotification`・`NotificationChannel` クラスには一切手を加えていません。これは、`Notification`・`UrgentNotification` クラスが依存しているのは抽象クラス `NotificationChannel` だけであるため、具体的な通知手段が何であっても対応できるからです。<br>
+同様に、通知機能を追加する場合も、新しい `Notification` のサブクラスを追加するだけで済み、既存の `NotificationChannel` の実装クラスや `Notification` の他のサブクラスには手を加える必要がありません。
 
 この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Bridge パターンは OCP を実現するための設計手段の一つと言えます。
 
