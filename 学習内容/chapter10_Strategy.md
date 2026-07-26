@@ -1,0 +1,456 @@
+# Strategy（ストラテジー）パターン ― アルゴリズムを実行時に交換可能にする
+
+次のような経験をしたことはありませんか？
+
+> 同じ処理の中で「条件によってやり方を変えたい」というケースが後から追加され続け、1 つのメソッドの中に条件分岐がどんどん積み重なっていった。その結果、新しいやり方を 1 つ追加するだけなのに、既存の分岐まで読み解いて修正しなければならなくなった。
+
+この記事では、配車アプリの経路探索機能を通して、Strategy パターンがこの問題をどのように解決するかを紹介します。
+
+## 目次
+
+- [【具体例】](#具体例)
+    - [シナリオ](#シナリオ)
+    - [既存コードの仕様](#既存コードの仕様)
+- [好ましくない実装](#好ましくない実装)
+- [正しい実装](#正しい実装)
+- [まとめ](#まとめ)
+- [【深堀り①】Bridge パターンとの類似点](#深堀り1)
+- [【深堀り②】関数型インターフェースとラムダ式による Strategy の簡略化](#深堀り2)
+- [【深堀り③】OCP（オープン・クローズドの原則）](#深堀り3)
+- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+
+---
+
+## 【具体例】
+
+### シナリオ
+
+> あなたはライドシェア（配車）アプリを開発するチームに所属しています。<br>
+> 現在、目的地までの経路探索は「最短距離優先」のロジックのみに対応しています。<br>
+> ある日、利用者から「急いでいるときは高速道路を使ってでも早く着きたい」「普段は通行料金がかかる道路を避けたい」といった要望が相次いで寄せられました。<br>
+> そこで、利用者が経路の探索方針を選べるように、経路探索機能を改善することになりました。
+
+※実際の経路探索では地図 API や道路ネットワークデータとの連携、リアルタイムの渋滞状況の考慮などを行う実装が必要ですが、本記事では Strategy パターンの解説に集中するため、緯度・経度から簡易的に算出した近似値による計算とし、結果はコンソールへの文字列出力のみとします。
+
+### 既存コードの仕様
+
+経路探索機能は、次のクラスで構成されています。
+
+※実務では、次の `Location` のような地点情報を表すエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
+
+- `Location`（既存クラス）
+
+出発地・目的地といった地点を表すクラスです。地点名と緯度・経度を保持し、他の地点までの直線距離を計算するメソッドを持ちます。
+
+| フィールド  | 型       | 説明   |
+| ----------- | -------- | ------ |
+| `name`      | `String` | 地点名 |
+| `latitude`  | `double` | 緯度   |
+| `longitude` | `double` | 経度   |
+
+| メソッド     | 戻り値の型 | 説明                                     |
+| ------------ | ---------- | ---------------------------------------- |
+| `distanceTo` | `double`   | 指定した地点までの直線距離（km）を求める |
+
+**`Location.java`**
+
+```java
+package example;
+
+public class Location {
+    private String name;
+    private double latitude;
+    private double longitude;
+
+    public Location(String name, double latitude, double longitude) {
+        this.name = name;
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
+    public double distanceTo(Location other) {
+        double dx = (this.longitude - other.longitude) * 91.0;
+        double dy = (this.latitude - other.latitude) * 111.0;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+}
+```
+
+<br>
+
+- `Route`（既存クラス）
+
+経路探索の結果を表すクラスです。距離・所要時間・有料道路の利用有無・道路種別を保持します。
+
+| フィールド         | 型        | 説明                 |
+| ------------------ | --------- | -------------------- |
+| `distanceKm`       | `double`  | 距離（km）           |
+| `estimatedMinutes` | `int`     | 所要時間（分）       |
+| `usesTollRoad`     | `boolean` | 有料道路を利用するか |
+| `roadType`         | `String`  | 道路種別             |
+
+| メソッド   | 戻り値の型 | 説明                       |
+| ---------- | ---------- | -------------------------- |
+| `toString` | `String`   | 経路情報を文字列に変換する |
+
+**`Route.java`**
+
+```java
+package example;
+
+public class Route {
+    private double distanceKm;
+    private int estimatedMinutes;
+    private boolean usesTollRoad;
+    private String roadType;
+
+    public Route(double distanceKm, int estimatedMinutes, boolean usesTollRoad, String roadType) {
+        this.distanceKm = distanceKm;
+        this.estimatedMinutes = estimatedMinutes;
+        this.usesTollRoad = usesTollRoad;
+        this.roadType = roadType;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s経由 / 距離 %.1fkm / 所要時間 約%d分 / 有料道路 %s",
+                roadType, distanceKm, estimatedMinutes, usesTollRoad ? "利用" : "利用なし");
+    }
+}
+```
+
+<br>
+
+- `RouteNavigator`（既存クラス）
+
+出発地・目的地を受け取り、経路探索を行うクラスです。現状は最短距離優先のロジックのみに対応しています。
+
+| フィールド    | 型         | 説明   |
+| ------------- | ---------- | ------ |
+| `origin`      | `Location` | 出発地 |
+| `destination` | `Location` | 目的地 |
+
+| メソッド    | 戻り値の型 | 説明                         |
+| ----------- | ---------- | ---------------------------- |
+| `findRoute` | `Route`    | 最短距離優先で経路を探索する |
+
+**`RouteNavigator.java`**
+
+```java
+package example;
+
+public class RouteNavigator {
+    private Location origin;
+    private Location destination;
+
+    public RouteNavigator(Location origin, Location destination) {
+        this.origin = origin;
+        this.destination = destination;
+    }
+
+    public Route findRoute() {
+        double distanceKm = origin.distanceTo(destination);
+        int estimatedMinutes = (int) Math.round(distanceKm / 40.0 * 60);
+        return new Route(distanceKm, estimatedMinutes, false, "一般道路");
+    }
+}
+```
+
+<br>
+
+- `Main`（実行クラス）
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        Location origin = new Location("東京駅", 35.681236, 139.767125);
+        Location destination = new Location("横浜駅", 35.465685, 139.622239);
+
+        RouteNavigator navigator = new RouteNavigator(origin, destination);
+        Route route = navigator.findRoute();
+
+        System.out.println("案内経路: " + route);
+    }
+}
+```
+
+**実行結果**
+
+```
+案内経路: 一般道路経由 / 距離 27.3km / 所要時間 約41分 / 有料道路 利用なし
+```
+
+※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
+
+## 好ましくない実装
+
+では、シナリオに従い追加実装をしていきましょう。
+
+真っ先に思いつくのは、`RouteNavigator` クラスに探索モードを表すフィールドを追加し、`findRoute` メソッド内でモードに応じた条件分岐を書き足す、という実装ではないでしょうか？
+
+**`RouteNavigator.java`**
+
+```java
+package example;
+
+public class RouteNavigator {
+    public static final int MODE_SHORTEST_DISTANCE = 0;
+    public static final int MODE_SHORTEST_TIME = 1;
+    public static final int MODE_TOLL_FREE = 2;
+
+    private Location origin;
+    private Location destination;
+    private int mode;
+
+    public RouteNavigator(Location origin, Location destination, int mode) {
+        this.origin = origin;
+        this.destination = destination;
+        this.mode = mode;
+    }
+
+    public Route findRoute() {
+        double straightDistance = origin.distanceTo(destination);
+
+        if (mode == MODE_SHORTEST_DISTANCE) {
+            int estimatedMinutes = (int) Math.round(straightDistance / 40.0 * 60);
+            return new Route(straightDistance, estimatedMinutes, false, "一般道路");
+        } else if (mode == MODE_SHORTEST_TIME) {
+            double distanceKm = straightDistance * 1.2;
+            int estimatedMinutes = (int) Math.round(distanceKm / 80.0 * 60);
+            return new Route(distanceKm, estimatedMinutes, true, "高速道路");
+        } else {
+            double distanceKm = straightDistance * 1.3;
+            int estimatedMinutes = (int) Math.round(distanceKm / 30.0 * 60);
+            return new Route(distanceKm, estimatedMinutes, false, "一般道路（有料道路回避）");
+        }
+    }
+}
+```
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        Location origin = new Location("東京駅", 35.681236, 139.767125);
+        Location destination = new Location("横浜駅", 35.465685, 139.622239);
+
+        RouteNavigator distanceNavigator =
+                new RouteNavigator(origin, destination, RouteNavigator.MODE_SHORTEST_DISTANCE);
+        System.out.println("[最短距離優先] " + distanceNavigator.findRoute());
+
+        RouteNavigator timeNavigator =
+                new RouteNavigator(origin, destination, RouteNavigator.MODE_SHORTEST_TIME);
+        System.out.println("[最短時間優先] " + timeNavigator.findRoute());
+
+        RouteNavigator tollFreeNavigator =
+                new RouteNavigator(origin, destination, RouteNavigator.MODE_TOLL_FREE);
+        System.out.println("[料金重視] " + tollFreeNavigator.findRoute());
+    }
+}
+```
+
+**実行結果**
+
+```
+[最短距離優先] 一般道路経由 / 距離 27.3km / 所要時間 約41分 / 有料道路 利用なし
+[最短時間優先] 高速道路経由 / 距離 32.8km / 所要時間 約25分 / 有料道路 利用
+[料金重視] 一般道路（有料道路回避）経由 / 距離 35.5km / 所要時間 約71分 / 有料道路 利用なし
+```
+
+コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
+
+しかし、この実装には以下の問題点があります。
+
+- 新しい探索方針（例えば「環境負荷の少ない経路」など）を追加するたびに `findRoute` メソッド内の条件分岐を直接修正する必要があり、既存の分岐に影響を与えるリスクがある。
+- 最短距離優先・最短時間優先・料金重視という 3 つの探索ロジックが 1 つのメソッド内に同居しているため、個別にテストしたり、他の場所で再利用したりしにくい。
+- モードの判定に `int` の定数を使っているため、定義されていない値を渡してもコンパイル時には検出できず、実行するまで気づけない。
+
+## 正しい実装
+
+では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
+
+これらの問題を解決するのが **Strategy パターン**です。<br>
+探索ロジックそれぞれを独立したクラスに切り出し、`RouteNavigator` クラスはその中の 1 つに処理を委譲するだけにすることで、新しい探索方針の追加が既存コードに影響を与えないようにします。
+
+まず、探索ロジックの共通インターフェースから見ていきましょう。
+
+**`RouteSearchStrategy.java`**
+
+```java
+package example;
+
+public interface RouteSearchStrategy {
+    Route find(Location origin, Location destination);
+}
+```
+
+`RouteSearchStrategy` は新たに追加したインターフェースで、出発地・目的地を受け取って経路を探索する `find` メソッドを定義しています。
+
+次に、`RouteSearchStrategy` インターフェースを実装した具体的な探索ロジックを見ていきましょう。
+
+**`ShortestDistanceStrategy.java`**
+
+```java
+package example;
+
+public class ShortestDistanceStrategy implements RouteSearchStrategy {
+    @Override
+    public Route find(Location origin, Location destination) {
+        double distanceKm = origin.distanceTo(destination);
+        int estimatedMinutes = (int) Math.round(distanceKm / 40.0 * 60);
+        return new Route(distanceKm, estimatedMinutes, false, "一般道路");
+    }
+}
+```
+
+**`ShortestTimeStrategy.java`**
+
+```java
+package example;
+
+public class ShortestTimeStrategy implements RouteSearchStrategy {
+    @Override
+    public Route find(Location origin, Location destination) {
+        double distanceKm = origin.distanceTo(destination) * 1.2;
+        int estimatedMinutes = (int) Math.round(distanceKm / 80.0 * 60);
+        return new Route(distanceKm, estimatedMinutes, true, "高速道路");
+    }
+}
+```
+
+**`TollFreeStrategy.java`**
+
+```java
+package example;
+
+public class TollFreeStrategy implements RouteSearchStrategy {
+    @Override
+    public Route find(Location origin, Location destination) {
+        double distanceKm = origin.distanceTo(destination) * 1.3;
+        int estimatedMinutes = (int) Math.round(distanceKm / 30.0 * 60);
+        return new Route(distanceKm, estimatedMinutes, false, "一般道路（有料道路回避）");
+    }
+}
+```
+
+`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`TollFreeStrategy` クラスを振り返ると、それぞれが好ましくない実装で条件分岐の中に書かれていた 1 つの計算ロジックだけを担っており、他の探索ロジックの実装を意識する必要がありません。
+
+次に、`RouteNavigator` クラスを見ていきましょう。
+
+**`RouteNavigator.java`**
+
+```java
+package example;
+
+public class RouteNavigator {
+    private Location origin;
+    private Location destination;
+    private RouteSearchStrategy strategy;
+
+    public RouteNavigator(Location origin, Location destination, RouteSearchStrategy strategy) {
+        this.origin = origin;
+        this.destination = destination;
+        this.strategy = strategy;
+    }
+
+    public Route findRoute() {
+        return strategy.find(origin, destination);
+    }
+}
+```
+
+`RouteNavigator` クラスを振り返ると、`mode` フィールドと条件分岐がなくなり、コンストラクタで受け取った `RouteSearchStrategy` 型のフィールドに探索処理をそのまま委譲するだけになりました。
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        Location origin = new Location("東京駅", 35.681236, 139.767125);
+        Location destination = new Location("横浜駅", 35.465685, 139.622239);
+
+        RouteNavigator distanceNavigator =
+                new RouteNavigator(origin, destination, new ShortestDistanceStrategy());
+        System.out.println("[最短距離優先] " + distanceNavigator.findRoute());
+
+        RouteNavigator timeNavigator =
+                new RouteNavigator(origin, destination, new ShortestTimeStrategy());
+        System.out.println("[最短時間優先] " + timeNavigator.findRoute());
+
+        RouteNavigator tollFreeNavigator =
+                new RouteNavigator(origin, destination, new TollFreeStrategy());
+        System.out.println("[料金重視] " + tollFreeNavigator.findRoute());
+    }
+}
+```
+
+**実行結果**
+
+```
+[最短距離優先] 一般道路経由 / 距離 27.3km / 所要時間 約41分 / 有料道路 利用なし
+[最短時間優先] 高速道路経由 / 距離 32.8km / 所要時間 約25分 / 有料道路 利用
+[料金重視] 一般道路（有料道路回避）経由 / 距離 35.5km / 所要時間 約71分 / 有料道路 利用なし
+```
+
+好ましくない実装と実行結果は変わっていませんが、新しい探索方針（例えば「環境負荷の少ない経路」など）を追加したい場合も、`RouteSearchStrategy` インターフェースを実装した新しいクラスを追加するだけで済み、`RouteNavigator` クラスには一切手を加える必要がありません。
+
+## まとめ
+
+Strategy パターンは、アルゴリズムをインターフェースの背後に隠し、利用する側のコードを変更せずに切り替え可能にするパターンです。<br>
+今回の例では、経路探索の方針を `RouteNavigator` クラスから切り離したことで、探索ロジックの追加が既存コードに影響を与えなくなりました。<br>
+条件分岐によって処理内容を切り替えたくなったときは、その分岐の中身がそれぞれ独立したアルゴリズムになっていないか、一度振り返ってみるとよいでしょう。
+
+本記事の内容はここまでとなります。
+
+以降は「もう少し深く知りたい」という方向けの補足となります。今回学んだパターンに繋がる設計原則や、実務で役立つ背景知識について触れています。
+
+---
+
+<a id="深堀り1"></a>
+
+## 【深堀り①】Bridge パターンとの類似点
+
+本記事の `RouteNavigator` クラスを振り返ると、`RouteSearchStrategy` 型のフィールドを持ち、経路探索の具体的な処理をそのインスタンスに委譲していました。この「処理を切り替え可能なオブジェクトに委譲する」という構造は、「**Bridge パターン**」の実装側の構造とよく似ています。
+
+Bridge パターンは、抽象化（機能）と実装（手段）という 2 つの継承階層そのものを分離することを目的としており、実装側では複数のメソッド（例えば、接続・送信・切断など）をまとめて 1 つの実装として切り替えます。一方、Strategy パターンは、アルゴリズム（処理内容）を切り替え可能にすることを主目的とし、通常は 1 つの振る舞い（本記事の `find` メソッド）を差し替えます。
+
+つまり、両者の違いは、切り替える対象が「1 つのメソッド」なのか「複数のメソッドからなる実装階層全体」なのか、という点にあります。
+
+<a id="深堀り2"></a>
+
+## 【深堀り②】関数型インターフェースとラムダ式による Strategy の簡略化
+
+本記事の `RouteSearchStrategy` インターフェースは、抽象メソッドを 1 つだけ持つ「関数型インターフェース」です。Java 8 以降では、関数型インターフェースの実装をラムダ式で書けるため、`ShortestDistanceStrategy` のようなクラスを個別に定義しなくても、次のように経路探索ロジックをその場で渡すことができます。
+
+```java
+RouteNavigator navigator = new RouteNavigator(origin, destination,
+        (o, d) -> new Route(o.distanceTo(d), (int) Math.round(o.distanceTo(d) / 40.0 * 60), false, "一般道路"));
+```
+
+このように、Strategy パターンは「切り替え可能な処理をオブジェクトとして扱う」という考え方そのものが本質であり、その実装手段は具体的な実装クラスに限りません。ラムダ式を使うと、簡単な処理であればクラスを新設せずに済みますが、処理が複雑になる場合や、複数箇所から同じロジックを再利用する場合は、本記事のように独立したクラスとして実装した方が見通しがよくなります。
+
+<a id="深堀り3"></a>
+
+## 【深堀り③】OCP（オープン・クローズドの原則）
+
+正しい実装を振り返ると、新しい探索方針を追加する際に必要だったのは、新しい `RouteSearchStrategy` の実装クラスを追加することだけで、既存の `RouteNavigator` クラスには一切手を加えていません。これは、`RouteNavigator` クラスが依存しているのは抽象的なインターフェース `RouteSearchStrategy` だけであるため、具体的な探索ロジックが何であっても対応できるからです。
+
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Strategy パターンは OCP を実現するための設計手段の一つと言えます。
+
+詳しくは「OCP」や「オープン・クローズドの原則」で検索してみてください。
+
+<a id="深堀り4"></a>
+
+## 【深堀り④】GoF デザインパターンとの位置づけ
+
+今回使った Strategy パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「振る舞いに関するパターン」に分類されます。<br>
+詳しくは「GoF」で検索してみてください。
