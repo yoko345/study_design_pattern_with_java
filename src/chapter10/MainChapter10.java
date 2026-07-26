@@ -12,7 +12,9 @@ public class MainChapter10 {
         int randomSeed2 = Integer.parseInt(args[1]);
 
         Player player1 = new Player("Taro", new WinningStrategy(randomSeed1));
-        Player player2 = new Player("Hana", new ProbStrategy(randomSeed2));
+        // Player player2 = new Player("Hana", new ProbStrategy(randomSeed2));
+        // 練習問題10-1
+        Player player2 = new Player("Jiro", new RandomStrategy(randomSeed2));
 
         for (int i = 0; i < 10000; i++) {
             Hand nextHand1 = player1.nextHand();
