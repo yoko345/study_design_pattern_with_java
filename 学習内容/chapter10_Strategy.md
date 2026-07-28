@@ -2,7 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> 「新しい処理を追加する」という要望が来るたびに、同じメソッドに条件分岐を継ぎ足していった。その結果、新しい処理を1つ追加するだけなのに、既存の分岐まで読み解いて直さなければならなくなった。
+> 「新しい処理を追加する」という要望が来るたびに、同じメソッドに条件分岐を継ぎ足していった。その結果、新しい処理を 1 つ追加するだけなのに、既存の分岐まで読み解いて直さなければならなくなった。
 
 この記事では、配車アプリの経路探索機能を通して、Strategy パターンがこの問題をどのように解決するかを紹介します。
 
@@ -27,8 +27,8 @@
 
 > あなたは配車アプリを開発するチームに所属しています。<br>
 > 現在、目的地までの経路探索は「最短距離優先」のロジックのみに対応しています。<br>
-> ある日、利用者から「急いでいるときは高速道路を使ってでも早く着きたい」「普段は通行料金がかかる道路を避けたい」といった要望が相次いで寄せられました。<br>
-> そこで、利用者が「最短距離優先」「最短時間優先」「料金重視（有料道路回避）」の3つから探索方針を選べるように、経路探索機能を改善することになりました。
+> ある日、利用者から「急いでいるときは高速道路を使ってでも早く着きたい」「ギリギリまで高速道路を使いたいわけではないので、距離と時間のバランスが良いルートを選びたい」といった要望が相次いで寄せられました。<br>
+> そこで、利用者が「最短距離優先」「最短時間優先」「バランス重視」の 3 つから探索方針を選べるように、経路探索機能を改善することになりました。
 
 ※実際の経路探索では地図 API や道路ネットワークデータとの連携、リアルタイムの渋滞状況の考慮などを行う実装が必要ですが、本記事では Strategy パターンの解説に集中するため、緯度・経度から簡易的に算出した近似値による計算とし、結果はコンソールへの文字列出力のみとします。
 
@@ -49,9 +49,9 @@
 | `latitude`  | `double` | 緯度   |
 | `longitude` | `double` | 経度   |
 
-| メソッド     | 戻り値の型 | 説明                                         |
-| ------------ | ---------- | -------------------------------------------- |
-| `distanceTo` | `double`   | 指定した地点までの直線距離（km）を求める[^1] |
+| メソッド     | 戻り値の型 | 説明                                     |
+| ------------ | ---------- | ---------------------------------------- |
+| `distanceTo` | `double`   | 指定した地点までの直線距離（km）を求める |
 
 **`Location.java`**
 
@@ -77,7 +77,7 @@ public class Location {
 }
 ```
 
-[^1]: `dx`、`dy` で登場した 91.0 と 111.0 は、経度・緯度 1 度あたりの距離（km）の近似値です。111.0 は地球上どこでも共通の値（地球の子午線の全周 約 40,000km ÷ 360 度）です。91.0 は経度 1 度あたりの距離が緯度によって変わるため、東京・横浜付近（北緯 35 度前後）を前提にした近似値です。
+※ `dx`、`dy` で登場した 91.0 と 111.0 は、経度・緯度 1 度あたりの距離（km）の近似値です。111.0 は地球上どこでも共通の値（地球の子午線の全周 約 40,000km ÷ 360 度）です。91.0 は経度 1 度あたりの距離が緯度によって変わるため、東京・横浜付近（北緯 35 度前後）を前提にした近似値です。
 
 <br>
 
@@ -135,9 +135,9 @@ public class Route {
 | `origin`      | `Location` | 出発地 |
 | `destination` | `Location` | 目的地 |
 
-| メソッド    | 戻り値の型 | 説明                             |
-| ----------- | ---------- | -------------------------------- |
-| `findRoute` | `Route`    | 最短距離優先で経路を探索する[^2] |
+| メソッド    | 戻り値の型 | 説明                         |
+| ----------- | ---------- | ---------------------------- |
+| `findRoute` | `Route`    | 最短距離優先で経路を探索する |
 
 **`RouteNavigator.java`**
 
@@ -161,7 +161,7 @@ public class RouteNavigator {
 }
 ```
 
-[^2]: 40.0 は一般道路における想定平均速度（km/h）です。
+※ 40.0 は一般道路における想定平均速度（km/h）です。
 
 <br>
 
@@ -207,7 +207,7 @@ package example;
 public class RouteNavigator {
     public static final int MODE_SHORTEST_DISTANCE = 0;
     public static final int MODE_SHORTEST_TIME = 1;
-    public static final int MODE_TOLL_FREE = 2;
+    public static final int MODE_BALANCED = 2;
 
     private Location origin;
     private Location destination;
@@ -230,13 +230,15 @@ public class RouteNavigator {
             int estimatedMinutes = (int) Math.round(distanceKm / 80.0 * 60);
             return new Route(distanceKm, estimatedMinutes, true, "高速道路");
         } else {
-            double distanceKm = straightDistance * 1.3;
-            int estimatedMinutes = (int) Math.round(distanceKm / 30.0 * 60);
-            return new Route(distanceKm, estimatedMinutes, false, "一般道路（有料道路回避）");
+            double distanceKm = straightDistance * 1.1;
+            int estimatedMinutes = (int) Math.round(distanceKm / 60.0 * 60);
+            return new Route(distanceKm, estimatedMinutes, true, "一般道路＋一部高速道路");
         }
     }
 }
 ```
+
+※ 高速道路はインターチェンジを経由する必要があるため、直線距離よりも実際の走行距離はやや長くなります。最短時間優先は高速道路をメインに使うため `straightDistance` を 1.2 倍、バランス重視は一部区間のみ高速道路を使い迂回が少ない分、より小さい 1.1 倍としています。また、80.0 は高速道路における想定平均速度（km/h）、60.0 は一般道路＋一部高速道路（混在区間）における想定平均速度（km/h）です。
 
 **`Main.java`**
 
@@ -248,17 +250,14 @@ public class Main {
         Location origin = new Location("東京駅", 35.681236, 139.767125);
         Location destination = new Location("横浜駅", 35.465685, 139.622239);
 
-        RouteNavigator distanceNavigator =
-                new RouteNavigator(origin, destination, RouteNavigator.MODE_SHORTEST_DISTANCE);
+        RouteNavigator distanceNavigator = new RouteNavigator(origin, destination, RouteNavigator.MODE_SHORTEST_DISTANCE);
         System.out.println("[最短距離優先] " + distanceNavigator.findRoute());
 
-        RouteNavigator timeNavigator =
-                new RouteNavigator(origin, destination, RouteNavigator.MODE_SHORTEST_TIME);
+        RouteNavigator timeNavigator = new RouteNavigator(origin, destination, RouteNavigator.MODE_SHORTEST_TIME);
         System.out.println("[最短時間優先] " + timeNavigator.findRoute());
 
-        RouteNavigator tollFreeNavigator =
-                new RouteNavigator(origin, destination, RouteNavigator.MODE_TOLL_FREE);
-        System.out.println("[料金重視] " + tollFreeNavigator.findRoute());
+        RouteNavigator balancedNavigator = new RouteNavigator(origin, destination, RouteNavigator.MODE_BALANCED);
+        System.out.println("[バランス重視] " + balancedNavigator.findRoute());
     }
 }
 ```
@@ -268,16 +267,15 @@ public class Main {
 ```
 [最短距離優先] 一般道路経由 / 距離 27.3km / 所要時間 約41分 / 有料道路 利用なし
 [最短時間優先] 高速道路経由 / 距離 32.8km / 所要時間 約25分 / 有料道路 利用
-[料金重視] 一般道路（有料道路回避）経由 / 距離 35.5km / 所要時間 約71分 / 有料道路 利用なし
+[バランス重視] 一般道路＋一部高速道路経由 / 距離 30.1km / 所要時間 約30分 / 有料道路 利用
 ```
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
 
 しかし、この実装には以下の問題点があります。
 
-- 新しい探索方針（例えば「環境負荷の少ない経路」など）を追加するたびに `findRoute` メソッド内の条件分岐を直接修正する必要があり、既存の分岐に影響を与えるリスクがある。
-- 最短距離優先・最短時間優先・料金重視という 3 つの探索ロジックが 1 つのメソッド内に同居しているため、個別にテストしたり、他の場所で再利用したりしにくい。
-- モードの判定に `int` の定数を使っているため、定義されていない値を渡してもコンパイル時には検出できず、実行するまで気づけない。
+- 新しい探索方針（例えば「車体の都合上、道幅の広い経路」など）を追加するたびに `findRoute` メソッド内の条件分岐を直接修正する必要があり、既存の分岐に影響を与えるリスクがある。
+- 3 つの探索ロジック（最短距離優先・最短時間優先・バランス重視）が 1 つのメソッド内に同居しているため、個別にテストしたり、他の場所で再利用したりといったことがしにくい。
 
 ## 正しい実装
 
@@ -332,22 +330,22 @@ public class ShortestTimeStrategy implements RouteSearchStrategy {
 }
 ```
 
-**`TollFreeStrategy.java`**
+**`BalancedStrategy.java`**
 
 ```java
 package example;
 
-public class TollFreeStrategy implements RouteSearchStrategy {
+public class BalancedStrategy implements RouteSearchStrategy {
     @Override
     public Route find(Location origin, Location destination) {
-        double distanceKm = origin.distanceTo(destination) * 1.3;
-        int estimatedMinutes = (int) Math.round(distanceKm / 30.0 * 60);
-        return new Route(distanceKm, estimatedMinutes, false, "一般道路（有料道路回避）");
+        double distanceKm = origin.distanceTo(destination) * 1.1;
+        int estimatedMinutes = (int) Math.round(distanceKm / 60.0 * 60);
+        return new Route(distanceKm, estimatedMinutes, true, "一般道路＋一部高速道路");
     }
 }
 ```
 
-`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`TollFreeStrategy` クラスを振り返ると、それぞれが好ましくない実装で条件分岐の中に書かれていた 1 つの計算ロジックだけを担っており、他の探索ロジックの実装を意識する必要がありません。
+`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`BalancedStrategy` クラスを振り返ると、それぞれが好ましくない実装で条件分岐の中に書かれていた 1 つの計算ロジックだけを担っており、他の探索ロジックの実装を意識する必要がありません。
 
 次に、`RouteNavigator` クラスを見ていきましょう。
 
@@ -393,9 +391,9 @@ public class Main {
                 new RouteNavigator(origin, destination, new ShortestTimeStrategy());
         System.out.println("[最短時間優先] " + timeNavigator.findRoute());
 
-        RouteNavigator tollFreeNavigator =
-                new RouteNavigator(origin, destination, new TollFreeStrategy());
-        System.out.println("[料金重視] " + tollFreeNavigator.findRoute());
+        RouteNavigator balancedNavigator =
+                new RouteNavigator(origin, destination, new BalancedStrategy());
+        System.out.println("[バランス重視] " + balancedNavigator.findRoute());
     }
 }
 ```
@@ -405,7 +403,7 @@ public class Main {
 ```
 [最短距離優先] 一般道路経由 / 距離 27.3km / 所要時間 約41分 / 有料道路 利用なし
 [最短時間優先] 高速道路経由 / 距離 32.8km / 所要時間 約25分 / 有料道路 利用
-[料金重視] 一般道路（有料道路回避）経由 / 距離 35.5km / 所要時間 約71分 / 有料道路 利用なし
+[バランス重視] 一般道路＋一部高速道路経由 / 距離 30.1km / 所要時間 約30分 / 有料道路 利用
 ```
 
 好ましくない実装と実行結果は変わっていませんが、新しい探索方針（例えば「環境負荷の少ない経路」など）を追加したい場合も、`RouteSearchStrategy` インターフェースを実装した新しいクラスを追加するだけで済み、`RouteNavigator` クラスには一切手を加える必要がありません。
