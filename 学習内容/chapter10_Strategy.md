@@ -281,10 +281,9 @@ public class Main {
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-これらの問題を解決するのが **Strategy パターン**です。<br>
-探索ロジックそれぞれを独立したクラスに切り出し、`RouteNavigator` クラスはその中の 1 つに処理を委譲するだけにすることで、新しい探索方針の追加が既存コードに影響を与えないようにします。
+これらの問題を解決するのが **Strategy パターン**です。
 
-まず、探索ロジックの共通インターフェースから見ていきましょう。
+まず、新たに追加する探索ロジックの共通インターフェースを見ていきましょう。
 
 **`RouteSearchStrategy.java`**
 
@@ -296,9 +295,9 @@ public interface RouteSearchStrategy {
 }
 ```
 
-`RouteSearchStrategy` は新たに追加したインターフェースで、出発地・目的地を受け取って経路を探索する `find` メソッドを定義しています。
+`RouteSearchStrategy` を振り返ると、出発地・目的地を受け取って経路を探索する抽象メソッド `find` を定義しています。
 
-次に、`RouteSearchStrategy` インターフェースを実装した具体的な探索ロジックを見ていきましょう。
+次に、インターフェース `RouteSearchStrategy` を実装した具体的な探索ロジックを見ていきましょう。
 
 **`ShortestDistanceStrategy.java`**
 
@@ -345,9 +344,9 @@ public class BalancedStrategy implements RouteSearchStrategy {
 }
 ```
 
-`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`BalancedStrategy` クラスを振り返ると、それぞれが好ましくない実装で条件分岐の中に書かれていた 1 つの計算ロジックだけを担っており、他の探索ロジックの実装を意識する必要がありません。
+インターフェース `RouteSearchStrategy` を実装したクラス（`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`BalancedStrategy`）を振り返ると、抽象メソッド `find` をオーバーライドし、それぞれ固有の処理のみを担っています。好ましくない実装のように条件分岐の中にロジックが既述されず、各クラスで独立した状態となっているため、他の探索ロジックの実装を意識する必要がありません。
 
-次に、`RouteNavigator` クラスを見ていきましょう。
+次に、既存の経路探索を行うクラス `RouteNavigator` を見ていきましょう。
 
 **`RouteNavigator.java`**
 
@@ -371,7 +370,9 @@ public class RouteNavigator {
 }
 ```
 
-`RouteNavigator` クラスを振り返ると、`mode` フィールドと条件分岐がなくなり、コンストラクタで受け取った `RouteSearchStrategy` 型のフィールドに探索処理をそのまま委譲するだけになりました。
+`RouteNavigator` クラスを振り返ると、`RouteSearchStrategy` 型のフィールドをコンストラクタで新たに受け取るようにし、探索処理は `RouteSearchStrategy` を実装したクラスに委譲するだけになっています。
+
+最後に、実行クラスを見ていきましょう。
 
 **`Main.java`**
 
@@ -383,16 +384,13 @@ public class Main {
         Location origin = new Location("東京駅", 35.681236, 139.767125);
         Location destination = new Location("横浜駅", 35.465685, 139.622239);
 
-        RouteNavigator distanceNavigator =
-                new RouteNavigator(origin, destination, new ShortestDistanceStrategy());
+        RouteNavigator distanceNavigator = new RouteNavigator(origin, destination, new ShortestDistanceStrategy());
         System.out.println("[最短距離優先] " + distanceNavigator.findRoute());
 
-        RouteNavigator timeNavigator =
-                new RouteNavigator(origin, destination, new ShortestTimeStrategy());
+        RouteNavigator timeNavigator = new RouteNavigator(origin, destination, new ShortestTimeStrategy());
         System.out.println("[最短時間優先] " + timeNavigator.findRoute());
 
-        RouteNavigator balancedNavigator =
-                new RouteNavigator(origin, destination, new BalancedStrategy());
+        RouteNavigator balancedNavigator = new RouteNavigator(origin, destination, new BalancedStrategy());
         System.out.println("[バランス重視] " + balancedNavigator.findRoute());
     }
 }
@@ -406,13 +404,18 @@ public class Main {
 [バランス重視] 一般道路＋一部高速道路経由 / 距離 30.1km / 所要時間 約30分 / 有料道路 利用
 ```
 
-好ましくない実装と実行結果は変わっていませんが、新しい探索方針（例えば「環境負荷の少ない経路」など）を追加したい場合も、`RouteSearchStrategy` インターフェースを実装した新しいクラスを追加するだけで済み、`RouteNavigator` クラスには一切手を加える必要がありません。
+`Main` クラスを振り返ると、`RouteNavigator` クラスのコンストラクタに具体的な探索ロジックを記述しているクラス（`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`BalancedStrategy`）を渡すだけで、欲しい探索方針の情報が得られています。
+
+以上のような実装を行うと、以下のメリットがあります。
+
+- 新しい探索方針（例えば「車体の都合上、道幅の広い経路」など）を追加したい場合も、`RouteSearchStrategy` インターフェースを実装した新しいクラスを追加するだけで済み、`RouteNavigator`・`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`BalancedStrategy` といった既存クラスの実装には一切手を加える必要がない（好ましくない実装のように `findRoute` メソッド内の条件分岐を直接修正し、既存の分岐に影響を与えるリスクを負う必要がない）。
+- `RouteSearchStrategy` を実装した 3 つのクラス（`ShortestDistanceStrategy`・`ShortestTimeStrategy`・`BalancedStrategy`）がそれぞれ独立しているため、個別にテストしたり、他の場所で再利用したりすることが容易になる（好ましくない実装のように、3 つのロジックが 1 つのメソッド内に同居していない）。
 
 ## まとめ
 
 Strategy パターンは、アルゴリズムをインターフェースの背後に隠し、利用する側のコードを変更せずに切り替え可能にするパターンです。<br>
-今回の例では、経路探索の方針を `RouteNavigator` クラスから切り離したことで、探索ロジックの追加が既存コードに影響を与えなくなりました。<br>
-条件分岐によって処理内容を切り替えたくなったときは、その分岐の中身がそれぞれ独立したアルゴリズムになっていないか、一度振り返ってみるとよいでしょう。
+本記事では、経路探索の方針を `RouteNavigator` クラスから切り離したことで、探索ロジックの追加が既存コードに影響を与えなくなりました。<br>
+条件分岐によって処理内容を切り替えたくなったときは、分岐の中身がそれぞれ独立したアルゴリズムとして切り出せないかを意識すると、Strategy パターンとして実装に落とし込みやすくなります。
 
 本記事の内容はここまでとなります。
 
