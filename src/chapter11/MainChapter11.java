@@ -31,7 +31,11 @@ public class MainChapter11 {
         userdir.add(tomura);
 
         yuki.add(new File("diary.thml", 100));
-        yuki.add(new File("Composite.java", 200));
+        // yuki.add(new File("Composite.java", 200));
+        // 練習問題11-2（模範解答）（ここから）
+        File file = new File("Composite.java", 200);
+        yuki.add(file);
+        // 練習問題11-2（模範解答）（ここまで）
         hanako.add(new File("memo.tex", 300));
         tomura.add(new File("game.doc", 400));
         tomura.add(new File("junk.mail", 500));
@@ -43,5 +47,8 @@ public class MainChapter11 {
         yuki.printFullPath();
         tomura.printFullPath();
         bindir.printFullPath();
+        // 練習問題11-2（模範解答）
+        System.out.println("file = " + file.getFullName());
+        System.out.println("yuki = " + yuki.getFullName());
     }
 }

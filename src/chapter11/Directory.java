@@ -56,6 +56,8 @@ public class Directory extends Entry {
 
     public Entry add(Entry entry) {
         directory.add(entry);
+        // 練習問題11-2（模範解答）
+        entry.setParent(this);
         return this;
     }
 }
