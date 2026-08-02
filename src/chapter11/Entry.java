@@ -7,6 +7,10 @@ public abstract class Entry {
     // サイズ取得
     public abstract int getSize();
 
+    // 練習問題11-2
+    // パス取得
+    public abstract String getFullPath();
+
     // 一覧を表示する
     public void printList() {
         printList("");

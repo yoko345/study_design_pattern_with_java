@@ -37,5 +37,11 @@ public class MainChapter11 {
         tomura.add(new File("junk.mail", 500));
 
         rootdir.printList();
+
+        // 練習問題11-2
+        System.out.println();
+        yuki.printFullPath();
+        tomura.printFullPath();
+        bindir.printFullPath();
     }
 }

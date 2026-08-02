@@ -6,6 +6,8 @@ import java.util.List;
 public class Directory extends Entry {
     private String name;
     private List<Entry> directory = new ArrayList<>();
+    // 練習問題11-2
+    private List<String> fullPathsList = new ArrayList<>();
 
     public Directory(String name) {
         this.name = name;
@@ -25,6 +27,20 @@ public class Directory extends Entry {
         return size;
     }
 
+    // 練習問題11-2（ここから）
+    @Override
+    public String getFullPath() {
+        return "";
+    }
+
+    public void printFullPath() {
+        for (String fullPath : fullPathsList) {
+            System.out.println(fullPath);
+        }
+    }
+    // 練習問題11-2（ここまで）
+
+
     @Override
     protected void printList(String prefix) {
         // 自分自身を "親から渡されたprefix + 自分の名前" で表示する
@@ -32,6 +48,9 @@ public class Directory extends Entry {
         for (Entry entry : directory) {
             // 子には「自分のパス」を新しいprefixとして渡し、再帰的に一覧表示させる
             entry.printList(prefix + "/" + name);
+
+            // 練習問題11-2
+            fullPathsList.add(entry.getFullPath());
         }
     }
 
