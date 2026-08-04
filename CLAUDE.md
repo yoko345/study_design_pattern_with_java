@@ -59,6 +59,8 @@ Java コードのフォーマット（空行・括弧・インデント等）に
 
 JDK ソースコードを引用する場合は原文のまま掲載し、上記ルールは適用しない。
 
+拡張for文のコロンは、前に空白を入れず後ろにのみ半角空白を1つ入れる（例: `for (Task task: tasks) {`）。
+
 ## 記事の執筆・校正ルール
 
 `学習内容/chapterXX_パターン名.md` の執筆・校正・編集には `write-article` skill（`.claude/skills/write-article/SKILL.md`）を使う。
