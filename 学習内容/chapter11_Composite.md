@@ -2,7 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> 個別の要素と、それらをまとめたグループを同じように扱いたいのに、グループの中にグループが入れ子になるたびに、あちこちに型ごとの分岐処理や重複したループを書く羽目になった。
+> 要素の一覧に対して処理を行うコードを書いていたら、単体の要素と要素をまとめたグループが混在していることに気がついた。そのため、グループの中にグループが入れ子になっている部分が登場するたびに、型ごとに分岐する処理や同じような繰り返し処理をあちこちに書く羽目になった。
 
 この記事では、社内プロジェクト管理システムのタスクをグループ化するシナリオを通して、Composite パターンがこの問題をどのように解決するかを紹介します。
 
@@ -26,8 +26,11 @@
 ### シナリオ
 
 > あなたは社内のプロジェクト管理システムの開発チームに所属しています。<br>
-> 現在、`TaskManager` はタスクをフラットな一覧として管理しており、各タスクの見積工数の合計と、タスク一覧の表示ができる状態です。<br>
-> ある日 PM から、「関連するタスクをグループとしてまとめて管理したい。グループの中にさらに小さなグループを作れるようにもしてほしい。ただし、グループ全体の見積工数の合計や一覧表示は、これまでと同じ感覚で扱えるようにしてほしい」という要望が来ました。
+> 現在、タスクは一覧で管理され、見積工数の合計計算と、タスクを羅列した一覧表示が行える状態です。<br>
+> ある日 PM から「タスクをグループ化して管理したい」という要望が来ました。あなたは以下を担当します。
+>
+> - グループとしてタスクをまとめ、グループの中にさらに小さなグループを入れられるようにする
+> - グループ全体の見積工数の合計や一覧表示を、個別のタスクと同じ感覚で扱えるようにする
 
 ### 既存コードの仕様
 
@@ -37,15 +40,15 @@
 
 タスク 1 件の情報を保持するクラスです。
 
-| フィールド        | 型       | 説明                 |
-| ----------------- | -------- | -------------------- |
-| `name`            | `String` | タスク名             |
-| `estimatedHours`  | `int`    | 見積工数（時間）     |
+| フィールド       | 型       | 説明             |
+| ---------------- | -------- | ---------------- |
+| `name`           | `String` | タスク名         |
+| `estimatedHours` | `int`    | 見積工数（時間） |
 
-| メソッド             | 戻り値の型 | 説明                     |
-| -------------------- | ---------- | ------------------------ |
-| `getName`            | `String`   | タスク名を取得する       |
-| `getEstimatedHours`  | `int`      | 見積工数を取得する       |
+| メソッド            | 戻り値の型 | 説明               |
+| ------------------- | ---------- | ------------------ |
+| `getName`           | `String`   | タスク名を取得する |
+| `getEstimatedHours` | `int`      | 見積工数を取得する |
 
 **`Task.java`**
 
@@ -77,15 +80,15 @@ public class Task {
 
 登録されたタスクの一覧を管理し、見積工数の合計計算と一覧表示を行うクラスです。
 
-| フィールド | 型          | 説明                     |
-| ---------- | ----------- | ------------------------ |
-| `tasks`    | `List<Task>` | 管理対象のタスク一覧    |
+| フィールド | 型           | 説明                 |
+| ---------- | ------------ | -------------------- |
+| `tasks`    | `List<Task>` | 管理対象のタスク一覧 |
 
-| メソッド                  | 戻り値の型 | 説明                                     |
-| ------------------------- | ---------- | ---------------------------------------- |
-| `addTask`                 | `void`     | タスクを追加する                         |
-| `getTotalEstimatedHours`  | `int`      | 登録されているタスクの見積工数の合計を取得する |
-| `printTaskList`           | `void`     | タスク一覧をコンソールに出力する         |
+| メソッド                 | 戻り値の型 | 説明                                           |
+| ------------------------ | ---------- | ---------------------------------------------- |
+| `addTask`                | `void`     | タスクを追加する                               |
+| `getTotalEstimatedHours` | `int`      | 登録されているタスクの見積工数の合計を取得する |
+| `printTaskList`          | `void`     | タスク一覧をコンソールに出力する               |
 
 **`TaskManager.java`**
 
@@ -104,14 +107,14 @@ public class TaskManager {
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (Task task : tasks) {
+        for (Task task: tasks) {
             total += task.getEstimatedHours();
         }
         return total;
     }
 
     public void printTaskList() {
-        for (Task task : tasks) {
+        for (Task task: tasks) {
             System.out.println(task.getName() + "（" + task.getEstimatedHours() + "時間）");
         }
     }
@@ -130,7 +133,7 @@ package example;
 public class Main {
     public static void main(String[] args) {
         TaskManager taskManager = new TaskManager();
-        taskManager.addTask(new Task("要件ヒアリング", 8));
+        taskManager.addTask(new Task("要件定義", 8));
         taskManager.addTask(new Task("画面設計", 16));
         taskManager.addTask(new Task("API実装", 24));
 
@@ -143,7 +146,7 @@ public class Main {
 **実行結果**
 
 ```
-要件ヒアリング（8時間）
+要件定義（8時間）
 画面設計（16時間）
 API実装（24時間）
 合計見積工数：48時間
@@ -184,10 +187,10 @@ public class TaskGroup {
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (Task task : tasks) {
+        for (Task task: tasks) {
             total += task.getEstimatedHours();
         }
-        for (TaskGroup subGroup : subGroups) {
+        for (TaskGroup subGroup: subGroups) {
             total += subGroup.getTotalEstimatedHours();
         }
         return total;
@@ -198,10 +201,10 @@ public class TaskGroup {
     }
 
     private void printTaskList(String prefix) {
-        for (Task task : tasks) {
+        for (Task task: tasks) {
             System.out.println(prefix + name + " / " + task.getName() + "（" + task.getEstimatedHours() + "時間）");
         }
-        for (TaskGroup subGroup : subGroups) {
+        for (TaskGroup subGroup: subGroups) {
             subGroup.printTaskList(prefix + name + " / ");
         }
     }
@@ -236,11 +239,11 @@ public class TaskManager {
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (Task task : tasks) {
+        for (Task task: tasks) {
             total += task.getEstimatedHours();
         }
         /* ここを追加（ここから） */
-        for (TaskGroup taskGroup : taskGroups) {
+        for (TaskGroup taskGroup: taskGroups) {
             total += taskGroup.getTotalEstimatedHours();
         }
         /* ここを追加（ここまで） */
@@ -248,11 +251,11 @@ public class TaskManager {
     }
 
     public void printTaskList() {
-        for (Task task : tasks) {
+        for (Task task: tasks) {
             System.out.println(task.getName() + "（" + task.getEstimatedHours() + "時間）");
         }
         /* ここを追加（ここから） */
-        for (TaskGroup taskGroup : taskGroups) {
+        for (TaskGroup taskGroup: taskGroups) {
             taskGroup.printTaskList();
         }
         /* ここを追加（ここまで） */
@@ -268,7 +271,7 @@ package example;
 public class Main {
     public static void main(String[] args) {
         TaskManager taskManager = new TaskManager();
-        taskManager.addTask(new Task("要件ヒアリング", 8));
+        taskManager.addTask(new Task("要件定義", 8));
 
         /* ここを追加（ここから） */
         TaskGroup designGroup = new TaskGroup("設計");
@@ -297,7 +300,7 @@ public class Main {
 **実行結果**
 
 ```
-要件ヒアリング（8時間）
+要件定義（8時間）
 設計 / 画面設計（16時間）
 設計 / DB設計（12時間）
 実装 / API実装（24時間）
@@ -407,7 +410,7 @@ public class TaskGroup extends TaskComponent {
     @Override
     public int getEstimatedHours() {
         int total = 0;
-        for (TaskComponent child : children) {
+        for (TaskComponent child: children) {
             total += child.getEstimatedHours();
         }
         return total;
@@ -419,7 +422,7 @@ public class TaskGroup extends TaskComponent {
 
     @Override
     protected void printTaskList(String prefix) {
-        for (TaskComponent child : children) {
+        for (TaskComponent child: children) {
             child.printTaskList(prefix + name + " / ");
         }
     }
@@ -448,14 +451,14 @@ public class TaskManager {
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (TaskComponent component : components) {
+        for (TaskComponent component: components) {
             total += component.getEstimatedHours();
         }
         return total;
     }
 
     public void printTaskList() {
-        for (TaskComponent component : components) {
+        for (TaskComponent component: components) {
             component.printTaskList();
         }
     }
@@ -475,7 +478,7 @@ package example;
 public class Main {
     public static void main(String[] args) {
         TaskManager taskManager = new TaskManager();
-        taskManager.addComponent(new Task("要件ヒアリング", 8));
+        taskManager.addComponent(new Task("要件定義", 8));
 
         TaskGroup designGroup = new TaskGroup("設計");
         designGroup.add(new Task("画面設計", 16));
@@ -502,7 +505,7 @@ public class Main {
 **実行結果**
 
 ```
-要件ヒアリング（8時間）
+要件定義（8時間）
 設計 / 画面設計（16時間）
 設計 / DB設計（12時間）
 実装 / API実装（24時間）
