@@ -82,7 +82,7 @@ public class Task {
 
 | フィールド | 型           | 説明                 |
 | ---------- | ------------ | -------------------- |
-| `tasks`    | `List<Task>` | 管理対象のタスク一覧 |
+| `taskList` | `List<Task>` | 管理対象のタスク一覧 |
 
 | メソッド                 | 戻り値の型 | 説明                                           |
 | ------------------------ | ---------- | ---------------------------------------------- |
@@ -95,26 +95,23 @@ public class Task {
 ```java
 package example;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class TaskManager {
-    private List<Task> tasks = new ArrayList<>();
+    private List<Task> taskList = new ArrayList<>();
 
     public void addTask(Task task) {
-        tasks.add(task);
+        taskList.add(task);
     }
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (Task task: tasks) {
+        for (Task task: taskList) {
             total += task.getEstimatedHours();
         }
         return total;
     }
 
     public void printTaskList() {
-        for (Task task: tasks) {
+        for (Task task: taskList) {
             System.out.println(task.getName() + "（" + task.getEstimatedHours() + "時間）");
         }
     }
@@ -158,40 +155,39 @@ API実装（24時間）
 
 では、シナリオに従い追加実装をしていきましょう。
 
-真っ先に思いつくのは、タスクのグループを表す新しいクラスを追加し、その中にタスクとサブグループの両方を保持させる、という実装ではないでしょうか？
+真っ先に思いつくのは、`Task` クラスを参考に、タスクのグループを表す新しいクラスを追加し、その中にタスクとサブグループの両方を保持させる、という実装ではないでしょうか？
+
+新しいクラスは次のような実装になると思います。
 
 **`TaskGroup.java`**
 
 ```java
 package example;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class TaskGroup {
     private String name;
-    private List<Task> tasks = new ArrayList<>();
-    private List<TaskGroup> subGroups = new ArrayList<>();
+    private List<Task> taskList = new ArrayList<>();
+    private List<TaskGroup> taskGroupList = new ArrayList<>();
 
     public TaskGroup(String name) {
         this.name = name;
     }
 
     public void addTask(Task task) {
-        tasks.add(task);
+        taskList.add(task);
     }
 
-    public void addSubGroup(TaskGroup subGroup) {
-        subGroups.add(subGroup);
+    public void addTaskGroup(TaskGroup taskGroup) {
+        taskGroupList.add(taskGroup);
     }
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (Task task: tasks) {
+        for (Task task: taskList) {
             total += task.getEstimatedHours();
         }
-        for (TaskGroup subGroup: subGroups) {
-            total += subGroup.getTotalEstimatedHours();
+        for (TaskGroup taskGroup: taskGroupList) {
+            total += taskGroup.getTotalEstimatedHours();
         }
         return total;
     }
@@ -201,49 +197,46 @@ public class TaskGroup {
     }
 
     private void printTaskList(String prefix) {
-        for (Task task: tasks) {
+        for (Task task: taskList) {
             System.out.println(prefix + name + " / " + task.getName() + "（" + task.getEstimatedHours() + "時間）");
         }
-        for (TaskGroup subGroup: subGroups) {
-            subGroup.printTaskList(prefix + name + " / ");
+        for (TaskGroup taskGroup: taskGroupList) {
+            taskGroup.printTaskList(prefix + name + " / ");
         }
     }
 }
 ```
 
-`TaskManager` クラスも、タスク単体だけでなくタスクグループも受け取れるように変更する必要があります。
+`TaskManager` クラスは、タスク単体だけでなくタスクグループも受け取れるように変更する必要があるので次のような実装になると思います。
 
 **`TaskManager.java`**
 
 ```java
 package example;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class TaskManager {
-    private List<Task> tasks = new ArrayList<>();
+    private List<Task> taskList = new ArrayList<>();
     /* ここを追加（ここから） */
-    private List<TaskGroup> taskGroups = new ArrayList<>();
+    private List<TaskGroup> taskGroupList = new ArrayList<>();
     /* ここを追加（ここまで） */
 
     public void addTask(Task task) {
-        tasks.add(task);
+        taskList.add(task);
     }
 
     /* ここを追加（ここから） */
     public void addTaskGroup(TaskGroup taskGroup) {
-        taskGroups.add(taskGroup);
+        taskGroupList.add(taskGroup);
     }
     /* ここを追加（ここまで） */
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (Task task: tasks) {
+        for (Task task: taskList) {
             total += task.getEstimatedHours();
         }
         /* ここを追加（ここから） */
-        for (TaskGroup taskGroup: taskGroups) {
+        for (TaskGroup taskGroup: taskGroupList) {
             total += taskGroup.getTotalEstimatedHours();
         }
         /* ここを追加（ここまで） */
@@ -251,11 +244,11 @@ public class TaskManager {
     }
 
     public void printTaskList() {
-        for (Task task: tasks) {
+        for (Task task: taskList) {
             System.out.println(task.getName() + "（" + task.getEstimatedHours() + "時間）");
         }
         /* ここを追加（ここから） */
-        for (TaskGroup taskGroup: taskGroups) {
+        for (TaskGroup taskGroup: taskGroupList) {
             taskGroup.printTaskList();
         }
         /* ここを追加（ここまで） */
@@ -285,7 +278,7 @@ public class Main {
         testGroup.addTask(new Task("単体テスト", 10));
         testGroup.addTask(new Task("結合テスト", 14));
 
-        implGroup.addSubGroup(testGroup);
+        implGroup.addTaskGroup(testGroup);
 
         taskManager.addTaskGroup(designGroup);
         taskManager.addTaskGroup(implGroup);
@@ -313,10 +306,10 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- `Task` と `TaskGroup` が別の型であるため、`TaskManager` クラスは `tasks`・`taskGroups` という 2 つのリストをそれぞれ持ち、`getTotalEstimatedHours`・`printTaskList` の両メソッドで、タスク用・タスクグループ用のループを重複して書く必要がある。
-    - 新しい階層の種類（例えば「マイルストーン」のような別種の要素）を追加したくなった場合、`TaskManager` だけでなく `TaskGroup` 側にも、同様のリストとループを追加しなければならない。
-- `TaskGroup` の中にさらに `TaskGroup` を追加できるようにした（`testGroup` を `implGroup` のサブグループとして追加した）ことで、`TaskGroup` クラス自身の `getTotalEstimatedHours`・`printTaskList` メソッドの中にも、タスク用のループとサブグループ用のループを重複して用意し、サブグループ側だけを再帰的に呼び出す、という実装になっている。
-- タスク（`Task`）とタスクグループ（`TaskGroup`）を、呼び出し側（`TaskManager`）が常に型で区別しなければならず、「集計・表示できる対象」として同じように扱うことができていない。
+- 個別要素（`Task`）と複合要素（`TaskGroup`）が別の型であるため、両方を保持・処理する側は種類ごとに専用のリストとループを実装する必要がある状態となっている。
+    - その結果、新しい階層の種類（例えば「マイルストーン」のような別種の要素）が増えるたび、`TaskManager` だけでなく `TaskGroup` 側にも同様のリストとループを追加しなければならなくなる。
+- 仕様の追加により、複合要素（`TaskGroup`）の中にさらに複合要素（`TaskGroup`）を追加できるようになったため、1つ目の問題点と同じ重複構造（個別要素用のループと複合要素用のループを両方用意する構造）が、複合要素クラス自身の内部にも繰り返し現れる状態となってしまっている。
+- 呼び出し側（`TaskManager`）は、個別要素（`Task`）と複合要素（`TaskGroup`）を同一の型として扱えないため、常にどちらの型を扱っているかを意識する必要があり、「集計・表示できる対象」として同じように扱うことができない。
 
 ## 正しい実装
 
@@ -391,9 +384,6 @@ public class Task extends TaskComponent {
 ```java
 package example;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class TaskGroup extends TaskComponent {
     private String name;
     private List<TaskComponent> children = new ArrayList<>();
@@ -429,7 +419,7 @@ public class TaskGroup extends TaskComponent {
 }
 ```
 
-`TaskGroup` クラスを振り返ると、好ましくない実装のように `tasks`・`subGroups` という 2 つのリストを持つのではなく、`TaskComponent` 型の子要素をまとめて持つ `children` フィールド 1 つだけで、タスクとタスクグループの両方を保持できるようになっています。<br>
+`TaskGroup` クラスを振り返ると、好ましくない実装のように `taskList`・`taskGroupList` という 2 つのリストを持つのではなく、`TaskComponent` 型の子要素をまとめて持つ `children` フィールド 1 つだけで、タスクとタスクグループの両方を保持できるようになっています。<br>
 `getEstimatedHours`・`printTaskList` メソッドも、子要素の型がタスクなのかタスクグループなのかを意識せず、`child.getEstimatedHours()`・`child.printTaskList(...)` を呼び出しているだけです。子がタスクグループだった場合はこの呼び出しが再び `TaskGroup` クラスの同名メソッドに入るため、ネストがどれだけ深くなっても同じコードで対応できます（再帰呼び出しの詳しい流れは→ [【深堀り②】再帰処理の考え方](#深堀り2)）。
 
 次に、`TaskManager` クラスの変更点を見ていきましょう。
@@ -438,9 +428,6 @@ public class TaskGroup extends TaskComponent {
 
 ```java
 package example;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class TaskManager {
     private List<TaskComponent> components = new ArrayList<>();
@@ -465,7 +452,7 @@ public class TaskManager {
 }
 ```
 
-`TaskManager` クラスを振り返ると、好ましくない実装で必要だった `tasks`・`taskGroups` という 2 つのリストが、`TaskComponent` 型の `components` フィールド 1 つに統合されています。<br>
+`TaskManager` クラスを振り返ると、好ましくない実装で必要だった `taskList`・`taskGroupList` という 2 つのリストが、`TaskComponent` 型の `components` フィールド 1 つに統合されています。<br>
 `addComponent` メソッドにはタスク・タスクグループのどちらも渡せるため、`addTask`・`addTaskGroup` のようにメソッドを分ける必要もなくなりました。
 
 最後に、実行クラスの実装を見ていきましょう。
@@ -550,7 +537,11 @@ public class Main {
 
 ## 【深堀り②】再帰処理の考え方
 
-本記事の `TaskGroup` クラスの `getEstimatedHours` メソッドは、自分自身の子要素に対して同じ `getEstimatedHours` メソッドを呼び出しています。子要素が `TaskGroup` だった場合、その呼び出しの中でさらに `getEstimatedHours` メソッドが呼ばれる、という「**再帰呼び出し**」の構造になっています。
+本記事の `TaskGroup` クラスには、`getEstimatedHours`・`printTaskList` という 2 つの再帰メソッドがありますが、子要素とのデータのやり取りの方向がそれぞれ逆になっています。順番に見ていきましょう。
+
+### 型①（戻り値を積み上げる再帰）
+
+`getEstimatedHours` メソッドは、自分自身の子要素に対して同じ `getEstimatedHours` メソッドを呼び出しています。子要素が `TaskGroup` だった場合、その呼び出しの中でさらに `getEstimatedHours` メソッドが呼ばれる、という「**再帰呼び出し**」の構造になっています。
 
 `Main` クラスの `implGroup.getEstimatedHours()` を例に、呼び出しの流れを追ってみましょう。
 
@@ -568,6 +559,28 @@ implGroup.getEstimatedHours()
 
 `testGroup.getEstimatedHours()` の呼び出しが終わって `24` という値が返ってくるまで、呼び出し元の `implGroup.getEstimatedHours()` の処理は一時停止した状態で待っています。値が返ってきた時点で、待っていた計算（`total += 24`）が再開され、最終的な合計値が確定します。<br>
 このように、再帰呼び出しは「一番深い子要素まで潜っていき、そこから 1 段ずつ戻りながら計算を積み上げていく」という流れで進みます。ネストがどれだけ深くなっても、`TaskGroup` クラス自身が「自分の子要素の合計を求める」という同じ処理を繰り返すだけでよいため、ネストの深さに応じたコードを追加で書く必要がありません。
+
+### 型②（引数で状態を渡す再帰）
+
+`printTaskList` メソッドは、型①とは逆に、**親から子へ**データを渡しながら再帰しています。`prefix` 引数に「ここまでの経路」を積み増し、`child.printTaskList(prefix + name + " / ")` という形で子に渡していく構造です。
+
+同じく `implGroup.printTaskList()` を例に、呼び出しの流れを追ってみましょう。
+
+```
+implGroup.printTaskList()
+→ printTaskList("")                                                （prefix = ""）
+├─ child = Task("API実装", 24)      → printTaskList("実装 / ")      → println("実装 / API実装（24時間）")
+└─ child = testGroup（TaskGroup）   → printTaskList("実装 / ")
+      testGroup.printTaskList("実装 / ")
+      ├─ child = Task("単体テスト", 10) → printTaskList("実装 / テスト / ") → println("実装 / テスト / 単体テスト（10時間）")
+      └─ child = Task("結合テスト", 14) → printTaskList("実装 / テスト / ") → println("実装 / テスト / 結合テスト（14時間）")
+```
+
+型①と異なり、`printTaskList` は戻り値を持たない `void` メソッドです。そのため、子の呼び出しが終わるのを待って何かを合算する必要がなく、`println` が実行された時点でその呼び出しの役目は終わります。呼び出し元は「どこまでの経路を子に渡すか」だけを組み立てて渡し、あとは子に任せきりになる点が型①との違いです。
+
+### まとめ
+
+型①（`getEstimatedHours`）は子の戻り値を親が待って合算する「**子 → 親**」の再帰、型②（`printTaskList`）は親が組み立てた状態を子に渡していく「**親 → 子**」の再帰です。データが流れる向きは逆ですが、どちらも「`TaskGroup` 自身が、自分の子要素に対して同じ処理を繰り返すだけでよい」という点は共通しており、これによってネストの深さに関わらず同じコードで対応できています。
 
 <a id="深堀り3"></a>
 
