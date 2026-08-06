@@ -307,7 +307,7 @@ public class Main {
 しかし、この実装には以下の問題点があります。
 
 - 個別要素（`Task`）と複合要素（`TaskGroup`）が別の型であるため、両方を保持・処理する側は種類ごとに専用のリストとループを実装する必要がある状態となっている。
-    - その結果、新しい階層の種類（例えば「マイルストーン」のような別種の要素）が増えるたび、`TaskManager` だけでなく `TaskGroup` 側にも同様のリストとループを追加しなければならなくなる。
+    - その結果、新しい階層の種類（例えば「マイルストーン」のような別種の要素）が増えるたび、`TaskManager` クラスだけでなく `TaskGroup` クラスにも同様のリストとループを追加しなければならなくなる。
 - 仕様の追加により、複合要素（`TaskGroup`）の中にさらに複合要素（`TaskGroup`）を追加できるようになったため、1つ目の問題点と同じ重複構造（個別要素用のループと複合要素用のループを両方用意する構造）が、複合要素クラス自身の内部にも繰り返し現れる状態となってしまっている。
 - 呼び出し側（`TaskManager`）は、個別要素（`Task`）と複合要素（`TaskGroup`）を同一の型として扱えないため、常にどちらの型を扱っているかを意識する必要があり、「集計・表示できる対象」として同じように扱うことができない。
 
@@ -318,7 +318,7 @@ public class Main {
 これらの問題を解決するのが **Composite パターン**です。<br>
 個別の要素（葉）と、複数の要素をまとめた複合オブジェクト（枝）を共通のインターフェースで扱えるようにすることで、呼び出し側は両者を区別せずに再帰的に処理できるようになります。
 
-まず、タスクとタスクグループの共通の抽象クラスから見ていきましょう。
+まず、タスク（個別要素）とタスクグループ（複合要素）の共通の抽象クラスから見ていきましょう。
 
 **`TaskComponent.java`**
 
@@ -339,9 +339,10 @@ public abstract class TaskComponent {
 ```
 
 `TaskComponent` は新たに追加した抽象クラスで、タスク・タスクグループ双方が実装すべき `getName`・`getEstimatedHours` を抽象メソッドとして定義しています。<br>
-また、一覧表示の入り口となる `printTaskList` は具体メソッドとして固定し、実際の出力内容は `prefix` 付きの `printTaskList` に委ねています。なお、`add` のようなタスクグループ専用の操作はここには定義していません（→ [【深堀り①】透過性と安全性のトレードオフ](#深堀り1)）。
+また、一覧表示の入り口となる `printTaskList` は具体メソッドとして固定し、実際の出力内容は `prefix` 付きの `printTaskList` メソッドに委ねています。<br>
+なお、`add` メソッドのようなタスクグループ専用の操作はここには定義していません（→ [【深堀り①】透過性と安全性のトレードオフ](#深堀り1)）。
 
-次に、葉として振る舞う `Task` クラスを見ていきましょう。
+次に、抽象クラス `TaskComponent` の実装クラスを見ていきましょう。
 
 **`Task.java`**
 
@@ -374,11 +375,6 @@ public class Task extends TaskComponent {
 }
 ```
 
-`Task` クラスを振り返ると、`TaskComponent` クラスを継承した点が既存の仕様からの変更点です。<br>
-しかし、フィールドや `getName`・`getEstimatedHours` メソッドの処理内容自体は、既存の仕様から変更されていません。
-
-次に、複合オブジェクトとして振る舞う `TaskGroup` クラスを見ていきましょう。
-
 **`TaskGroup.java`**
 
 ```java
@@ -390,6 +386,10 @@ public class TaskGroup extends TaskComponent {
 
     public TaskGroup(String name) {
         this.name = name;
+    }
+
+    public void add(TaskComponent child) {
+        children.add(child);
     }
 
     @Override
@@ -406,10 +406,6 @@ public class TaskGroup extends TaskComponent {
         return total;
     }
 
-    public void add(TaskComponent child) {
-        children.add(child);
-    }
-
     @Override
     protected void printTaskList(String prefix) {
         for (TaskComponent child: children) {
@@ -419,10 +415,14 @@ public class TaskGroup extends TaskComponent {
 }
 ```
 
-`TaskGroup` クラスを振り返ると、好ましくない実装のように `taskList`・`taskGroupList` という 2 つのリストを持つのではなく、`TaskComponent` 型の子要素をまとめて持つ `children` フィールド 1 つだけで、タスクとタスクグループの両方を保持できるようになっています。<br>
-`getEstimatedHours`・`printTaskList` メソッドも、子要素の型がタスクなのかタスクグループなのかを意識せず、`child.getEstimatedHours()`・`child.printTaskList(...)` を呼び出しているだけです。子がタスクグループだった場合はこの呼び出しが再び `TaskGroup` クラスの同名メソッドに入るため、ネストがどれだけ深くなっても同じコードで対応できます（再帰呼び出しの詳しい流れは→ [【深堀り②】再帰処理の考え方](#深堀り2)）。
+`Task` クラスを振り返ると、`TaskComponent` クラスを継承しています。<br>
+また、`TaskComponent` クラスの抽象メソッドの具体的な実装を行っています。<br>
+一方、フィールドや `getName`・`getEstimatedHours` メソッドの処理内容自体は、既存の仕様から変更されていません。
 
-次に、`TaskManager` クラスの変更点を見ていきましょう。
+`TaskGroup` クラスを振り返ると、個別要素（`Task`）と複合要素（`TaskGroup`）の型が `TaskComponent` 型に統合されたことにより、好ましくない実装で必要だった `taskList`・`taskGroupList` という 2 つのリストが `children` フィールド 1 つにまとまり、タスク・タスクグループの追加も `add` メソッド 1 つで完結するようになりました。<br>
+また、`getEstimatedHours`・`printTaskList` メソッドでは、`children` の各要素に対して同じメソッドを呼び出しているだけで、実際に呼ばれる処理は要素の型（`Task` か `TaskGroup` か）によって決まるため、ネストがどれだけ深くなっても同じコードで対応できます（再帰呼び出しの詳しい流れは→ [【深堀り②】再帰処理の考え方](#深堀り2)）。
+
+次に、呼び出し側を見ていきましょう。
 
 **`TaskManager.java`**
 
@@ -430,30 +430,30 @@ public class TaskGroup extends TaskComponent {
 package example;
 
 public class TaskManager {
-    private List<TaskComponent> components = new ArrayList<>();
+    private List<TaskComponent> taskComponentList = new ArrayList<>();
 
-    public void addComponent(TaskComponent component) {
-        components.add(component);
+    public void addComponent(TaskComponent taskComponent) {
+        taskComponentList.add(taskComponent);
     }
 
     public int getTotalEstimatedHours() {
         int total = 0;
-        for (TaskComponent component: components) {
-            total += component.getEstimatedHours();
+        for (TaskComponent taskComponent: taskComponentList) {
+            total += taskComponent.getEstimatedHours();
         }
         return total;
     }
 
     public void printTaskList() {
-        for (TaskComponent component: components) {
-            component.printTaskList();
+        for (TaskComponent taskComponent: taskComponentList) {
+            taskComponent.printTaskList();
         }
     }
 }
 ```
 
-`TaskManager` クラスを振り返ると、好ましくない実装で必要だった `taskList`・`taskGroupList` という 2 つのリストが、`TaskComponent` 型の `components` フィールド 1 つに統合されています。<br>
-`addComponent` メソッドにはタスク・タスクグループのどちらも渡せるため、`addTask`・`addTaskGroup` のようにメソッドを分ける必要もなくなりました。
+`TaskManager` クラスを振り返ると、好ましくない実装で必要だった `taskList`・`taskGroupList` という 2 つのリストが、`TaskComponent` 型の `taskComponentList` フィールド 1 つに統合されています。<br>
+`addComponent` メソッドにはタスク・タスクグループのどちらも渡せるため、`addTask`・`addTaskGroup` のようにメソッドを分ける必要もなくなっています。
 
 最後に、実行クラスの実装を見ていきましょう。
 
@@ -501,13 +501,15 @@ public class Main {
 合計見積工数：84時間
 ```
 
-`Main` クラスを振り返ると、`taskManager.addComponent(...)` には `Task` のインスタンスも `TaskGroup` のインスタンスもそのまま渡せており、`TaskGroup` クラスの `add` メソッドにも同様に両方を渡せています。呼び出し側は `TaskComponent` 型として扱っているだけで、実行結果は好ましくない実装とまったく同じです。
+`Main` クラスを振り返ると、型統合の効果はここにも表れており、`taskManager.addComponent(...)` には `Task` のインスタンスも `TaskGroup` のインスタンスもそのまま渡せています。また、`TaskGroup` クラスの `add` メソッドにも同様に両方を渡せています。<br>
+正しい実装でも好ましくない実装とまったく同じ実行結果となっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- `Task`・`TaskGroup` がどちらも `TaskComponent` 型として扱えるようになったため、`TaskManager` クラスは `components` という 1 つのリストだけを持てばよくなり、好ましくない実装で必要だった「タスク用」「タスクグループ用」の 2 つのリストとループが不要になった。
-- `TaskGroup` の中にさらに `TaskGroup` を追加してネストを深くする場合も、`TaskGroup` クラス自身の `getEstimatedHours`・`printTaskList` メソッドが子要素に対して再帰的に処理を委ねるだけで対応でき、`TaskManager` クラス側のコードを変更する必要がない。
-- 新しい階層の種類を追加したくなった場合も、`TaskComponent` を継承したクラスを 1 つ追加するだけで済み、既存の `TaskManager`・`Task`・`TaskGroup` クラスに手を加える必要がない。
+- 個別要素（`Task`）と複合要素（`TaskGroup`）の型が `TaskComponent` 型に統合されたことにより、複合要素側は種類ごとに専用のリストとループを実装する必要がなくなる。
+    - その結果、新しい階層の種類（例えば「マイルストーン」のような別種の要素）が増えても、抽象クラス `TaskComponent` を継承したクラスを作成するだけで済み、既存のクラス（`TaskManager`・`Task`・`TaskGroup`）に手を加える必要がない。
+- 複合要素（`TaskGroup`）の `getEstimatedHours`・`printTaskList` メソッドは、`children` の各要素を同じ `TaskComponent` 型として扱うため、ネストがどれだけ深くなっても、好ましくない実装のように各階層で個別要素用・複合要素用の 2 つのループを繰り返し用意する必要がない。
+- 個別要素（`Task`）と複合要素（`TaskGroup`）の型が `TaskComponent` 型に統合されたことにより、呼び出し側（`TaskManager`）は、どちらの型を扱っているかを意識する必要がなくなり「集計・表示できる対象」を同じように扱える。
 
 ## まとめ
 
