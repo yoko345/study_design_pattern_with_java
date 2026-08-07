@@ -543,11 +543,11 @@ public class Main {
 
 ## 【深堀り②】再帰処理の考え方
 
-本記事の `TaskGroup` クラスには、`getEstimatedHours`・`printTaskList` という 2 つの再帰メソッドがありますが、子要素とのデータのやり取りの方向がそれぞれ逆になっています。順番に見ていきましょう。
+本記事の `TaskGroup` クラスを振り返ると、2 つの再帰メソッド（`getEstimatedHours`・`printTaskList`）がありますが、`TaskGroup` クラス自身とその子とのデータのやり取りの方向がそれぞれ逆になっています。順番に見ていきましょう。
 
 ### 型①（戻り値を積み上げる再帰）
 
-`getEstimatedHours` メソッドは、自分自身の子要素に対して同じ `getEstimatedHours` メソッドを呼び出しています。子要素が `TaskGroup` だった場合、その呼び出しの中でさらに `getEstimatedHours` メソッドが呼ばれる、という「**再帰呼び出し**」の構造になっています。
+`getEstimatedHours` メソッドは、自分自身の子に対して同じ `getEstimatedHours` メソッドを呼び出しています。子が `TaskGroup` だった場合、その呼び出しの中でさらに `getEstimatedHours` メソッドが呼ばれる、という「**再帰呼び出し**」の構造になっています。
 
 `Main` クラスの `implGroup.getEstimatedHours()` を例に、呼び出しの流れを追ってみましょう。
 
@@ -564,7 +564,7 @@ implGroup.getEstimatedHours()
 ```
 
 `testGroup.getEstimatedHours()` の呼び出しが終わって `24` という値が返ってくるまで、呼び出し元の `implGroup.getEstimatedHours()` の処理は一時停止した状態で待っています。値が返ってきた時点で、待っていた計算（`total += 24`）が再開され、最終的な合計値が確定します。<br>
-このように、再帰呼び出しは「一番深い子要素まで潜っていき、そこから 1 段ずつ戻りながら計算を積み上げていく」という流れで進みます。ネストがどれだけ深くなっても、`TaskGroup` クラス自身が「自分の子要素の合計を求める」という同じ処理を繰り返すだけでよいため、ネストの深さに応じたコードを追加で書く必要がありません。
+このように、再帰呼び出しは「一番深い子まで潜っていき、そこから 1 段ずつ戻りながら計算を積み上げていく」という流れで進みます。ネストがどれだけ深くなっても、`TaskGroup` クラス自身が「自分の子の合計を求める」という同じ処理を繰り返すだけでよいため、ネストの深さに応じたコードを追加で書く必要がありません。
 
 ### 型②（引数で状態を渡す再帰）
 
@@ -572,27 +572,32 @@ implGroup.getEstimatedHours()
 
 同じく `implGroup.printTaskList()` を例に、呼び出しの流れを追ってみましょう。
 
+※型①と異なり `TaskGroup("実装")` のような生成時点も示している理由：`printTaskList` メソッドが `name` を `prefix` に連結して出力するため、名前の出どころを明示する必要があるから。
+
 ```
-implGroup.printTaskList()
-→ printTaskList("")                                                （prefix = ""）
-├─ child = Task("API実装", 24)      → printTaskList("実装 / ")      → println("実装 / API実装（24時間）")
-└─ child = testGroup（TaskGroup）   → printTaskList("実装 / ")
+implGroup = TaskGroup("実装")
+implGroup.printTaskList() → printTaskList("")
+├─ child = Task("API実装", 24)    → child.printTaskList("実装 / ")（実体は Task の printTaskList）      → println("実装 / API実装（24時間）")
+└─ child = testGroup（TaskGroup） → child.printTaskList("実装 / ")（実体は TaskGroup の printTaskList）
+      testGroup = TaskGroup("テスト")
       testGroup.printTaskList("実装 / ")
-      ├─ child = Task("単体テスト", 10) → printTaskList("実装 / テスト / ") → println("実装 / テスト / 単体テスト（10時間）")
-      └─ child = Task("結合テスト", 14) → printTaskList("実装 / テスト / ") → println("実装 / テスト / 結合テスト（14時間）")
+      ├─ child = Task("単体テスト", 10) → child.printTaskList("実装 / テスト / ")（実体は Task の printTaskList） → println("実装 / テスト / 単体テスト（10時間）")
+      └─ child = Task("結合テスト", 14) → child.printTaskList("実装 / テスト / ")（実体は Task の printTaskList） → println("実装 / テスト / 結合テスト（14時間）")
 ```
 
-型①と異なり、`printTaskList` は戻り値を持たない `void` メソッドです。そのため、子の呼び出しが終わるのを待って何かを合算する必要がなく、`println` が実行された時点でその呼び出しの役目は終わります。呼び出し元は「どこまでの経路を子に渡すか」だけを組み立てて渡し、あとは子に任せきりになる点が型①との違いです。
+型①と異なり、`printTaskList` は戻り値を持たない `void` メソッドです。そのため、`println` が実行された時点でその呼び出しの役目は終わります。<br>
+このように、再帰呼び出しは「どこまでの経路を子に渡すか」だけを組み立てて渡し、あとは子に任せきりにするという流れで進みます。
 
 ### まとめ
 
-型①（`getEstimatedHours`）は子の戻り値を親が待って合算する「**子 → 親**」の再帰、型②（`printTaskList`）は親が組み立てた状態を子に渡していく「**親 → 子**」の再帰です。データが流れる向きは逆ですが、どちらも「`TaskGroup` 自身が、自分の子要素に対して同じ処理を繰り返すだけでよい」という点は共通しており、これによってネストの深さに関わらず同じコードで対応できています。
+型①は子の戻り値を親が待って合算する「**子 → 親**」の再帰、型②は親が組み立てた状態を子に渡していく「**親 → 子**」の再帰です。<br>
+データが流れる向きは逆ですが、どちらも「`TaskGroup` 自身が、自分の子に対して同じ処理を繰り返すだけでよい」という点は共通しており、これによってネストの深さに関わらず同じコードで対応できています。
 
 <a id="深堀り3"></a>
 
 ## 【深堀り③】Iterator パターンとの関係
 
-本記事の `printTaskList` メソッドは、`TaskGroup` クラス自身が子要素を再帰的にたどることで、木構造全体の一覧を出力しています。この「たどり方」は `TaskGroup` クラスの内部に隠れているため、呼び出し側（`TaskManager` クラス）は木構造をどうたどっているかをまったく意識せずに済んでいます。
+本記事の `printTaskList` メソッドは、`TaskGroup` クラス自身が子を再帰的にたどることで、木構造全体の一覧を出力しています。この「たどり方」は `TaskGroup` クラスの内部に隠れているため、呼び出し側（`TaskManager` クラス）は木構造をどうたどっているかをまったく意識せずに済んでいます。
 
 一方、「木構造の要素を 1 つずつ順番に取り出して、その都度何か処理をしたい」といった要件が出てきた場合、この再帰的なたどり方をメソッドの中に固定してしまうと、処理内容を変えるたびに `TaskGroup` クラス自身を修正することになってしまいます。そこで、木構造をたどるロジックを専用の Iterator パターンのクラスとして切り出し、呼び出し側が `for` 文で 1 要素ずつ取り出せるようにする設計もよく使われます。
 
