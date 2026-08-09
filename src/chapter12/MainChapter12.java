@@ -24,5 +24,20 @@ public class MainChapter12 {
                                 new SideBorder(new StringDisplay("Hello, World."), '*'), '='), '|'),
                         '/'));
         display4.show();
+
+        // 練習問題12-2
+        System.out.println();
+
+        MultiStringDisplay display5 = new MultiStringDisplay();
+        display5.add("Hi!");
+        display5.add("Good morning.");
+        display5.add("Good night!");
+        display5.show();
+
+        Display display6 = new SideBorder(display5, '$');
+        display6.show();
+
+        Display display7 = new FullBorder(display5);
+        display7.show();
     }
 }

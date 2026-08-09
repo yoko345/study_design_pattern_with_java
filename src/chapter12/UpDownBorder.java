@@ -1,5 +1,6 @@
 package chapter12;
 
+// 練習問題12-1
 public class UpDownBorder extends Border {
     private char symbol;
 
@@ -26,7 +27,6 @@ public class UpDownBorder extends Border {
             return display.getRowText(row - 1);
         }
     }
-
 
     private String makeLine(char symbol, int count) {
         StringBuilder sb = new StringBuilder();
