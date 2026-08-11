@@ -89,7 +89,6 @@ package example;
 public class Main {
     public static void main(String[] args) {
         MeetingRoomReservation reservation = new MeetingRoomReservation("第1会議室", 2, 3000);
-
         System.out.println(reservation.getDetails());
         System.out.println("料金：" + reservation.getFee() + "円");
     }
@@ -210,9 +209,9 @@ public class Main {
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
 これらの問題を解決するのが **Decorator パターン**です。<br>
-オプションを既存クラスのフィールドとして持たせるのではなく、オプションごとに独立したクラスを用意し、予約オブジェクトを外側から包んでいく（委譲する）ことで、既存クラスを変更せずに自由な組み合わせを実現します。
+オプションを既存クラスのフィールドとして持たせるのではなく、オプションごとに独立したクラスを用意します。そのために、既存クラスとオプションクラスの両方に共通の型を持たせることで、予約オブジェクトを外側から包んでいく（委譲する）構造にします。これにより、既存クラスを変更せずに自由な組み合わせを実現します。
 
-まず、`MeetingRoomReservation` クラスと、後述するオプションクラスの両方が実装すべき、共通の抽象クラスから見ていきましょう。
+まず、共通の抽象クラスから見ていきましょう。
 
 **`Reservation.java`**
 
@@ -226,7 +225,9 @@ public abstract class Reservation {
 }
 ```
 
-次に、抽象クラス `Reservation` を継承した `MeetingRoomReservation` クラスを見ていきましょう。
+`Reservation` クラスは新たに追加した抽象クラスで、フィールドや具体的な処理は一切持たず、`getFee`・`getDetails` という 2 つの抽象メソッドのみを定義しています。この抽象クラスが既存クラスとオプションクラスの共通の型となることで、両者を同じ型として扱えるようになります。
+
+次に、抽象クラス `Reservation` を継承した既存のクラスを見ていきましょう。
 
 **`MeetingRoomReservation.java`**
 
@@ -256,9 +257,10 @@ public class MeetingRoomReservation extends Reservation {
 }
 ```
 
-`MeetingRoomReservation` クラスを振り返ると、好ましくない実装で追加した `boolean` フィールドや条件分岐がすべてなくなり、既存の仕様と同じ 3 つのフィールドだけを持つ形に戻っています。変更点は、抽象クラス `Reservation` を継承し、`getFee`・`getDetails` メソッドに `@Override` を付けたことだけです。
+`MeetingRoomReservation` クラスを振り返ると、抽象クラス `Reservation` を継承し、`getFee`・`getDetails` メソッドに `@Override` を付けています。<br>
+一方、フィールドや処理の内容自体は、既存の仕様から変更されていません。
 
-続いて、オプションの土台となる抽象クラスを見ていきましょう。
+次に、抽象クラス `Reservation` を継承したオプションの土台となる抽象クラスを見ていきましょう。
 
 **`ReservationOption.java`**
 
@@ -274,9 +276,9 @@ public abstract class ReservationOption extends Reservation {
 }
 ```
 
-`ReservationOption` クラスは新たに追加した抽象クラスで、`Reservation` クラスを継承しつつ、内部に別の `Reservation` を `reservation` フィールドとして保持しています。この `reservation` フィールドには、`MeetingRoomReservation` のインスタンスだけでなく、後述するオプションクラス自身のインスタンスも渡せます。
+`ReservationOption` クラスは新たに追加した抽象クラスで、`Reservation` クラスを継承し、内部に別の `Reservation` 型のフィールドを保持しています。これにより、`MeetingRoomReservation` のインスタンスだけでなく、オプションクラス自身のインスタンスも渡せるようになります。
 
-この `ReservationOption` クラスを継承した、3 つのオプションクラスを見ていきましょう。
+次に、抽象クラス `ReservationOption` を継承したオプションクラスを見ていきましょう。
 
 **`ProjectorOption.java`**
 
@@ -301,8 +303,6 @@ public class ProjectorOption extends ReservationOption {
     }
 }
 ```
-
-同様の考え方で、ケータリングと録画設定のオプションクラスも実装します。
 
 **`CateringOption.java`**
 
@@ -352,10 +352,10 @@ public class RecordingOption extends ReservationOption {
 }
 ```
 
-3 つのオプションクラスを振り返ると、いずれも `getFee`・`getDetails` メソッドの内部で、まず `reservation.getFee()`・`reservation.getDetails()` を呼び出して、自分が包んでいる予約（元の `MeetingRoomReservation` かもしれないし、別のオプションが適用済みの予約かもしれない）の結果を取得し、そこに自分自身の加算・追記を行っているだけです。<br>
-この「まず包んでいる相手に処理を委譲してから、自分の分を上乗せする」という実装により、オプションを何個・どんな順序で重ねても、それぞれのオプションクラスは自分が追加する内容だけを知っていればよくなります（継承ではなく委譲を使う理由は→ [【深堀り①】Decorator と継承の違い](#深堀り1)）。
+`ProjectorOption`・`CateringOption`・`RecordingOption` クラスを振り返ると、いずれも `getFee`・`getDetails` メソッドの内部で、まず `reservation` フィールドの `getFee`・`getDetails` メソッドを呼び出しています。この呼び出しで、`reservation` フィールドに渡された `Reservation` 型のインスタンスが持つ予約結果（料金・説明文）を取得します。次に、その戻り値に対して、オプションクラス自身の追加料金（`FEE`）や追加内容を表す文字列を上乗せしています。<br>
+この「まず委譲先に処理を任せてから、次に自分自身の追加分を上乗せする」という実装をすると、オプションを何個・どんな順序で包んでも、それぞれのオプションクラスは自分自身の追加分だけを知っていればよくなります（継承ではなく委譲を使う理由は→ [【深堀り①】Decorator と継承の違い](#深堀り1)）。
 
-次に、呼び出し側の実行クラスを見ていきましょう。
+最後に、実行クラス（呼び出し側）を見ていきましょう。
 
 **`Main.java`**
 
@@ -368,15 +368,19 @@ public class Main {
         System.out.println(reservation1.getDetails());
         System.out.println("料金：" + reservation1.getFee() + "円");
 
-        Reservation reservation2 = new CateringOption(
-                new ProjectorOption(new MeetingRoomReservation("第2会議室", 3, 4000)));
+        /* ここを追加（ここから） */
+        Reservation reservation2 = new MeetingRoomReservation("第2会議室", 3, 4000);
+        reservation2 = new ProjectorOption(reservation2);
+        reservation2 = new CateringOption(reservation2);
         System.out.println(reservation2.getDetails());
         System.out.println("料金：" + reservation2.getFee() + "円");
 
-        Reservation reservation3 = new ProjectorOption(
-                new ProjectorOption(new MeetingRoomReservation("第3会議室", 4, 3500)));
+        Reservation reservation3 = new MeetingRoomReservation("第3会議室", 4, 3500);
+        reservation3 = new ProjectorOption(reservation3);
+        reservation3 = new ProjectorOption(reservation3);
         System.out.println(reservation3.getDetails());
         System.out.println("料金：" + reservation3.getFee() + "円");
+        /* ここを追加（ここまで） */
     }
 }
 ```
@@ -392,20 +396,20 @@ public class Main {
 料金：18000円
 ```
 
-`Main` クラスを振り返ると、`reservation2`・`reservation3` のように、オプションクラスのコンストラクタへ別の `Reservation`（元の予約や、別のオプションを適用済みの予約）を渡すことで、好ましくない実装のようにコンストラクタへ大量の `boolean` 引数を並べることなく、必要なオプションだけを外側から重ねて組み立てられています。
+`Main` クラスを振り返ると、`reservation2`・`reservation3` は、`MeetingRoomReservation` クラスを生成し、生成したものをオプションクラスのコンストラクタへ渡し、その結果を同じ変数へ上書きしていくことで、必要なオプションだけを外側から包んで組み立てています。これは、`MeetingRoomReservation`・各オプションクラスが共通の `Reservation` 型を継承しているためです。
 
-`reservation1`・`reservation2` の実行結果は、好ましくない実装とまったく同じになっています。一方、`reservation3` は、同じ `ProjectorOption` を 2 回重ねることで「プロジェクターを 2 台手配する」という、好ましくない実装の `boolean` フィールドでは表現できなかった組み合わせを実現しています。
+`reservation1`・`reservation2` の実行結果は、好ましくない実装とまったく同じになっています。また、`reservation3` は、同じ `ProjectorOption` クラスを 2 回包んだ実行結果になっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
 - 新しいオプション（例えば「無線 LAN 追加」）を増やす場合も、`ReservationOption` を継承した新しいクラスを追加するだけで済み、既存の `Reservation`・`MeetingRoomReservation` クラスや、追加済みの他のオプションクラスには一切手を加える必要がない。
-- オプションはオブジェクトとして重ねる（委譲する）ため、`boolean` フィールドでは表現できなかった「同じオプションを複数回適用する」といった組み合わせにも対応できる。
-- コンストラクタへオプションの有無を `boolean` の羅列で渡す必要がなくなり、`new CateringOption(new ProjectorOption(reservation))` のように、実際に適用したいオプションだけを、コード上でもそのまま読み取れる形で組み立てられる。
+- 実際に適用したいオプションだけをコード上でもそのまま読み取れる形で組み立てられるため、好ましくない実装のようなコンストラクタへオプションの有無を `boolean` の羅列で渡す必要がなくなる。
+- オプションはオブジェクトとして包む（委譲する）ため、`Main` クラスの `reservation3` のように「同じオプションを複数回適用する」という `boolean` フィールドでは表現できなかった組み合わせにも対応できる。
 
 ## まとめ
 
-正しい実装を振り返ると、オプション（`ProjectorOption`・`CateringOption`・`RecordingOption`）は `MeetingRoomReservation` クラスに手を加えることなく、`Reservation` 型として外側から重ねて組み立てられるようになりました。<br>
-このように、Decorator パターンは、機能を既存クラスの内部に追加するのではなく、既存クラスを変更せずに外側から包む専用のクラスとして追加することで、オプションの組み合わせや個数を実行時に自由に変えられるようにするパターンです。
+正しい実装を振り返ると、各オプションクラスは `Reservation` 型のフィールドに処理を委譲したうえで、自分が追加する料金・内容だけを上乗せしています。<br>
+このように、Decorator パターンは、既存クラスと同じ型を持つクラスで外側から包み、処理を委譲してから自分自身の追加分を上乗せさせることで、既存クラスを変更せずにオプションの組み合わせや個数を実行時に自由に変えられるようにするパターンです。
 
 本記事の内容はここまでとなります。
 
@@ -421,7 +425,7 @@ public class Main {
 
 この方法は、オプションが 1 種類だけなら問題になりませんが、オプションの種類が増えるほど組み合わせの数（2 のオプション数乗）に比例してクラス数が爆発的に増えてしまいます。今回のように 3 種類のオプションがあるだけでも、組み合わせは最大 7 通り（プロジェクターのみ・ケータリングのみ・……・全部乗せ）に達し、4 種類目のオプションが増えれば 15 通りまで膨れ上がります。
 
-Decorator パターンは、この組み合わせをクラスの継承ではなく、オブジェクトを実行時に重ねる「委譲」によって表現します。オプションクラスは自分が追加する処理だけを知っていればよく、他のオプションと組み合わせるための専用クラスを別途用意する必要がありません。そのため、オプションの数が増えても、クラス数はオプションの種類数（今回なら 3 つ）に比例するだけで済みます。
+Decorator パターンは、この組み合わせをクラスの継承ではなく、オブジェクトを実行時に包む「委譲」によって表現します。オプションクラスは自分自身の追加分だけを知っていればよく、他のオプションと組み合わせるための専用クラスを別途用意する必要がありません。そのため、オプションの数が増えても、クラス数はオプションの種類数（今回なら 3 つ）に比例するだけで済みます。
 
 <a id="深堀り2"></a>
 
