@@ -14,7 +14,7 @@
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
-- [【深堀り①】Decorator と継承の違い](#深堀り1)
+- [【深堀り①】継承ではなく委譲を使う理由](#深堀り1)
 - [【深堀り②】Java 標準ライブラリにおける Decorator パターンの例](#深堀り2)
 - [【深堀り③】OCP（オープン・クローズドの原則）](#深堀り3)
 - [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
@@ -353,7 +353,7 @@ public class RecordingOption extends ReservationOption {
 ```
 
 `ProjectorOption`・`CateringOption`・`RecordingOption` クラスを振り返ると、いずれも `getFee`・`getDetails` メソッドの内部で、まず `reservation` フィールドの `getFee`・`getDetails` メソッドを呼び出しています。この呼び出しで、`reservation` フィールドに渡された `Reservation` 型のインスタンスが持つ予約結果（料金・説明文）を取得します。次に、その戻り値に対して、オプションクラス自身の追加料金（`FEE`）や追加内容を表す文字列を上乗せしています。<br>
-この「まず委譲先に処理を任せてから、次に自分自身の追加分を上乗せする」という実装をすると、オプションを何個・どんな順序で包んでも、それぞれのオプションクラスは自分自身の追加分だけを知っていればよくなります（継承ではなく委譲を使う理由は→ [【深堀り①】Decorator と継承の違い](#深堀り1)）。
+この「まず委譲先に処理を任せてから、次に自分自身の追加分を上乗せする」という実装をすると、オプションを何個・どんな順序で包んでも、それぞれのオプションクラスは自分自身の追加分だけを知っていればよくなります（→ [継承ではなく委譲を使う理由](#深堀り1)）。
 
 最後に、実行クラス（呼び出し側）を見ていきましょう。
 
@@ -419,13 +419,94 @@ public class Main {
 
 <a id="深堀り1"></a>
 
-## 【深堀り①】Decorator と継承の違い
+## 【深堀り①】継承ではなく委譲を使う理由
 
-好ましくない実装で挙げた `boolean` フィールドの代わりに、継承でオプションごとのサブクラスを作る方法（例えば `ProjectorReservation`・`CateringReservation`・両方を持つ `ProjectorCateringReservation` ……）を思いついた方もいるかもしれません。
+本記事の好ましくない実装で挙げた `boolean` フィールドの代わりに、次のような継承を使った実装を思いついた方もいるかもしれません。
 
-この方法は、オプションが 1 種類だけなら問題になりませんが、オプションの種類が増えるほど組み合わせの数（2 のオプション数乗）に比例してクラス数が爆発的に増えてしまいます。今回のように 3 種類のオプションがあるだけでも、組み合わせは最大 7 通り（プロジェクターのみ・ケータリングのみ・……・全部乗せ）に達し、4 種類目のオプションが増えれば 15 通りまで膨れ上がります。
+※なお、`MeetingRoomReservation` クラスは既存コードの仕様で示したものです。
 
-Decorator パターンは、この組み合わせをクラスの継承ではなく、オブジェクトを実行時に包む「委譲」によって表現します。オプションクラスは自分自身の追加分だけを知っていればよく、他のオプションと組み合わせるための専用クラスを別途用意する必要がありません。そのため、オプションの数が増えても、クラス数はオプションの種類数（今回なら 3 つ）に比例するだけで済みます。
+**`ProjectorReservation.java`**
+
+```java
+package example;
+
+public class ProjectorReservation extends MeetingRoomReservation {
+    private static final int FEE = 2000;
+
+    public ProjectorReservation(String roomName, int hours, int feePerHour) {
+        super(roomName, hours, feePerHour);
+    }
+
+    @Override
+    public int getFee() {
+        return super.getFee() + FEE;
+    }
+
+    @Override
+    public String getDetails() {
+        return super.getDetails() + " + プロジェクター";
+    }
+}
+```
+
+**`CateringReservation.java`**
+
+```java
+package example;
+
+public class CateringReservation extends MeetingRoomReservation {
+    private static final int FEE = 5000;
+
+    public CateringReservation(String roomName, int hours, int feePerHour) {
+        super(roomName, hours, feePerHour);
+    }
+
+    @Override
+    public int getFee() {
+        return super.getFee() + FEE;
+    }
+
+    @Override
+    public String getDetails() {
+        return super.getDetails() + " + ケータリング";
+    }
+}
+```
+
+**`ProjectorCateringReservation.java`**
+
+```java
+package example;
+
+public class ProjectorCateringReservation extends MeetingRoomReservation {
+    private static final int PROJECTOR_FEE = 2000;
+    private static final int CATERING_FEE = 5000;
+
+    public ProjectorCateringReservation(String roomName, int hours, int feePerHour) {
+        super(roomName, hours, feePerHour);
+    }
+
+    @Override
+    public int getFee() {
+        return super.getFee() + PROJECTOR_FEE + CATERING_FEE;
+    }
+
+    @Override
+    public String getDetails() {
+        return super.getDetails() + " + プロジェクター" + " + ケータリング";
+    }
+}
+```
+
+ではここで、録画オプションも選べるようにしてほしいという依頼が来たとしましょう。
+
+同様の要領で `RecordingReservation`・`ProjectorRecordingReservation`・`CateringRecordingReservation`・`ProjectorCateringRecordingReservation` クラスを追加することになると思います。これは、録画オプション単体のパターンに加えて、これまでの各オプションの組み合わせに録画オプションを加えたパターンについても、それぞれサブクラスを用意する必要があるからです。そのため、合計 3 + 4 = 7 つのサブクラスを用意しなければなりません。
+
+以上から、継承を使った実装では、オプションの種類が増えるほど、用意しなければならないサブクラスの数が加速度的に増えていきます。<br>
+具体的に示すと、オプションが 1 種類なら 1 通り、2 種類なら 1 + 2 = 3 通り、今回のように 3 種類なら 3 + 2 × 2 = 7 通り、4 種類目が増えれば 7 + 2 × 2 × 2 = 15 通り……というようにサブクラスの数が膨大になっていきます。
+
+一方、本記事の実装である Decorator パターンでは、委譲を使った実装にしています。<br>
+この実装にすると、オプションクラスは自分自身の追加分だけを知っていればよく（→ [正しい実装](#正しい実装)の `ProjectorOption`・`CateringOption`・`RecordingOption` クラス）、他のオプションと組み合わせるための専用クラスを別途用意する必要がありません。そのため、先ほどのように「録画オプション」が増えても、オプションクラスの数は 2 + 1 = 3 だけにしかならず、「既存のクラス数 + オプション数」分のクラス数となります。
 
 <a id="深堀り2"></a>
 
