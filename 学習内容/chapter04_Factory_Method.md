@@ -241,7 +241,7 @@ public class Main {
 
 > ```
 > example.framework パッケージ（スーパークラス）
->   ├── Management.java    抽象クラス：入退館管理のための共通インターフェース
+>   ├── Management.java    抽象クラス：入退館管理のための共通の型
 >   └── Factory.java       抽象クラス：「発行 → 登録」の手順を定義
 >
 > example.visitorcard パッケージ（具体的な実装を行うサブクラス）

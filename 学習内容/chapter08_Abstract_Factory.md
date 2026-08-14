@@ -317,9 +317,9 @@ public class Main {
 
 > ```
 > example.shipping パッケージ（スーパークラス）
->   ├── ShippingLabel.java      抽象クラス：配送ラベルの共通インターフェース
->   ├── DeliveryNote.java       抽象クラス：納品書の共通インターフェース
->   ├── ReceiptForm.java        抽象クラス：受領書の共通インターフェース
+>   ├── ShippingLabel.java      抽象クラス：配送ラベルの共通の型
+>   ├── DeliveryNote.java       抽象クラス：納品書の共通の型
+>   ├── ReceiptForm.java        抽象クラス：受領書の共通の型
 >   └── ShippingFactory.java    抽象クラス：3 点の書類をまとめて生成する窓口
 >
 > example.gorira パッケージ（ゴリラ運輸向けの具体的な実装 / 既存の仕様から本実装に合わせて修正）
