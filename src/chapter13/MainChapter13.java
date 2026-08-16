@@ -1,7 +1,7 @@
-package chapter11;
+package chapter13;
 
 
-public class MainChapter11 {
+public class MainChapter13 {
     public static void main(String[] args) {
         System.out.println("Making root entries...");
 
@@ -17,7 +17,7 @@ public class MainChapter11 {
         bindir.add(new File("vi", 10000));
         bindir.add(new File("latex", 20000));
 
-        rootdir.printList();
+        rootdir.accept(new ListVisitor());
 
         System.out.println();
 
@@ -31,24 +31,26 @@ public class MainChapter11 {
         userdir.add(tomura);
 
         yuki.add(new File("diary.html", 100));
-        // yuki.add(new File("Composite.java", 200));
-        // 練習問題11-2（模範解答）（ここから）
-        File file = new File("Composite.java", 200);
-        yuki.add(file);
-        // 練習問題11-2（模範解答）（ここまで）
+        yuki.add(new File("Composite.java", 200));
         hanako.add(new File("memo.tex", 300));
+        // 練習問題13-1（ここから）
+        hanako.add(new File("index.html", 350));
+        // 練習問題13-1（ここまで）
         tomura.add(new File("game.doc", 400));
         tomura.add(new File("junk.mail", 500));
 
-        rootdir.printList();
+        rootdir.accept(new ListVisitor());
 
-        // 練習問題11-2
+
+        // 練習問題13-1
         System.out.println();
-        yuki.printFullPath();
-        tomura.printFullPath();
-        bindir.printFullPath();
-        // 練習問題11-2（模範解答）
-        System.out.println("file = " + file.getFullName());
-        System.out.println("yuki = " + yuki.getFullName());
+
+        FileFindVisitor fileFindVisitor = new FileFindVisitor(".html");
+        rootdir.accept(fileFindVisitor);
+
+        System.out.println("HTML files are: ");
+        for (File file : fileFindVisitor.getFoundFiles()) {
+            System.out.println(file);
+        }
     }
 }
