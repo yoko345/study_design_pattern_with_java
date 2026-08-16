@@ -263,8 +263,8 @@ JDK（OpenJDK）のソースコードを記事に掲載する場合は、必ず�
 
 ```bash
 # 1. インラインコード前後の日本語との間にスペースを挿入
-python3 bin/fix_backtick_spaces.py 学習内容/chapterXX_xxx.md
+python3 .claude/scripts/fix_backtick_spaces.py 学習内容/chapterXX_xxx.md
 
 # 2. 英字と日本語の間にスペースを挿入（実行後、目視で不要スペースを削除してフィードバックをもらう）
-python3 bin/fix_english_japanese_spacing.py 学習内容/chapterXX_xxx.md
+python3 .claude/scripts/fix_english_japanese_spacing.py 学習内容/chapterXX_xxx.md
 ```
