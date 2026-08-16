@@ -19,11 +19,18 @@ public class Directory extends Entry implements Iterable<Entry> {
 
     @Override
     public int getSize() {
-        int size = 0;
-        for (Entry entry : directory) {
-            size += entry.getSize();
-        }
-        return size;
+        // 練習問題13-2
+        // int size = 0;
+        // for (Entry entry : directory) {
+        // size += entry.getSize();
+        // }
+        // return size;
+        SizeVisitor visitor = new SizeVisitor();
+        // 下記の自分の解答は、thisの静的型がDirectoryと分かっているため直接visit(Directory)を呼べてしまうが、それはaccept()が担うはずの二重ディスパッチの責務を呼び出し側が肩代わりしている状態。
+        // visitor.visit(this);
+        // 模範解答であるaccept(visitor)を使えば、要素は常に「acceptされるだけ」というVisitorパターンの規約を守れる。
+        accept(visitor);
+        return visitor.getSize();
     }
 
     public Entry add(Entry entry) {
