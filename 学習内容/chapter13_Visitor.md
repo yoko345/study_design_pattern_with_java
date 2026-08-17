@@ -2,7 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> 複数の種類のオブジェクトが混在する構造に対して、新しい処理を追加するたびに、関係するクラスのすべてに手を入れる羽目になった。その結果、処理を 1 つ増やすだけなのに、直接は関係のないはずのクラスまで毎回修正することになり、変更のたびにクラス同士の結合がどんどん強まっていった。
+> 複数の種類のオブジェクトが混在する構造に対して、新しい処理を追加するたびに、関係するクラスそれぞれに同じ処理を重複して実装する羽目になった。その結果、処理を 1 つ増やすだけなのに、直接は関係のないはずのクラスまで毎回修正することになり、変更のたびにクラス同士の結合が強まっていった。
 
 この記事では、社内プロジェクト管理システムのタスク集計・検索機能を追加するシナリオを通して、Visitor パターンがこの問題をどのように解決するかを紹介します。
 
@@ -32,7 +32,7 @@
 > ある日 PM から、進捗確認のために次の機能が欲しいという要望が来ました。あなたはこれらを担当することになりました。
 >
 > - 未着手のタスクだけを一覧で確認したい
-> - 完了したタスクの見積工数の合計を知りたい
+> - 進捗状況を数値で把握したい（完了したタスクの見積工数を、全体の見積工数に対する割合で確認）
 > - タスク名にキーワードを含むタスクを検索したい
 
 ### 既存コードの仕様
@@ -43,11 +43,12 @@
 
 タスク（個別要素）とタスクグループ（複合要素）に共通する振る舞いを定義する抽象クラスです。
 
-| メソッド            | 戻り値の型 | 説明                                                     |
-| ------------------- | ---------- | -------------------------------------------------------- |
-| `getName`           | `String`   | 名前を取得する（抽象メソッド）                           |
-| `getEstimatedHours` | `int`      | 見積工数を取得する（抽象メソッド）                       |
-| `printTaskList`     | `void`     | 自身を起点にタスク一覧をコンソールに出力する（具象メソッド） |
+| メソッド            | 引数            | 戻り値の型 | 説明                                             |
+| ------------------- | --------------- | ---------- | ------------------------------------------------ |
+| `getName`           | なし            | `String`   | 名前を取得する（抽象メソッド）                   |
+| `getEstimatedHours` | なし            | `int`      | 見積工数を取得する（抽象メソッド）               |
+| `printTaskList`     | なし            | `void`     | 自身を起点にタスク一覧を出力する（具象メソッド） |
+| `printTaskList`     | `String prefix` | `void`     | 接頭辞付きでタスク一覧を出力する（抽象メソッド） |
 
 **`TaskComponent.java`**
 
@@ -128,16 +129,16 @@ public class Task extends TaskComponent {
 
 複数のタスク・タスクグループをまとめて管理する複合要素です。
 
-| フィールド | 型                   | 説明                             |
-| ---------- | -------------------- | -------------------------------- |
-| `name`     | `String`             | グループ名                       |
+| フィールド | 型                    | 説明                               |
+| ---------- | --------------------- | ---------------------------------- |
+| `name`     | `String`              | グループ名                         |
 | `children` | `List<TaskComponent>` | 管理対象の個別要素・複合要素の一覧 |
 
-| メソッド            | 戻り値の型 | 説明                                       |
-| ------------------- | ---------- | ------------------------------------------ |
-| `add`               | `void`     | 個別要素・複合要素を追加する               |
-| `getName`           | `String`   | グループ名を取得する                       |
-| `getEstimatedHours` | `int`      | 配下の全タスクの見積工数の合計を取得する   |
+| メソッド            | 戻り値の型 | 説明                                     |
+| ------------------- | ---------- | ---------------------------------------- |
+| `add`               | `void`     | 個別要素・複合要素を追加する             |
+| `getName`           | `String`   | グループ名を取得する                     |
+| `getEstimatedHours` | `int`      | 配下の全タスクの見積工数の合計を取得する |
 
 **`TaskGroup.java`**
 
@@ -417,7 +418,9 @@ public class Main {
         System.out.println("【未着手タスク一覧】");
         rootGroup.printIncompleteTaskList();
 
-        System.out.println("完了タスクの合計見積工数：" + rootGroup.getCompletedEstimatedHours() + "時間");
+        int completedHours = rootGroup.getCompletedEstimatedHours();
+        int totalHours = rootGroup.getEstimatedHours();
+        System.out.println("進捗：" + completedHours + "時間 / " + totalHours + "時間（" + String.format("%.1f", completedHours * 100.0 / totalHours) + "%）");
 
         System.out.println("「実装」を含むタスク：");
         for (Task task: rootGroup.findTasksByKeyword("実装")) {
@@ -433,7 +436,7 @@ public class Main {
 【未着手タスク一覧】
 単体テスト（10時間）
 結合テスト（6時間）
-完了タスクの合計見積工数：8時間
+進捗：8時間 / 56時間（14.3%）
 「実装」を含むタスク：
 API実装
 ```
@@ -724,7 +727,9 @@ public class Main {
 
         CompletedHoursVisitor completedHoursVisitor = new CompletedHoursVisitor();
         rootGroup.accept(completedHoursVisitor);
-        System.out.println("完了タスクの合計見積工数：" + completedHoursVisitor.getTotalHours() + "時間");
+        int completedHours = completedHoursVisitor.getTotalHours();
+        int totalHours = rootGroup.getEstimatedHours();
+        System.out.println("進捗：" + completedHours + "時間 / " + totalHours + "時間（" + String.format("%.1f", completedHours * 100.0 / totalHours) + "%）");
 
         KeywordSearchVisitor keywordSearchVisitor = new KeywordSearchVisitor("実装");
         rootGroup.accept(keywordSearchVisitor);
@@ -742,7 +747,7 @@ public class Main {
 【未着手タスク一覧】
 単体テスト（10時間）
 結合テスト（6時間）
-完了タスクの合計見積工数：8時間
+進捗：8時間 / 56時間（14.3%）
 「実装」を含むタスク：
 API実装
 ```
