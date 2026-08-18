@@ -233,7 +233,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-真っ先に思いつくのは、`TaskComponent` クラスに新しい抽象メソッドを追加し、`Task`・`TaskGroup` 双方で具体的な処理を実装する、という方法ではないでしょうか？
+真っ先に思いつくのは、`TaskComponent` クラスに新しい抽象メソッドを追加し、`Task`・`TaskGroup` クラス双方で具体的な処理を行う、という実装ではないでしょうか？
 
 **`TaskComponent.java`**
 
@@ -253,11 +253,13 @@ public abstract class TaskComponent {
 
     protected abstract void printTaskList(String prefix);
 
+    /* ここを追加（ここから） */
     public abstract void printIncompleteTaskList();
 
     public abstract int getCompletedEstimatedHours();
 
     public abstract List<Task> findTasksByKeyword(String keyword);
+    /* ここを追加（ここまで） */
 }
 ```
 
@@ -299,6 +301,7 @@ public class Task extends TaskComponent {
         System.out.println(prefix + name + "（" + estimatedHours + "時間）");
     }
 
+    /* ここを追加（ここから） */
     @Override
     public void printIncompleteTaskList() {
         if ("未着手".equals(status)) {
@@ -319,6 +322,7 @@ public class Task extends TaskComponent {
         }
         return result;
     }
+    /* ここを追加（ここまで） */
 }
 ```
 
@@ -363,6 +367,7 @@ public class TaskGroup extends TaskComponent {
         }
     }
 
+    /* ここを追加（ここから） */
     @Override
     public void printIncompleteTaskList() {
         for (TaskComponent child: children) {
@@ -387,6 +392,7 @@ public class TaskGroup extends TaskComponent {
         }
         return result;
     }
+    /* ここを追加（ここまで） */
 }
 ```
 
@@ -415,6 +421,12 @@ public class Main {
         rootGroup.add(designGroup);
         rootGroup.add(implementationGroup);
 
+        rootGroup.printTaskList();
+        System.out.println("合計見積工数：" + rootGroup.getEstimatedHours() + "時間");
+
+        /* ここを追加（ここから） */
+        System.out.println();
+
         System.out.println("【未着手タスク一覧】");
         rootGroup.printIncompleteTaskList();
 
@@ -426,6 +438,7 @@ public class Main {
         for (Task task: rootGroup.findTasksByKeyword("実装")) {
             System.out.println(task.getName());
         }
+        /* ここを追加（ここまで） */
     }
 }
 ```
@@ -433,6 +446,13 @@ public class Main {
 **実行結果**
 
 ```
+プロジェクトA / 設計 / 要件定義（8時間）
+プロジェクトA / 設計 / 画面設計（12時間）
+プロジェクトA / 実装 / API実装（20時間）
+プロジェクトA / 実装 / テスト / 単体テスト（10時間）
+プロジェクトA / 実装 / テスト / 結合テスト（6時間）
+合計見積工数：56時間
+
 【未着手タスク一覧】
 単体テスト（10時間）
 結合テスト（6時間）
@@ -445,9 +465,9 @@ API実装
 
 しかし、この実装には以下の問題点があります。
 
-- 新しい集計・検索機能を 1 つ追加するたびに、`TaskComponent` クラスへの抽象メソッドの追加と、`Task`・`TaskGroup` クラス双方への実装が必要になり、修正対象のクラス数が常に 3 つずつ増えていく。
-- `TaskComponent` クラスは本来「タスクの構造」を表すクラスですが、一覧表示・集計・検索といった処理内容までもがこのクラスの責務に混ざり込んでいき、クラスの目的が曖昧になっていく。
-- `printIncompleteTaskList`・`getCompletedEstimatedHours`・`findTasksByKeyword` メソッドはいずれも「`children` を辿って再帰的に同じ処理を呼び出す」という同じ構造を持っており、新しい機能を追加するたびにこの走査処理そのものも複製されている。
+- 新しい集計や検索機能などを 1 つ追加するたびに、`TaskComponent` クラスにおいて抽象メソッドを追加し、`Task`・`TaskGroup` クラス双方への実装が必要になる。
+    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった 1 つの機能のロジックが `Task`・`TaskGroup` クラス双方にまたがって書かれることになり、機能ごとの処理内容を横断的に把握するのが難しくなる。
+- `Task`・`TaskGroup` クラスを同じ型として扱うための最小限の共通の振る舞い（名前や見積工数の取得、木構造をたどった一覧表示）を担う `TaskComponent` クラスに、集計・検索といった処理内容までもが混ざり込み、クラスの目的が曖昧になってしまっている。
 
 ## 正しい実装
 
@@ -695,7 +715,7 @@ public class KeywordSearchVisitor extends Visitor {
 }
 ```
 
-`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスを振り返ると、いずれも `visit(TaskGroup)` の中身は「子要素をループして `accept` を呼び直す」という同じ形をしていますが、`visit(Task)` の中身はクラスごとにまったく異なる処理を行っています。処理内容ごとにクラスが分かれているため、`TaskComponent`・`Task`・`TaskGroup` クラス側を一切変更せずに、新しい処理を追加できるようになっています。
+`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスを振り返ると、いずれも `visit(TaskGroup)` の中身は「子要素をループして `accept` を呼び直す」という同じ形をしていますが、`visit(Task)` の中身はクラスごとにまったく異なる処理を行っています。処理内容ごとにクラスが分かれているため、`TaskComponent`・`Task`・`TaskGroup` クラス側を一切変更せずに、新しい処理を追加できるようになっています。また、1 つの機能のロジックがそれぞれ 1 つの Visitor クラスに集約されているため、機能ごとの処理内容を把握する際に `Task`・`TaskGroup` クラスを行き来する必要もなくなっています。
 
 最後に、実行クラスの実装を見ていきましょう。
 
@@ -757,6 +777,7 @@ API実装
 以上のような実装を行うと、以下のメリットがあります。
 
 - 新しい集計・検索機能（例えば「優先度が高いタスクの一覧」）を追加する場合も、`Visitor` を継承した新しいクラスを追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の Visitor クラスには一切手を加える必要がない。
+    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった機能ごとのロジックが、それぞれ 1 つの Visitor クラスに集約され、機能ごとの処理内容を 1 つのファイルだけで把握できるようになる。
 - `TaskComponent` クラスの責務が「タスクの構造を表すこと」に専念できるようになり、一覧表示・集計・検索といった処理内容と分離されている。
 - `Task` と `TaskGroup` は共通の `Element` 型として扱えるため、呼び出し側（`Main` クラス）はどちらの具象クラスに対しても同じ `accept(visitor)` 呼び出しだけで処理を任せられる。
 
