@@ -434,8 +434,8 @@ public class Main {
         int totalHours = rootGroup.getEstimatedHours();
         System.out.println("進捗：" + completedHours + "時間 / " + totalHours + "時間（" + String.format("%.1f", completedHours * 100.0 / totalHours) + "%）");
 
-        System.out.println("「実装」を含むタスク：");
-        for (Task task: rootGroup.findTasksByKeyword("実装")) {
+        System.out.println("「テスト」を含むタスク：");
+        for (Task task: rootGroup.findTasksByKeyword("テスト")) {
             System.out.println(task.getName());
         }
         /* ここを追加（ここまで） */
@@ -457,8 +457,9 @@ public class Main {
 単体テスト（10時間）
 結合テスト（6時間）
 進捗：8時間 / 56時間（14.3%）
-「実装」を含むタスク：
-API実装
+「テスト」を含むタスク：
+単体テスト
+結合テスト
 ```
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
@@ -474,7 +475,7 @@ API実装
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
 これらの問題を解決するのが **Visitor パターン**です。<br>
-処理内容を `TaskComponent` 側から切り離し、外部の専用クラスへ委ねることで、新しい処理を追加してもタスクの構造を表すクラス側には手を入れずに済むようになります。
+処理内容を `TaskComponent` クラスから切り離し、外部の専用クラスへ委ねることで、新しい処理を追加してもタスクの構造を表すクラス側には手を入れずに済むようになります。
 
 まず、「Visitor を受け入れられる要素である」ことを示す共通の型から見ていきましょう。
 
@@ -488,7 +489,9 @@ public interface Element {
 }
 ```
 
-`Element` インタフェースは、`accept` メソッド 1 つだけを持つシンプルな型です。`TaskComponent` クラスがこのインタフェースを実装することで、`Task`・`TaskGroup` のどちらも「Visitor を受け入れられる要素である」という契約を型で表せるようになります。
+`Element` は新たに追加したインターフェースで、抽象メソッド `accept` を 1 つだけ持っています。`TaskComponent` クラスがこのインターフェースを実装することで、`Task`・`TaskGroup` クラスのどちらも「Visitor を受け入れられる要素である」という契約を型で表せるようになります。
+
+次に、`TaskComponent` クラスを見ていきましょう。
 
 **`TaskComponent.java`**
 
@@ -508,7 +511,8 @@ public abstract class TaskComponent implements Element {
 }
 ```
 
-`TaskComponent` クラスを振り返ると、既存の仕様から `Element` インタフェースを実装する修正が加わっている一方、`accept` メソッドの具体的な実装はここでは行っていません。`accept` メソッドの実装は、`Task`・`TaskGroup` それぞれに委ねます（理由は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。
+`TaskComponent` クラスを振り返ると、既存の仕様から `Element` インターフェースを実装する修正が加わっています。<br>
+ここで、`accept` メソッドの実装が行われていませんが、こちらの実装は `Task`・`TaskGroup` クラスそれぞれに委ねます（理由は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。
 
 次に、処理内容を表す `Visitor` 側の抽象クラスを見ていきましょう。
 
@@ -524,9 +528,9 @@ public abstract class Visitor {
 }
 ```
 
-`Visitor` クラスは、`Task` 用・`TaskGroup` 用の `visit` メソッドをオーバーロードで定義しているだけの抽象クラスです。具体的な処理内容は、この抽象クラスを継承した具象クラス側で実装します。
+`Visitor` は新たに追加した抽象クラスで、`Task`・`TaskGroup` クラスの型をそれぞれ受け取れる抽象メソッド `visit` を持っています。
 
-続いて、`Task`・`TaskGroup` それぞれに `accept` メソッドを追加します。
+次に、`Task`・`TaskGroup` クラスを見ていきましょう。
 
 **`Task.java`**
 
@@ -563,10 +567,12 @@ public class Task extends TaskComponent {
         System.out.println(prefix + name + "（" + estimatedHours + "時間）");
     }
 
+    /* ここを追加（ここから） */
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);
     }
+    /* ここを追加（ここまで） */
 }
 ```
 
@@ -612,6 +618,7 @@ public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> 
         }
     }
 
+    /* ここを追加（ここから） */
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);
@@ -621,13 +628,14 @@ public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> 
     public Iterator<TaskComponent> iterator() {
         return children.iterator();
     }
+    /* ここを追加（ここまで） */
 }
 ```
 
-`Task`・`TaskGroup` クラスを振り返ると、どちらも `accept` メソッドの中身は `visitor.visit(this)` を呼んでいるだけですが、`Task` 側の呼び出しでは `visit(Task)` が、`TaskGroup` 側の呼び出しでは `visit(TaskGroup)` が、それぞれ正しく呼び分けられます（仕組みの詳細は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。<br>
-また、`TaskGroup` クラスには `Iterable<TaskComponent>` を実装する修正も加わっています。これは、このあと作成する Visitor 側で拡張 for 文を使って `children` の中身を辿れるようにするためのものです（理由の詳細は→ [【深堀り②】なぜ TaskGroup は Iterable を実装するのか](#深堀り2)）。
+`Task`・`TaskGroup` クラスを振り返ると、どちらも `accept` メソッドの具体的な実装を行っています。その中身は抽象クラス `Visitor` の `visit` メソッドを呼んでいるのですが、引数に `this` を渡しているため、`Task` クラスの呼び出しでは `visit(Task)` メソッドが、`TaskGroup` クラスの呼び出しでは `visit(TaskGroup)` メソッドが、それぞれ正しく呼び分けられます（仕組みの詳細は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。<br>
+また、`TaskGroup` クラスではインターフェース `Iterable<TaskComponent>` を実装しています。これは、この後作成する抽象クラス `Visitor` を継承したクラスで、拡張 for 文を使って `children` の中身を辿れるようにするためです（理由の詳細は→ [【深堀り②】なぜ TaskGroup は Iterable を実装するのか](#深堀り2)）。
 
-準備が整ったので、具体的な処理を行う Visitor を 3 つ作成しましょう。
+次に、抽象クラス `Visitor` を継承したクラスを見ていきましょう。
 
 **`IncompleteTaskListVisitor.java`**
 
@@ -715,9 +723,9 @@ public class KeywordSearchVisitor extends Visitor {
 }
 ```
 
-`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスを振り返ると、いずれも `visit(TaskGroup)` の中身は「子要素をループして `accept` を呼び直す」という同じ形をしていますが、`visit(Task)` の中身はクラスごとにまったく異なる処理を行っています。処理内容ごとにクラスが分かれているため、`TaskComponent`・`Task`・`TaskGroup` クラス側を一切変更せずに、新しい処理を追加できるようになっています。また、1 つの機能のロジックがそれぞれ 1 つの Visitor クラスに集約されているため、機能ごとの処理内容を把握する際に `Task`・`TaskGroup` クラスを行き来する必要もなくなっています。
+`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` は新たに追加したクラスで、抽象クラス `Visitor` の `visit` メソッドの具体的な実装を行っています。 `visit(TaskGroup)` メソッドの中身はどのクラスも「子要素をループして `accept` メソッドを呼び直す」処理を行っています。一方、`visit(Task)` メソッドの中身はクラスごとに異なる処理を行っています。
 
-最後に、実行クラスの実装を見ていきましょう。
+最後に、実行クラスを見ていきましょう。
 
 **`Main.java`**
 
@@ -742,6 +750,12 @@ public class Main {
         rootGroup.add(designGroup);
         rootGroup.add(implementationGroup);
 
+        rootGroup.printTaskList();
+        System.out.println("合計見積工数：" + rootGroup.getEstimatedHours() + "時間");
+
+        /* ここを追加（ここから） */
+        System.out.println();
+
         System.out.println("【未着手タスク一覧】");
         rootGroup.accept(new IncompleteTaskListVisitor());
 
@@ -751,12 +765,13 @@ public class Main {
         int totalHours = rootGroup.getEstimatedHours();
         System.out.println("進捗：" + completedHours + "時間 / " + totalHours + "時間（" + String.format("%.1f", completedHours * 100.0 / totalHours) + "%）");
 
-        KeywordSearchVisitor keywordSearchVisitor = new KeywordSearchVisitor("実装");
+        KeywordSearchVisitor keywordSearchVisitor = new KeywordSearchVisitor("テスト");
         rootGroup.accept(keywordSearchVisitor);
-        System.out.println("「実装」を含むタスク：");
+        System.out.println("「テスト」を含むタスク：");
         for (Task task: keywordSearchVisitor.getFoundTasks()) {
             System.out.println(task.getName());
         }
+        /* ここを追加（ここまで） */
     }
 }
 ```
@@ -764,27 +779,37 @@ public class Main {
 **実行結果**
 
 ```
+プロジェクトA / 設計 / 要件定義（8時間）
+プロジェクトA / 設計 / 画面設計（12時間）
+プロジェクトA / 実装 / API実装（20時間）
+プロジェクトA / 実装 / テスト / 単体テスト（10時間）
+プロジェクトA / 実装 / テスト / 結合テスト（6時間）
+合計見積工数：56時間
+
 【未着手タスク一覧】
 単体テスト（10時間）
 結合テスト（6時間）
 進捗：8時間 / 56時間（14.3%）
-「実装」を含むタスク：
-API実装
+「テスト」を含むタスク：
+単体テスト
+結合テスト
 ```
 
-`Main` クラスを振り返ると、`rootGroup.accept(visitor)` という同じ形の呼び出しだけで、一覧表示・集計・検索という異なる処理をそれぞれ実行できています。実行結果は、好ましくない実装とまったく同じになっています。
+`Main` クラスを振り返ると、`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスのいずれに対しても、`rootGroup.accept(visitor)` という同じ形の呼び出しになっています。
+
+実行結果は、好ましくない実装とまったく同じになっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 新しい集計・検索機能（例えば「優先度が高いタスクの一覧」）を追加する場合も、`Visitor` を継承した新しいクラスを追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の Visitor クラスには一切手を加える必要がない。
-    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった機能ごとのロジックが、それぞれ 1 つの Visitor クラスに集約され、機能ごとの処理内容を 1 つのファイルだけで把握できるようになる。
-- `TaskComponent` クラスの責務が「タスクの構造を表すこと」に専念できるようになり、一覧表示・集計・検索といった処理内容と分離されている。
-- `Task` と `TaskGroup` は共通の `Element` 型として扱えるため、呼び出し側（`Main` クラス）はどちらの具象クラスに対しても同じ `accept(visitor)` 呼び出しだけで処理を任せられる。
+- 新しい集計・検索機能（例えば「見積工数が長いタスクの一覧」）を追加する場合も、抽象クラス `Visitor` を継承した新しいクラスを追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の Visitor 側のクラスには一切手を加える必要がない。
+    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった機能ごとのロジックが、それぞれ 1 つの Visitor 側のクラスに集約されるため、機能ごとの処理内容を 1 つのファイルだけで把握できるようになる。
+- `TaskComponent` クラスの責務が「タスクの構造を表すこと」に専念できるようになり、一覧表示・集計・検索といった処理内容と分離ができる。
+- 処理内容が抽象クラス `Visitor` のサブクラスとしてオブジェクト化されているため、呼び出し側（`Main` クラス）は `accept(visitor)` という同じ形の呼び出しのまま、目的に応じた `Visitor` のサブクラスを選ぶだけで、二重ディスパッチにより一覧表示・集計・検索といった異なる処理をそれぞれ実行できる。
 
 ## まとめ
 
 正しい実装を振り返ると、`TaskComponent`・`Task`・`TaskGroup` クラスは「タスクの構造をどう保持するか」だけに専念し、一覧表示・集計・検索といった具体的な処理内容は `Visitor` クラスを継承した各クラスに委ねられています。<br>
-このように、Visitor パターンは、データ構造を表すクラス群に `accept` メソッドだけを追加し、実際の処理内容を外部の Visitor クラスへ切り出すことで、新しい処理を追加するたびに構造側のクラスを変更する必要をなくすパターンです。
+このように、Visitor パターンは、二重ディスパッチの仕組みにより、「データ構造（要素）」と「そのデータに対する処理（アルゴリズム）」を別々のクラスへ分離するパターンです。
 
 本記事の内容はここまでとなります。
 
@@ -812,7 +837,7 @@ API実装
 
 正しい実装の各 Visitor クラスは、`visit(TaskGroup)` メソッドの中で `for (TaskComponent child: taskGroup) { child.accept(this); }` という拡張 for 文を使って子要素を辿っています。この 1 行を成立させるために、`TaskGroup` クラス側に `Iterable<TaskComponent>` の実装が必要になります。
 
-Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が配列であるか、`Iterable<T>` インタフェースを実装したクラスのインスタンスでなければ使えないという言語仕様上の制約があります。`TaskGroup` クラスは配列ではないため、拡張 for 文の対象にするには `Iterable<TaskComponent>` を実装するほかありません。
+Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が配列であるか、`Iterable<T>` インターフェースを実装したクラスのインスタンスでなければ使えないという言語仕様上の制約があります。`TaskGroup` クラスは配列ではないため、拡張 for 文の対象にするには `Iterable<TaskComponent>` を実装するほかありません。
 
 では、なぜ `children` フィールドを `List<TaskComponent>` 型の getter として公開する（例えば `getChildren` メソッドを追加する）方法を取らなかったのでしょうか。それは、`List` をそのまま公開してしまうと、呼び出し側から `clear`・`remove` などのメソッドを直接呼び出せてしまい、`add` メソッドを経由しない不正な変更を許してしまうためです。<br>
 `Iterable<TaskComponent>` を実装し、`iterator` メソッドで `Iterator<TaskComponent>` だけを返す形にすることで、呼び出し側に許可する操作を「順に読み取ること」だけに絞り込みつつ、拡張 for 文という簡潔な構文を使えるようにしています。
@@ -832,7 +857,7 @@ Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象�
 
 ## 【深堀り④】Java 標準ライブラリにおける Visitor パターンの例
 
-Visitor パターンは、`java.nio.file` パッケージのファイルツリー走査にも使われています。代表的なのが `FileVisitor` インタフェースと、その空実装を提供する `SimpleFileVisitor` クラスです。
+Visitor パターンは、`java.nio.file` パッケージのファイルツリー走査にも使われています。代表的なのが `FileVisitor` インターフェースと、その空実装を提供する `SimpleFileVisitor` クラスです。
 
 ```java
 Files.walkFileTree(Path.of("."), new SimpleFileVisitor<Path>() {
@@ -845,7 +870,7 @@ Files.walkFileTree(Path.of("."), new SimpleFileVisitor<Path>() {
 ```
 
 このコードでは、`Files` クラスの `walkFileTree` メソッドが指定したディレクトリ以下を再帰的に走査し、ファイルを見つけるたびに `SimpleFileVisitor` クラス側の `visitFile` メソッドを呼び出しています（ディレクトリに入る前後には、それぞれ `preVisitDirectory`・`postVisitDirectory` メソッドが呼ばれます）。<br>
-本記事の Visitor パターンでは、走査（`accept` メソッドの呼び出し）を `Task`・`TaskGroup` クラス側と各 Visitor クラス側の双方が分担していましたが、`walkFileTree` メソッドでは走査そのものを `java.nio.file` パッケージ側がすべて引き受け、呼び出し側は `FileVisitor` インタフェース側に「訪れた要素に対して何をするか」だけを実装すればよくなっています。実装の形は異なりますが、「構造をどう辿るか」と「辿った要素に対して何をするか」を分離するという考え方は、本記事の Visitor パターンと共通しています。
+本記事の Visitor パターンでは、走査（`accept` メソッドの呼び出し）を `Task`・`TaskGroup` クラス側と各 Visitor クラス側の双方が分担していましたが、`walkFileTree` メソッドでは走査そのものを `java.nio.file` パッケージ側がすべて引き受け、呼び出し側は `FileVisitor` インターフェース側に「訪れた要素に対して何をするか」だけを実装すればよくなっています。実装の形は異なりますが、「構造をどう辿るか」と「辿った要素に対して何をするか」を分離するという考え方は、本記事の Visitor パターンと共通しています。
 
 <a id="深堀り5"></a>
 
