@@ -635,7 +635,7 @@ public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> 
 `Task`・`TaskGroup` クラスを振り返ると、どちらも `accept` メソッドの具体的な実装を行っています。その中身は抽象クラス `Visitor` の `visit` メソッドを呼んでいるのですが、引数に `this` を渡しているため、`Task` クラスの呼び出しでは `visit(Task)` メソッドが、`TaskGroup` クラスの呼び出しでは `visit(TaskGroup)` メソッドが、それぞれ正しく呼び分けられます（仕組みの詳細は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。<br>
 また、`TaskGroup` クラスではインターフェース `Iterable<TaskComponent>` を実装しています。これは、この後作成する抽象クラス `Visitor` を継承したクラスで、拡張 for 文を使って `children` の中身を辿れるようにするためです（理由の詳細は→ [【深堀り②】なぜ TaskGroup は Iterable を実装するのか](#深堀り2)）。
 
-次に、抽象クラス `Visitor` を継承したクラスを見ていきましょう。
+次に、`Visitor` のサブクラスを見ていきましょう。
 
 **`IncompleteTaskListVisitor.java`**
 
@@ -808,7 +808,7 @@ public class Main {
 
 ## まとめ
 
-正しい実装を振り返ると、`TaskComponent`・`Task`・`TaskGroup` クラスは「タスクの構造をどう保持するか」だけに専念し、一覧表示・集計・検索といった具体的な処理内容は `Visitor` クラスを継承した各クラスに委ねられています。<br>
+正しい実装を振り返ると、`TaskComponent`・`Task`・`TaskGroup` クラスは「タスクの構造をどう保持するか」だけに専念し、一覧表示・集計・検索といった具体的な処理内容は `Visitor` の各サブクラスに委ねられています。<br>
 このように、Visitor パターンは、二重ディスパッチの仕組みにより、「データ構造（要素）」と「そのデータに対する処理（アルゴリズム）」を別々のクラスへ分離するパターンです。
 
 本記事の内容はここまでとなります。
@@ -869,7 +869,7 @@ public class Main {
 
 ## 【深堀り②】なぜ `TaskGroup` クラスはインターフェース `Iterable` を実装するのか
 
-正しい実装の抽象クラス `Visitor` を継承した各クラスに実装されている `visit(TaskGroup)` メソッドを振り返ると、拡張 for 文を使って子要素を辿っています。
+正しい実装の `Visitor` の各サブクラスに実装されている `visit(TaskGroup)` メソッドを振り返ると、拡張 for 文を使って子要素を辿っています。
 
 ここで Java の仕様上の制約として、Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が配列もしくは、`Iterable<T>` インターフェースを実装したクラスのインスタンスでないと使用できないというものがあります。
 
@@ -911,10 +911,15 @@ rootGroup.getChildren().remove(designGroup); // 特定の子要素だけを削�
 
 ## 【深堀り③】Composite パターンとの関係
 
-今回の `TaskComponent`・`Task`・`TaskGroup` クラスは、個別要素と複合要素を同じ型として扱う Composite パターンの構造をすでに持っています。Visitor パターンは、こうした既存の Composite 構造の上に処理を追加する形で使われることが多いパターンです。
+本記事の `TaskComponent`・`Task`・`TaskGroup` クラスを振り返ると、`TaskGroup` クラスが持つ `children` フィールドと `add` メソッドで子要素を保持し、`getEstimatedHours`・`printTaskList` メソッドの内部で子要素に同じ処理を再帰的に呼び出すこと（→ [既存コードの仕様](#既存コードの仕様)）で、個別要素（`Task`）と複合要素（`TaskGroup`）を同じ型として扱う Composite パターンの構造を持っています。<br>
+Visitor パターンは、こうした既存の Composite 構造の上に処理を追加する形で使われることが多いパターンです。
 
-ただし、正しい実装の `visit(TaskGroup)` メソッドを振り返ると、`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスのどれもが「子要素をループして `accept` を呼び直す」という同じ走査処理を個別に持っています。既存の `getEstimatedHours`・`printTaskList` メソッドでは、この走査処理は `TaskGroup` クラス側に 1 つだけ実装されていたのに対し、Visitor パターンでは新しい Visitor クラスを追加するたびにこの走査処理も一緒に複製されることになります。<br>
-これは GoF の基本形どおりの実装であり、Visitor パターンが抱える既知のトレードオフです。走査処理そのものを共通化したい場合は、`TaskComponent` クラス側に「子要素へ `accept` を伝播させるデフォルト処理」を用意し、各 Visitor クラスはそれを呼び出すだけにするといった発展的な設計も考えられますが、本記事では GoF の基本形に忠実な実装にとどめています。
+ただし、正しい実装の `visit(TaskGroup)` メソッドを振り返ると、`Visitor` のサブクラスのどれもが「子要素をループして `accept` メソッドを呼び直す」という同じ走査処理を個別に持っています。既存の `getEstimatedHours`・`printTaskList` メソッドでは、この走査処理は `TaskGroup` クラス側に 1 つだけ実装されていたのに対し、Visitor パターンでは新しい `Visitor` のサブクラスを追加するたびにこの走査処理も一緒に複製されることになります。
+
+これは「処理の重複を減らすこと」と「`Visitor` の各サブクラスが走査方法を自由に制御できること」のトレードオフです。<br>
+走査処理を `TaskComponent` クラス側に「子要素へ `accept` を伝播させるデフォルト処理」としてまとめれば重複はなくなりますが、その代わりすべての `Visitor` のサブクラスが同じ順序・同じ範囲で子要素を辿ることになり、サブクラスごとに走査を途中で打ち切ったり、特定の子要素だけを辿ったりといった個別の制御ができなくなります。
+
+本記事では、個別の制御ができることを優先し、走査処理を `Visitor` クラス側に委ねる設計を採用しています。
 
 <a id="深堀り4"></a>
 
