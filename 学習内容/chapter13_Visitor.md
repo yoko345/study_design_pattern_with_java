@@ -723,7 +723,7 @@ public class KeywordSearchVisitor extends Visitor {
 }
 ```
 
-`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` は新たに追加したクラスで、抽象クラス `Visitor` の `visit` メソッドの具体的な実装を行っています。 `visit(TaskGroup)` メソッドの中身はどのクラスも「子要素をループして `accept` メソッドを呼び直す」処理を行っています。一方、`visit(Task)` メソッドの中身はクラスごとに異なる処理を行っています。
+`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` は新たに追加したクラスで、抽象クラス `Visitor` の `visit` メソッドの具体的な実装を行っています。`visit(TaskGroup)` メソッドの中身はどのクラスも「子要素をループして `accept` メソッドを呼び直す」処理を行っています。一方、`visit(Task)` メソッドの中身はクラスごとに異なる処理を行っています。
 
 最後に、実行クラスを見ていきましょう。
 
@@ -821,15 +821,49 @@ public class Main {
 
 ## 【深堀り①】二重ディスパッチの仕組み
 
-正しい実装の `Task`・`TaskGroup` クラスは、どちらも `accept` メソッドの中で `visitor.visit(this)` を呼んでいるだけなのに、なぜ正しいオーバーロードへ振り分けられるのでしょうか。ここには 2 段階の処理の振り分け（ディスパッチ）が関わっています。
+ここでは、正しい実装の `Task`・`TaskGroup` クラスが、どちらも `accept` メソッドの中で `visitor.visit(this)` を呼んでいるだけなのに、`visit(Task)`・`visit(TaskGroup)` メソッドの呼び出しが正しく振り分けられていることに関して説明します。ここには 2 段階の処理の振り分け（ディスパッチ）が関わっています。
 
 1. **1 段目（実行時の型によるディスパッチ）**<br>
-   `rootGroup.accept(visitor)` のように `accept` メソッドを呼び出す際、実際に実行される `accept` メソッドは、呼び出し元の変数が指すオブジェクトの実行時の型（`Task` か `TaskGroup` か）によって決まります。これは、通常のメソッドオーバーライドによるポリモーフィズムです。
+   `Main` クラスで `accept` メソッドを呼び出す際、実際に実行される `accept` メソッドは、呼び出し元の変数が指すオブジェクトの実行時の型（`Task` 型か `TaskGroup` 型か）によって決まります。<br>
+   これは、通常のメソッドオーバーライドによるポリモーフィズムです。
 2. **2 段目（静的な型によるディスパッチ）**<br>
-   各クラスの `accept` メソッドの内部では `visitor.visit(this)` を呼んでいますが、`Task` クラスの `accept` メソッドの中では `this` の型は常に `Task` 型、`TaskGroup` クラスの `accept` メソッドの中では `this` の型は常に `TaskGroup` 型として、コンパイル時に確定しています。そのため、`Visitor` クラスに用意された `visit(Task)`・`visit(TaskGroup)` のどちらを呼び出すかも、オーバーロード解決によってコンパイル時に決まります。
+   `Task`・`TaskGroup` クラスにおける `accept` メソッドの内部では `visitor.visit(this)` を呼んでいます。このときの `this` の型はコンパイル時に、`Task` クラスの `accept` メソッドでは `Task` 型、`TaskGroup` クラスの `accept` メソッドでは `TaskGroup` 型として常に確定します。
 
-この「1 段目は実行時の型、2 段目はコンパイル時に確定する `this` の型」という 2 つの型情報を使って処理を振り分ける仕組みが、二重ディスパッチと呼ばれます。<br>
-もし `accept` メソッドを `TaskComponent` クラス側にまとめて 1 つだけ実装していた場合、その中の `this` の型は `TaskComponent` 型に固定されてしまいます。`Visitor` クラスに `visit(TaskComponent)` というオーバーロードは存在しない（用意しても `Task` と `TaskGroup` を区別できない）ため、`Task`・`TaskGroup` それぞれのクラスで個別に `accept` メソッドを実装する必要があるのです。
+この「1 段目は実行時の型、2 段目はコンパイル時に確定する `this` の型」という 2 つの型情報を使って処理を振り分ける仕組みを「二重ディスパッチ」と呼びます。
+
+### なぜ `accept` メソッドを `TaskComponent` クラスにまとめて実装しないのか
+
+前提として、本記事では `Visitor` 側で `Task`・`TaskGroup` クラスを区別した専用の処理（`visit(Task)`・`visit(TaskGroup)`）を行う必要があります。このことを踏まえてもし `accept` メソッドを `TaskComponent` クラス側にまとめて 1 つだけ実装していた場合を考えてみましょう。
+
+`accept` メソッドを `TaskComponent` クラス側にまとめると、`visitor.visit(this)` の `this` の型は常に `TaskComponent` 型になります。そのため `Visitor` クラス側も `visit(TaskComponent component)` という 1 つのメソッドしか用意できなくなり、`Task`・`TaskGroup` クラスを区別した処理を型によって自動的に振り分けることができなくなります。もし区別したい場合は、`visit` メソッドの内部で `component instanceof Task` のような型チェックを行う必要が生じてしまいます。これは、Visitor パターンが本来避けたい分岐処理が復活してしまうことになります。
+
+以上から、`Task`・`TaskGroup` それぞれのクラスで個別に `accept` メソッドを実装することで `this` の型を保ったまま `visitor.visit(this)` を呼び出し、`Visitor` 側の `visit(Task)`・`visit(TaskGroup)` というオーバーロードの自動選択（＝二重ディスパッチ）を成立させているのです。
+
+### 本記事を用いた具体的な処理の流れ
+
+本記事の `rootGroup` は以下のような木構造になっています。
+
+```
+プロジェクトA（TaskGroup）
+├─ 設計（TaskGroup）
+│    ├─ 要件定義（Task）
+│    └─ 画面設計（Task）
+└─ 実装（TaskGroup）
+     ├─ API実装（Task）
+     └─ テスト（TaskGroup）
+          ├─ 単体テスト（Task）
+          └─ 結合テスト（Task）
+```
+
+この木構造のすべての経路を辿ると説明が煩雑になるため、ここでは `rootGroup.accept(visitor)` から「要件定義」タスクに到達するまでの 1 経路に絞って、処理の流れを見ていきます。
+
+1. `accept` メソッドの呼び出し元 `rootGroup` は `TaskGroup` 型のため、`TaskGroup` クラスの `accept` メソッドで `visitor.visit(this)` が呼ばれる
+2. `visitor.visit(this)` の `this` の型は `TaskGroup` 型のため、`Visitor` を継承したクラスでは `visit(TaskGroup taskGroup)` の処理が行われる
+3. `visit(TaskGroup taskGroup)` 内のループ処理で、`rootGroup` の最初の子要素（`TaskGroup` 型）に対して `child.accept(this)` が呼ばれる
+4. 呼び出し元が `TaskGroup` 型のため、1〜2 と同様の手順で `visit(TaskGroup taskGroup)` の処理が行われる
+5. `visit(TaskGroup taskGroup)` 内のループ処理で、その最初の子要素である `Task` 型の「要件定義」に対して `child.accept(this)` が呼ばれる
+6. `accept` メソッドの呼び出し元が `Task` 型のため、`Task` クラスの `accept` メソッドで `visitor.visit(this)` が呼ばれる
+7. `visitor.visit(this)` の `this` の型は `Task` 型のため、`Visitor` を継承したクラスでは `visit(Task task)` の処理が行われる
 
 <a id="深堀り2"></a>
 
