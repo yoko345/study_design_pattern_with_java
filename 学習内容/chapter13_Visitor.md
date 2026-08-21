@@ -925,20 +925,76 @@ Visitor パターンは、こうした既存の Composite 構造の上に処理�
 
 ## 【深堀り④】Java 標準ライブラリにおける Visitor パターンの例
 
-Visitor パターンは、`java.nio.file` パッケージのファイルツリー走査にも使われています。代表的なのが `FileVisitor` インターフェースと、その空実装を提供する `SimpleFileVisitor` クラスです。
+Java 標準ライブラリにおける Visitor パターンの例として、`java.nio.file` パッケージのファイルツリー走査を見ていきましょう。<br>
+代表的なのが `FileVisitor` インターフェースと、その空実装を提供する `SimpleFileVisitor` クラスです。
+
+**`SimpleFileVisitor.java`**
 
 ```java
-Files.walkFileTree(Path.of("."), new SimpleFileVisitor<Path>() {
+package java.nio.file;
+
+public class SimpleFileVisitor<T> implements FileVisitor<T> {
+    protected SimpleFileVisitor() {}
+
     @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-        System.out.println("file: " + file);
+    public FileVisitResult preVisitDirectory(T dir, BasicFileAttributes attrs) throws IOException {
+        Objects.requireNonNull(dir);
+        Objects.requireNonNull(attrs);
         return FileVisitResult.CONTINUE;
     }
-});
+
+    @Override
+    public FileVisitResult visitFile(T file, BasicFileAttributes attrs) throws IOException {
+        Objects.requireNonNull(file);
+        Objects.requireNonNull(attrs);
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(T file, IOException exc) throws IOException {
+        Objects.requireNonNull(file);
+        throw exc;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(T dir, IOException exc) throws IOException {
+        Objects.requireNonNull(dir);
+        if (exc != null)
+            throw exc;
+        return FileVisitResult.CONTINUE;
+    }
+}
 ```
 
-このコードでは、`Files` クラスの `walkFileTree` メソッドが指定したディレクトリ以下を再帰的に走査し、ファイルを見つけるたびに `SimpleFileVisitor` クラス側の `visitFile` メソッドを呼び出しています（ディレクトリに入る前後には、それぞれ `preVisitDirectory`・`postVisitDirectory` メソッドが呼ばれます）。<br>
-本記事の Visitor パターンでは、走査（`accept` メソッドの呼び出し）を `Task`・`TaskGroup` クラス側と各 Visitor クラス側の双方が分担していましたが、`walkFileTree` メソッドでは走査そのものを `java.nio.file` パッケージ側がすべて引き受け、呼び出し側は `FileVisitor` インターフェース側に「訪れた要素に対して何をするか」だけを実装すればよくなっています。実装の形は異なりますが、「構造をどう辿るか」と「辿った要素に対して何をするか」を分離するという考え方は、本記事の Visitor パターンと共通しています。
+> 引用元: OpenJDK [SimpleFileVisitor.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/nio/file/SimpleFileVisitor.java)
+
+`Files` クラスの `static` メソッド `walkFileTree` を例に見ていきましょう。
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        try {
+            Files.walkFileTree(Path.of("."), new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    System.out.println("file: " + file);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+このコードでは、`Files` クラスの `walkFileTree` メソッドが指定したディレクトリ以下を再帰的に走査し、ファイルを見つけるたびに、引数に渡した `SimpleFileVisitor` を継承したクラスの `visitFile` メソッドを呼び出しています（ディレクトリに入る前後には、それぞれ `preVisitDirectory`・`postVisitDirectory` メソッドが呼ばれます）。<br>
+本記事の Visitor パターンでは、走査（`accept` メソッドの呼び出し）を `Task`・`TaskGroup` クラス側と `Visitor` の各サブクラス側の双方が分担していましたが、`walkFileTree` メソッドでは走査そのものを `java.nio.file` パッケージ側がすべて引き受け、呼び出し側は `FileVisitor` インターフェース側に「訪れた要素に対して何をするか」だけを実装すればよくなっています。<br>
+実装の形は異なりますが、「構造をどう辿るか」と「辿った要素に対して何をするか」を分離するという考え方は、本記事の Visitor パターンと共通しています。
 
 <a id="深堀り5"></a>
 
@@ -946,10 +1002,21 @@ Files.walkFileTree(Path.of("."), new SimpleFileVisitor<Path>() {
 
 Visitor パターンは、OCP（オープン・クローズドの原則）に対して 2 つの異なる側面を持っています。
 
-- **処理を追加する軸では OCP を満たす**：新しい集計・検索機能を追加する場合、新しい Visitor クラスを 1 つ追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の Visitor クラスを変更する必要はありません。
-- **要素の種類を追加する軸では OCP を満たさない**：もし `TaskComponent` を継承した新しい要素クラス（例えば「マイルストーン」を表すクラス）を追加する場合、`Visitor` クラスに新しい `visit` メソッドを追加する必要があり、それに伴って `IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスを含む、既存のすべての Visitor クラスにその `visit` メソッドの実装を追加しなければなりません。
+### 処理を追加する軸
 
-つまり Visitor パターンは「処理の追加は容易だが、要素の種類の追加は困難」という二面性を持っています。そのため、要素の種類（今回でいう `Task`・`TaskGroup`）が安定していて、処理の種類（一覧表示・集計・検索など）が今後も増えていくことが見込まれる場面に向いたパターンだといえます。
+もし `Visitor` を継承した処理クラス（例えば「見積工数が長いタスクの一覧」）を追加する場合、新しい `Visitor` のサブクラスを 1 つ追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の `Visitor` のサブクラスを変更する必要はありません。
+
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。
+
+### 要素の種類を追加する軸
+
+もし `TaskComponent` を継承した新しい要素クラス（例えば「マイルストーン」を表すクラス）を追加する場合、`Visitor` クラスに新しい `visit` メソッドを追加する必要があります。これに伴い、既存のすべての `Visitor` のサブクラスに新たに追加した `visit` メソッドの実装を行わなければなりません。
+
+これは、「**OCP**」に違反しています。
+
+### まとめ
+
+以上から Visitor パターンは「処理の追加は容易だが、要素の種類の追加は困難」という二面性を持っています。そのため、要素の種類（今回でいう `Task`・`TaskGroup`）が安定していて、処理の種類（一覧表示・集計・検索など）が今後も増えていくことが見込まれる場面に向いたパターンだといえます。
 
 <a id="深堀り6"></a>
 
