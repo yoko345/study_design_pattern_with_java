@@ -867,16 +867,45 @@ public class Main {
 
 <a id="深堀り2"></a>
 
-## 【深堀り②】なぜ TaskGroup は Iterable を実装するのか
+## 【深堀り②】なぜ `TaskGroup` クラスはインターフェース `Iterable` を実装するのか
 
-正しい実装の各 Visitor クラスは、`visit(TaskGroup)` メソッドの中で `for (TaskComponent child: taskGroup) { child.accept(this); }` という拡張 for 文を使って子要素を辿っています。この 1 行を成立させるために、`TaskGroup` クラス側に `Iterable<TaskComponent>` の実装が必要になります。
+正しい実装の抽象クラス `Visitor` を継承した各クラスに実装されている `visit(TaskGroup)` メソッドを振り返ると、拡張 for 文を使って子要素を辿っています。
 
-Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が配列であるか、`Iterable<T>` インターフェースを実装したクラスのインスタンスでなければ使えないという言語仕様上の制約があります。`TaskGroup` クラスは配列ではないため、拡張 for 文の対象にするには `Iterable<TaskComponent>` を実装するほかありません。
+ここで Java の仕様上の制約として、Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が配列もしくは、`Iterable<T>` インターフェースを実装したクラスのインスタンスでないと使用できないというものがあります。
 
-では、なぜ `children` フィールドを `List<TaskComponent>` 型の getter として公開する（例えば `getChildren` メソッドを追加する）方法を取らなかったのでしょうか。それは、`List` をそのまま公開してしまうと、呼び出し側から `clear`・`remove` などのメソッドを直接呼び出せてしまい、`add` メソッドを経由しない不正な変更を許してしまうためです。<br>
-`Iterable<TaskComponent>` を実装し、`iterator` メソッドで `Iterator<TaskComponent>` だけを返す形にすることで、呼び出し側に許可する操作を「順に読み取ること」だけに絞り込みつつ、拡張 for 文という簡潔な構文を使えるようにしています。
+そのため、`TaskGroup` クラスは配列ではないことから、拡張 for 文を使用できるようにするために `Iterable<TaskComponent>` を実装しています。
 
-まとめると、Visitor 側の走査コードで拡張 for 文を使うためには、走査対象となるクラス（今回は `TaskGroup`）が `Iterable` を実装している必要がある、という結論になります。
+### 補足
+
+ここで `TaskGroup` クラスが外部に公開する必要があるのは、`children` を順に読み取るという操作だけです。<br>
+`add` メソッドによるタスクの追加以外に、`children` の中身を書き換える操作は想定していません。
+
+ではもし次のように、`children` の中身を外部から取得できるようなメソッドを追加した場合どうなるのでしょうか？
+
+**`TaskGroup.java`（一部抜粋）**
+
+```java
+public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> {
+    // 既存のフィールド・メソッドは省略
+
+    public List<TaskComponent> getChildren() {
+        return children;
+    }
+}
+```
+
+`getChildren` メソッドは `children` フィールドと同じ `List` の参照をそのまま返します。そのため、次のコードのように、呼び出し側で `add` メソッドを経由せずに `children` の中身を直接書き換える操作ができてしまいます。
+
+**`Main.java`（一部抜粋）**
+
+```java
+rootGroup.getChildren().clear();             // add を経由せず、子要素を全削除できてしまう
+rootGroup.getChildren().remove(designGroup); // 特定の子要素だけを削除できてしまう
+```
+
+以上から、`private` 以外のアクセス修飾子で `List` 型である `children` をそのまま返すメソッドを実装すると、`TaskGroup` クラス自身が把握しないまま `children` の中身を書き換えられてしまい、`add` メソッドを唯一の変更経路として管理するという意図が崩れてしまいます。
+
+本記事では、呼び出し側に許可する操作を「順に読み取ること」だけに絞り込みつつ、拡張 for 文を使用できるようにするために、`Iterable<TaskComponent>` を実装し、`iterator` メソッドで `Iterator<TaskComponent>` だけを返す設計にしています。
 
 <a id="深堀り3"></a>
 
