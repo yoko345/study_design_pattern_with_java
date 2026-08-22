@@ -630,7 +630,7 @@ public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> 
 ```
 
 `Task`・`TaskGroup` クラスを振り返ると、どちらも `accept` メソッドの具体的な実装を行っています。その中身は抽象クラス `Visitor` の `visit` メソッドを呼んでいます。`visit` メソッドの引数に `this` を渡しているため、`Task` クラスの呼び出しでは `visit(Task)` メソッドが、`TaskGroup` クラスの呼び出しでは `visit(TaskGroup)` メソッドが、それぞれ正しく呼び分けられます（仕組みの詳細は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。<br>
-また、`TaskGroup` クラスではインターフェース `Iterable<TaskComponent>` を実装しています。これは、この後作成する抽象クラス `Visitor` を継承したクラスにて、拡張 for 文を使って `children` の中身を辿れるようにするためです（理由の詳細は→ [【深堀り②】なぜ `TaskGroup` クラスはインターフェース `Iterable` を実装するのか](#深堀り2)）。
+また、`TaskGroup` クラスではインターフェース `Iterable<TaskComponent>` を実装しています。これは、この後作成する抽象クラス `Visitor` を継承したクラスにて、拡張 for 文を使って `children` フィールドの中身を辿れるようにするためです（理由の詳細は→ [【深堀り②】なぜ `TaskGroup` クラスはインターフェース `Iterable` を実装するのか](#深堀り2)）。
 
 次に、`Visitor` のサブクラスを見ていきましょう。
 
@@ -833,7 +833,7 @@ public class Main {
 
 ### なぜ `accept` メソッドを `TaskComponent` クラスにまとめて実装しないのか
 
-前提として、本記事では `Visitor` 側で `Task`・`TaskGroup` クラスを区別した専用の処理（`visit(Task)`・`visit(TaskGroup)` メソッド）を行う必要があります。このことを踏まえて、もし `accept` メソッドを `TaskComponent` クラス側にまとめて 1 つだけ実装していた場合を考えてみましょう。
+前提として、本記事では `Visitor` のサブクラスで `Task`・`TaskGroup` クラスを区別した専用の処理（`visit(Task)`・`visit(TaskGroup)` メソッド）を行う必要があります。このことを踏まえて、もし `accept` メソッドを `TaskComponent` クラス側にまとめて 1 つだけ実装していた場合を考えてみましょう。
 
 `accept` メソッドを `TaskComponent` クラス側にまとめると、`visitor.visit(this)` の `this` の型は常に `TaskComponent` 型になります。そのため `Visitor` クラス側も `visit(TaskComponent component)` という 1 つのメソッドしか用意できなくなり、`Task`・`TaskGroup` クラスを区別した処理を型によって自動的に振り分けることができなくなります。もし区別したい場合は、`visit` メソッドの内部で `component instanceof Task` のような型チェックを行う必要が生じてしまいます。これは、Visitor パターンが本来避けたい分岐処理が復活してしまうことになります。
 
@@ -910,7 +910,7 @@ public class Main {
 }
 ```
 
-以上から、`private` 以外のアクセス修飾子で `List` 型である `children` をそのまま返すメソッドを実装すると、`TaskGroup` クラス自身が把握しないまま `children` の中身を書き換えられてしまい、`add` メソッドを唯一の変更経路として管理するという意図が崩れてしまいます。
+以上から、`private` 以外のアクセス修飾子で `List` 型である `children` フィールドをそのまま返すメソッドを実装すると、`TaskGroup` クラス自身が把握しないまま `children` の中身を書き換えられてしまい、`add` メソッドを唯一の変更経路として管理するという意図が崩れてしまいます。
 
 そのため、本記事では呼び出し側に許可する操作を「順に読み取ること」だけに絞り込みつつ、拡張 for 文を使用できるようにするために、インターフェース `Iterable<TaskComponent>` を実装し、`iterator` メソッドで `Iterator<TaskComponent>` 型の値だけを返す設計にしています。
 
