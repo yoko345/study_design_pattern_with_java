@@ -15,18 +15,21 @@ study_design_pattern/
 ├── src/
 │   └── chapterXX/           # Java ソースコード（書籍学習・練習問題を chapter 別に収録）
 ├── bin/
-│   ├── chapterXX/           # コンパイル済みクラスファイル（自動生成・編集不要）
-│   ├── fix_backtick_spaces.py
-│   └── fix_english_japanese_spacing.py
+│   └── chapterXX/           # コンパイル済みクラスファイル（自動生成・編集不要。.gitignore対象）
 ├── 学習内容/
 │   └── chapterXX_パターン名.md  # 学習記事の出力先
 └── .claude/
     ├── commands/
     │   └── pr-article.md    # /pr-article スラッシュコマンド定義
+    ├── scripts/
+    │   ├── fix_backtick_spaces.py
+    │   └── fix_english_japanese_spacing.py
     └── skills/
         └── write-article/
             └── SKILL.md      # 記事執筆・校正ルール
 ```
+
+※ `bin/` は `.gitignore` 対象のビルド出力先のため、Git 管理が必要なスクリプト類は `.claude/scripts/` に置く。
 
 ### src/ の構成例
 
@@ -81,6 +84,10 @@ JDK ソースコードを引用する場合は原文のまま掲載し、上記�
 手順：pr-draft.md 作成 → push → `gh pr create` → pr-draft.md 削除
 
 動作確認セクションは PR 本文に不要。
+
+## 提案・実装の判断基準
+
+提案や実装方針を検討する際、工数（作業量・時間）の大小を理由に選択肢を却下したり、提案を控えたりしない。要望があれば工数の大小に関わらず実行する。
 
 ## ルール・フィードバックの配置方針
 
