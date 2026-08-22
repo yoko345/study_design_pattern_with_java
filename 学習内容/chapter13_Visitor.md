@@ -2,7 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> 複数の種類のオブジェクトが混在する構造に対して、新しい処理を追加するたびに、関係するクラスそれぞれに同じ処理を重複して実装する羽目になった。その結果、処理を 1 つ増やすだけなのに、直接は関係のないはずのクラスまで毎回修正することになり、変更のたびにクラス同士の結合が強まっていった。
+> 複数の種類のオブジェクトが混在する構造に対して、新しい処理を追加するたびに、関係するクラスそれぞれに同じ処理を重複して実装する羽目になった。その結果、処理を 1 つ増やすだけなのに、直接関係がないはずのクラスまで毎回修正することになり、変更のたびにクラス同士の結合が強まっていった。
 
 この記事では、社内プロジェクト管理システムのタスク集計・検索機能を追加するシナリオを通して、Visitor パターンがこの問題をどのように解決するかを紹介します。
 
@@ -15,10 +15,16 @@
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
 - [【深堀り①】二重ディスパッチの仕組み](#深堀り1)
-- [【深堀り②】なぜ TaskGroup は Iterable を実装するのか](#深堀り2)
+    - [なぜ `accept` メソッドを `TaskComponent` クラスにまとめて実装しないのか](#なぜ-accept-メソッドを-taskcomponent-クラスにまとめて実装しないのか)
+    - [本記事を用いた具体的な処理の流れ](#本記事を用いた具体的な処理の流れ)
+- [【深堀り②】なぜ `TaskGroup` クラスはインターフェース `Iterable` を実装するのか](#深堀り2)
+    - [補足](#補足)
 - [【深堀り③】Composite パターンとの関係](#深堀り3)
 - [【深堀り④】Java 標準ライブラリにおける Visitor パターンの例](#深堀り4)
 - [【深堀り⑤】OCP（オープン・クローズドの原則）](#深堀り5)
+    - [処理を追加する軸](#処理を追加する軸)
+    - [要素の種類を追加する軸](#要素の種類を追加する軸)
+    - [まとめ](#深堀り5-まとめ)
 - [【深堀り⑥】GoF デザインパターンとの位置づけ](#深堀り6)
 
 ---
@@ -41,7 +47,7 @@
 
 - `TaskComponent`（既存クラス）
 
-タスク（個別要素）とタスクグループ（複合要素）に共通する振る舞いを定義する抽象クラスです。
+タスク・タスクグループに共通する振る舞いを定義する抽象クラスです。
 
 | メソッド            | 引数            | 戻り値の型 | 説明                                             |
 | ------------------- | --------------- | ---------- | ------------------------------------------------ |
@@ -127,16 +133,16 @@ public class Task extends TaskComponent {
 
 - `TaskGroup`（既存クラス）
 
-複数のタスク・タスクグループをまとめて管理する複合要素です。
+複数のタスク・タスクグループをまとめて管理するクラスです。
 
-| フィールド | 型                    | 説明                               |
-| ---------- | --------------------- | ---------------------------------- |
-| `name`     | `String`              | グループ名                         |
-| `children` | `List<TaskComponent>` | 管理対象の個別要素・複合要素の一覧 |
+| フィールド | 型                    | 説明                                   |
+| ---------- | --------------------- | -------------------------------------- |
+| `name`     | `String`              | グループ名                             |
+| `children` | `List<TaskComponent>` | 管理対象のタスク・タスクグループの一覧 |
 
 | メソッド            | 戻り値の型 | 説明                                     |
 | ------------------- | ---------- | ---------------------------------------- |
-| `add`               | `void`     | 個別要素・複合要素を追加する             |
+| `add`               | `void`     | タスク・タスクグループを追加する         |
 | `getName`           | `String`   | グループ名を取得する                     |
 | `getEstimatedHours` | `int`      | 配下の全タスクの見積工数の合計を取得する |
 
@@ -144,9 +150,6 @@ public class Task extends TaskComponent {
 
 ```java
 package example;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class TaskGroup extends TaskComponent {
     private String name;
@@ -240,8 +243,6 @@ public class Main {
 ```java
 package example;
 
-import java.util.List;
-
 public abstract class TaskComponent {
     public abstract String getName();
 
@@ -267,9 +268,6 @@ public abstract class TaskComponent {
 
 ```java
 package example;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class Task extends TaskComponent {
     private String name;
@@ -330,9 +328,6 @@ public class Task extends TaskComponent {
 
 ```java
 package example;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class TaskGroup extends TaskComponent {
     private String name;
@@ -430,9 +425,13 @@ public class Main {
         System.out.println("【未着手タスク一覧】");
         rootGroup.printIncompleteTaskList();
 
+        System.out.println();
+
         int completedHours = rootGroup.getCompletedEstimatedHours();
         int totalHours = rootGroup.getEstimatedHours();
         System.out.println("進捗：" + completedHours + "時間 / " + totalHours + "時間（" + String.format("%.1f", completedHours * 100.0 / totalHours) + "%）");
+
+        System.out.println();
 
         System.out.println("「テスト」を含むタスク：");
         for (Task task: rootGroup.findTasksByKeyword("テスト")) {
@@ -456,7 +455,9 @@ public class Main {
 【未着手タスク一覧】
 単体テスト（10時間）
 結合テスト（6時間）
+
 進捗：8時間 / 56時間（14.3%）
+
 「テスト」を含むタスク：
 単体テスト
 結合テスト
@@ -467,17 +468,17 @@ public class Main {
 しかし、この実装には以下の問題点があります。
 
 - 新しい集計や検索機能などを 1 つ追加するたびに、`TaskComponent` クラスにおいて抽象メソッドを追加し、`Task`・`TaskGroup` クラス双方への実装が必要になる。
-    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった 1 つの機能のロジックが `Task`・`TaskGroup` クラス双方にまたがって書かれることになり、機能ごとの処理内容を横断的に把握するのが難しくなる。
-- `Task`・`TaskGroup` クラスを同じ型として扱うための最小限の共通の振る舞い（名前や見積工数の取得、木構造をたどった一覧表示）を担う `TaskComponent` クラスに、集計・検索といった処理内容までもが混ざり込み、クラスの目的が曖昧になってしまっている。
+    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった 1 つの機能のロジックが `Task`・`TaskGroup` クラス双方にまたがって書かれることになり、機能を修正したい場合には両クラスへの変更が必要になるなど、影響範囲が広くなってしまう。
+- `Task`・`TaskGroup` クラスを同じ型として扱うための最小限の共通の振る舞い（名前や見積工数の取得、木構造を辿った一覧表示）を担う `TaskComponent` クラスに、集計・検索といった処理内容までもが混ざり込み、クラスの目的が曖昧になってしまっている。
 
 ## 正しい実装
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
 これらの問題を解決するのが **Visitor パターン**です。<br>
-処理内容を `TaskComponent` クラスから切り離し、外部の専用クラスへ委ねることで、新しい処理を追加してもタスクの構造を表すクラス側には手を入れずに済むようになります。
+処理内容を `TaskComponent` クラスの外にある専用クラスへ任せることで、新しい処理を追加してもタスクの構造を表すクラス側には修正が入らないようになります。
 
-まず、「Visitor を受け入れられる要素である」ことを示す共通の型から見ていきましょう。
+まず、「Visitor を受け入れられる要素であることを示す」共通の型から見ていきましょう。
 
 **`Element.java`**
 
@@ -514,7 +515,7 @@ public abstract class TaskComponent implements Element {
 `TaskComponent` クラスを振り返ると、既存の仕様から `Element` インターフェースを実装する修正が加わっています。<br>
 ここで、`accept` メソッドの実装が行われていませんが、こちらの実装は `Task`・`TaskGroup` クラスそれぞれに委ねます（理由は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。
 
-次に、処理内容を表す `Visitor` 側の抽象クラスを見ていきましょう。
+次に、「処理内容を表す」共通の抽象クラスを見ていきましょう。
 
 **`Visitor.java`**
 
@@ -581,10 +582,6 @@ public class Task extends TaskComponent {
 ```java
 package example;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
 public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> {
     private String name;
     private List<TaskComponent> children = new ArrayList<>();
@@ -632,8 +629,8 @@ public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> 
 }
 ```
 
-`Task`・`TaskGroup` クラスを振り返ると、どちらも `accept` メソッドの具体的な実装を行っています。その中身は抽象クラス `Visitor` の `visit` メソッドを呼んでいるのですが、引数に `this` を渡しているため、`Task` クラスの呼び出しでは `visit(Task)` メソッドが、`TaskGroup` クラスの呼び出しでは `visit(TaskGroup)` メソッドが、それぞれ正しく呼び分けられます（仕組みの詳細は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。<br>
-また、`TaskGroup` クラスではインターフェース `Iterable<TaskComponent>` を実装しています。これは、この後作成する抽象クラス `Visitor` を継承したクラスで、拡張 for 文を使って `children` の中身を辿れるようにするためです（理由の詳細は→ [【深堀り②】なぜ TaskGroup は Iterable を実装するのか](#深堀り2)）。
+`Task`・`TaskGroup` クラスを振り返ると、どちらも `accept` メソッドの具体的な実装を行っています。その中身は抽象クラス `Visitor` の `visit` メソッドを呼んでいます。`visit` メソッドの引数に `this` を渡しているため、`Task` クラスの呼び出しでは `visit(Task)` メソッドが、`TaskGroup` クラスの呼び出しでは `visit(TaskGroup)` メソッドが、それぞれ正しく呼び分けられます（仕組みの詳細は→ [【深堀り①】二重ディスパッチの仕組み](#深堀り1)）。<br>
+また、`TaskGroup` クラスではインターフェース `Iterable<TaskComponent>` を実装しています。これは、この後作成する抽象クラス `Visitor` を継承したクラスにて、拡張 for 文を使って `children` の中身を辿れるようにするためです（理由の詳細は→ [【深堀り②】なぜ `TaskGroup` クラスはインターフェース `Iterable` を実装するのか](#深堀り2)）。
 
 次に、`Visitor` のサブクラスを見ていきましょう。
 
@@ -691,9 +688,6 @@ public class CompletedHoursVisitor extends Visitor {
 
 ```java
 package example;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class KeywordSearchVisitor extends Visitor {
     private String keyword;
@@ -759,11 +753,15 @@ public class Main {
         System.out.println("【未着手タスク一覧】");
         rootGroup.accept(new IncompleteTaskListVisitor());
 
+        System.out.println();
+
         CompletedHoursVisitor completedHoursVisitor = new CompletedHoursVisitor();
         rootGroup.accept(completedHoursVisitor);
         int completedHours = completedHoursVisitor.getTotalHours();
         int totalHours = rootGroup.getEstimatedHours();
         System.out.println("進捗：" + completedHours + "時間 / " + totalHours + "時間（" + String.format("%.1f", completedHours * 100.0 / totalHours) + "%）");
+
+        System.out.println();
 
         KeywordSearchVisitor keywordSearchVisitor = new KeywordSearchVisitor("テスト");
         rootGroup.accept(keywordSearchVisitor);
@@ -789,21 +787,23 @@ public class Main {
 【未着手タスク一覧】
 単体テスト（10時間）
 結合テスト（6時間）
+
 進捗：8時間 / 56時間（14.3%）
+
 「テスト」を含むタスク：
 単体テスト
 結合テスト
 ```
 
-`Main` クラスを振り返ると、`IncompleteTaskListVisitor`・`CompletedHoursVisitor`・`KeywordSearchVisitor` クラスのいずれに対しても、`rootGroup.accept(visitor)` という同じ形の呼び出しになっています。
+`Main` クラスを振り返ると、「未着手タスク一覧」「進捗集計」「キーワード検索」のいずれに対しても、`rootGroup.accept(visitor)` という同じ形の呼び出しになっています。
 
 実行結果は、好ましくない実装とまったく同じになっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 新しい集計・検索機能（例えば「見積工数が長いタスクの一覧」）を追加する場合も、抽象クラス `Visitor` を継承した新しいクラスを追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の Visitor 側のクラスには一切手を加える必要がない。
-    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった機能ごとのロジックが、それぞれ 1 つの Visitor 側のクラスに集約されるため、機能ごとの処理内容を 1 つのファイルだけで把握できるようになる。
-- `TaskComponent` クラスの責務が「タスクの構造を表すこと」に専念できるようになり、一覧表示・集計・検索といった処理内容と分離ができる。
+- 新しい集計・検索機能（例えば「見積工数が長いタスクの一覧」）を追加する場合も、抽象クラス `Visitor` を継承した新しいクラスを追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の `Visitor` のサブクラスには一切手を加える必要がない。
+    - その結果、「未着手タスク一覧」「進捗集計」「キーワード検索」といった機能ごとのロジックが、それぞれ 1 つの `Visitor` のサブクラスに集約されるため、機能を修正したい場合、該当のサブクラス 1 つを直すだけで済み、影響範囲を抑えられる。
+- `TaskComponent` クラスの責務が「タスクの構造を表すこと」に専念できるようになり、一覧表示・集計・検索といった処理内容を分離できる。
 - 処理内容が抽象クラス `Visitor` のサブクラスとしてオブジェクト化されているため、呼び出し側（`Main` クラス）は `accept(visitor)` という同じ形の呼び出しのまま、目的に応じた `Visitor` のサブクラスを選ぶだけで、二重ディスパッチにより一覧表示・集計・検索といった異なる処理をそれぞれ実行できる。
 
 ## まとめ
@@ -821,23 +821,23 @@ public class Main {
 
 ## 【深堀り①】二重ディスパッチの仕組み
 
-ここでは、正しい実装の `Task`・`TaskGroup` クラスが、どちらも `accept` メソッドの中で `visitor.visit(this)` を呼んでいるだけなのに、`visit(Task)`・`visit(TaskGroup)` メソッドの呼び出しが正しく振り分けられていることに関して説明します。ここには 2 段階の処理の振り分け（ディスパッチ）が関わっています。
+ここでは、正しい実装の `Task`・`TaskGroup` クラスが、どちらも `accept` メソッドの中で `visitor.visit(this)` を呼び出すだけで、`visit(Task)`・`visit(TaskGroup)` メソッドの振り分けが正しく行われることに関して説明をします。ここには 2 段階の処理の振り分け（ディスパッチ）が関わっています。
 
 1. **1 段目（実行時の型によるディスパッチ）**<br>
    `Main` クラスで `accept` メソッドを呼び出す際、実際に実行される `accept` メソッドは、呼び出し元の変数が指すオブジェクトの実行時の型（`Task` 型か `TaskGroup` 型か）によって決まります。<br>
    これは、通常のメソッドオーバーライドによるポリモーフィズムです。
 2. **2 段目（静的な型によるディスパッチ）**<br>
-   `Task`・`TaskGroup` クラスにおける `accept` メソッドの内部では `visitor.visit(this)` を呼んでいます。このときの `this` の型はコンパイル時に、`Task` クラスの `accept` メソッドでは `Task` 型、`TaskGroup` クラスの `accept` メソッドでは `TaskGroup` 型として常に確定します。
+   `Task`・`TaskGroup` クラスにおける `accept` メソッドの内部では `visitor.visit(this)` を呼んでいます。このときの `this` の型は、`Task` クラスの `accept` メソッドでは `Task` 型、`TaskGroup` クラスの `accept` メソッドでは `TaskGroup` 型として常にコンパイル時に確定します。`Visitor` を継承したクラス側には `visit(Task)`・`visit(TaskGroup)` という複数の `visit` メソッドが用意されており、Java のオーバーロード解決の仕組みにより、コンパイル時に確定したこの `this` の型に応じて、呼び出される `visit` メソッドが一意に決まります。
 
-この「1 段目は実行時の型、2 段目はコンパイル時に確定する `this` の型」という 2 つの型情報を使って処理を振り分ける仕組みを「二重ディスパッチ」と呼びます。
+この「1 段目は実行時の型による `accept` メソッドの振り分け、2 段目はコンパイル時に確定する `this` の型によるオーバーロードされた `visit` メソッドの振り分け」という 2 段階の仕組みを「二重ディスパッチ」と呼びます。
 
 ### なぜ `accept` メソッドを `TaskComponent` クラスにまとめて実装しないのか
 
-前提として、本記事では `Visitor` 側で `Task`・`TaskGroup` クラスを区別した専用の処理（`visit(Task)`・`visit(TaskGroup)`）を行う必要があります。このことを踏まえてもし `accept` メソッドを `TaskComponent` クラス側にまとめて 1 つだけ実装していた場合を考えてみましょう。
+前提として、本記事では `Visitor` 側で `Task`・`TaskGroup` クラスを区別した専用の処理（`visit(Task)`・`visit(TaskGroup)` メソッド）を行う必要があります。このことを踏まえて、もし `accept` メソッドを `TaskComponent` クラス側にまとめて 1 つだけ実装していた場合を考えてみましょう。
 
 `accept` メソッドを `TaskComponent` クラス側にまとめると、`visitor.visit(this)` の `this` の型は常に `TaskComponent` 型になります。そのため `Visitor` クラス側も `visit(TaskComponent component)` という 1 つのメソッドしか用意できなくなり、`Task`・`TaskGroup` クラスを区別した処理を型によって自動的に振り分けることができなくなります。もし区別したい場合は、`visit` メソッドの内部で `component instanceof Task` のような型チェックを行う必要が生じてしまいます。これは、Visitor パターンが本来避けたい分岐処理が復活してしまうことになります。
 
-以上から、`Task`・`TaskGroup` それぞれのクラスで個別に `accept` メソッドを実装することで `this` の型を保ったまま `visitor.visit(this)` を呼び出し、`Visitor` 側の `visit(Task)`・`visit(TaskGroup)` というオーバーロードの自動選択（＝二重ディスパッチ）を成立させているのです。
+以上から、2 段目のディスパッチ（オーバーロード解決による `visit` メソッドの自動選択）を成立させるために、`Task`・`TaskGroup` それぞれのクラスで個別に `accept` メソッドを実装しているのです。
 
 ### 本記事を用いた具体的な処理の流れ
 
@@ -861,7 +861,7 @@ public class Main {
 2. `visitor.visit(this)` の `this` の型は `TaskGroup` 型のため、`Visitor` を継承したクラスでは `visit(TaskGroup taskGroup)` の処理が行われる
 3. `visit(TaskGroup taskGroup)` 内のループ処理で、`rootGroup` の最初の子要素（`TaskGroup` 型）に対して `child.accept(this)` が呼ばれる
 4. 呼び出し元が `TaskGroup` 型のため、1〜2 と同様の手順で `visit(TaskGroup taskGroup)` の処理が行われる
-5. `visit(TaskGroup taskGroup)` 内のループ処理で、その最初の子要素である `Task` 型の「要件定義」に対して `child.accept(this)` が呼ばれる
+5. `visit(TaskGroup taskGroup)` 内のループ処理で、その最初の子要素（`Task` 型：「要件定義」タスク）に対して `child.accept(this)` が呼ばれる
 6. `accept` メソッドの呼び出し元が `Task` 型のため、`Task` クラスの `accept` メソッドで `visitor.visit(this)` が呼ばれる
 7. `visitor.visit(this)` の `this` の型は `Task` 型のため、`Visitor` を継承したクラスでは `visit(Task task)` の処理が行われる
 
@@ -871,22 +871,23 @@ public class Main {
 
 正しい実装の `Visitor` の各サブクラスに実装されている `visit(TaskGroup)` メソッドを振り返ると、拡張 for 文を使って子要素を辿っています。
 
-ここで Java の仕様上の制約として、Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が配列もしくは、`Iterable<T>` インターフェースを実装したクラスのインスタンスでないと使用できないというものがあります。
+ここで Java の仕様上の制約として、Java の拡張 for 文（`for (要素の型 変数名: 対象)`）は、対象が「配列もしくは `Iterable<T>` インターフェースを実装したクラスのインスタンス」でないと使用できないというものがあります。
 
-そのため、`TaskGroup` クラスは配列ではないことから、拡張 for 文を使用できるようにするために `Iterable<TaskComponent>` を実装しています。
+そのため、`TaskGroup` クラスは配列ではないことから、拡張 for 文を使用できるようにするためにインターフェース `Iterable<TaskComponent>` を実装しています。
 
 ### 補足
 
-ここで `TaskGroup` クラスが外部に公開する必要があるのは、`children` を順に読み取るという操作だけです。<br>
-`add` メソッドによるタスクの追加以外に、`children` の中身を書き換える操作は想定していません。
+ここで `TaskGroup` クラスが外部に公開する必要があるのは「`children` フィールドの中身を順に読み取る」という操作だけです。`add` メソッドによるタスクの追加以外に、`children` の中身を書き換える操作は想定していません。
 
-ではもし次のように、`children` の中身を外部から取得できるようなメソッドを追加した場合どうなるのでしょうか？
+ではもし、次のように `children` フィールドの中身を外部から取得できるメソッドを追加した場合、どうなるのでしょうか？
 
 **`TaskGroup.java`（一部抜粋）**
 
 ```java
+package example;
+
 public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> {
-    // 既存のフィールド・メソッドは省略
+    private List<TaskComponent> children = new ArrayList<>();
 
     public List<TaskComponent> getChildren() {
         return children;
@@ -899,34 +900,41 @@ public class TaskGroup extends TaskComponent implements Iterable<TaskComponent> 
 **`Main.java`（一部抜粋）**
 
 ```java
-rootGroup.getChildren().clear();             // add を経由せず、子要素を全削除できてしまう
-rootGroup.getChildren().remove(designGroup); // 特定の子要素だけを削除できてしまう
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        rootGroup.getChildren().clear();             // add を経由せず、子要素を全削除できてしまう
+        rootGroup.getChildren().remove(designGroup); // 特定の子要素だけを削除できてしまう
+    }
+}
 ```
 
 以上から、`private` 以外のアクセス修飾子で `List` 型である `children` をそのまま返すメソッドを実装すると、`TaskGroup` クラス自身が把握しないまま `children` の中身を書き換えられてしまい、`add` メソッドを唯一の変更経路として管理するという意図が崩れてしまいます。
 
-本記事では、呼び出し側に許可する操作を「順に読み取ること」だけに絞り込みつつ、拡張 for 文を使用できるようにするために、`Iterable<TaskComponent>` を実装し、`iterator` メソッドで `Iterator<TaskComponent>` だけを返す設計にしています。
+そのため、本記事では呼び出し側に許可する操作を「順に読み取ること」だけに絞り込みつつ、拡張 for 文を使用できるようにするために、インターフェース `Iterable<TaskComponent>` を実装し、`iterator` メソッドで `Iterator<TaskComponent>` 型の値だけを返す設計にしています。
 
 <a id="深堀り3"></a>
 
 ## 【深堀り③】Composite パターンとの関係
 
-本記事の `TaskComponent`・`Task`・`TaskGroup` クラスを振り返ると、`TaskGroup` クラスが持つ `children` フィールドと `add` メソッドで子要素を保持し、`getEstimatedHours`・`printTaskList` メソッドの内部で子要素に同じ処理を再帰的に呼び出すこと（→ [既存コードの仕様](#既存コードの仕様)）で、個別要素（`Task`）と複合要素（`TaskGroup`）を同じ型として扱う Composite パターンの構造を持っています。<br>
+本記事の `TaskComponent`・`Task`・`TaskGroup` クラスを振り返ると、`TaskGroup` クラスが持つ `children` フィールドと `add` メソッドで子要素を保持し、`getEstimatedHours`・`printTaskList` メソッドの内部で子要素に同じ処理を再帰的に呼び出すこと（→ [既存コードの仕様](#既存コードの仕様)）をしています。これは、個別要素（`Task`）と複合要素（`TaskGroup`）を同じ型として扱う Composite パターンの構造です。<br>
 Visitor パターンは、こうした既存の Composite 構造の上に処理を追加する形で使われることが多いパターンです。
 
-ただし、正しい実装の `visit(TaskGroup)` メソッドを振り返ると、`Visitor` のサブクラスのどれもが「子要素をループして `accept` メソッドを呼び直す」という同じ走査処理を個別に持っています。既存の `getEstimatedHours`・`printTaskList` メソッドでは、この走査処理は `TaskGroup` クラス側に 1 つだけ実装されていたのに対し、Visitor パターンでは新しい `Visitor` のサブクラスを追加するたびにこの走査処理も一緒に複製されることになります。
+ただし、正しい実装の `visit(TaskGroup)` メソッドを振り返ると、`Visitor` のサブクラスのどれもが「子要素をループして `accept` メソッドを呼び直す」という同じ走査処理を個別に持っています。既存の `getEstimatedHours`・`printTaskList` メソッドでは、この走査処理は `TaskGroup` クラス側に 1 つだけ実装されているのに対し、Visitor パターンでは `Visitor` の各サブクラスで走査処理が複製されています。
 
 これは「処理の重複を減らすこと」と「`Visitor` の各サブクラスが走査方法を自由に制御できること」のトレードオフです。<br>
-走査処理を `TaskComponent` クラス側に「子要素へ `accept` を伝播させるデフォルト処理」としてまとめれば重複はなくなりますが、その代わりすべての `Visitor` のサブクラスが同じ順序・同じ範囲で子要素を辿ることになり、サブクラスごとに走査を途中で打ち切ったり、特定の子要素だけを辿ったりといった個別の制御ができなくなります。
+走査処理を `TaskGroup` クラス（複合要素側）に「子要素へ `accept` を伝播させるデフォルト処理」としてまとめれば重複はなくなりますが、その代わりすべての `Visitor` のサブクラスが同じ順序・同じ範囲で子要素を辿ることになり、サブクラスごとに走査を途中で打ち切ったり、特定の子要素だけを辿ったりといった個別の制御ができなくなります。
 
-本記事では、個別の制御ができることを優先し、走査処理を `Visitor` クラス側に委ねる設計を採用しています。
+本記事では、個別の制御ができることを優先して走査処理を `Visitor` クラス側に委ねる設計を採用しています。
 
 <a id="深堀り4"></a>
 
 ## 【深堀り④】Java 標準ライブラリにおける Visitor パターンの例
 
 Java 標準ライブラリにおける Visitor パターンの例として、`java.nio.file` パッケージのファイルツリー走査を見ていきましょう。<br>
-代表的なのが `FileVisitor` インターフェースと、その空実装を提供する `SimpleFileVisitor` クラスです。
+代表的なのが `FileVisitor` インターフェースと、その空実装を提供する `SimpleFileVisitor` クラスです。<br>
+ここでは、`Files` クラスの `static` メソッド `walkFileTree` を例に見ていきます。
 
 **`SimpleFileVisitor.java`**
 
@@ -968,8 +976,6 @@ public class SimpleFileVisitor<T> implements FileVisitor<T> {
 
 > 引用元: OpenJDK [SimpleFileVisitor.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/nio/file/SimpleFileVisitor.java)
 
-`Files` クラスの `static` メソッド `walkFileTree` を例に見ていきましょう。
-
 **`Main.java`**
 
 ```java
@@ -992,31 +998,35 @@ public class Main {
 }
 ```
 
-このコードでは、`Files` クラスの `walkFileTree` メソッドが指定したディレクトリ以下を再帰的に走査し、ファイルを見つけるたびに、引数に渡した `SimpleFileVisitor` を継承したクラスの `visitFile` メソッドを呼び出しています（ディレクトリに入る前後には、それぞれ `preVisitDirectory`・`postVisitDirectory` メソッドが呼ばれます）。<br>
-本記事の Visitor パターンでは、走査（`accept` メソッドの呼び出し）を `Task`・`TaskGroup` クラス側と `Visitor` の各サブクラス側の双方が分担していましたが、`walkFileTree` メソッドでは走査そのものを `java.nio.file` パッケージ側がすべて引き受け、呼び出し側は `FileVisitor` インターフェース側に「訪れた要素に対して何をするか」だけを実装すればよくなっています。<br>
+このコードでは、`Files` クラスの `walkFileTree` メソッドが指定したディレクトリ以下を再帰的に走査し、ファイルを見つけるたびに、引数に渡した `SimpleFileVisitor` を継承したクラスの `visitFile` メソッドを呼び出しています（ディレクトリに入る前後には、それぞれ `preVisitDirectory`・`postVisitDirectory` メソッドが呼ばれます）。
+
+本記事の Visitor パターンでは、走査（`accept` メソッドの呼び出し）を `Task`・`TaskGroup` クラス側と `Visitor` の各サブクラス側の双方が分担していましたが、`walkFileTree` メソッドでは走査そのものを `java.nio.file` パッケージ側がすべて引き受け、呼び出し側は `FileVisitor` インターフェース側に「訪れた要素に対して何をするか」だけを実装すればよくなっています。
+
 実装の形は異なりますが、「構造をどう辿るか」と「辿った要素に対して何をするか」を分離するという考え方は、本記事の Visitor パターンと共通しています。
 
 <a id="深堀り5"></a>
 
 ## 【深堀り⑤】OCP（オープン・クローズドの原則）
 
-Visitor パターンは、OCP（オープン・クローズドの原則）に対して 2 つの異なる側面を持っています。
+Visitor パターンは、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」に対して 2 つの異なる側面を持っています。
 
 ### 処理を追加する軸
 
 もし `Visitor` を継承した処理クラス（例えば「見積工数が長いタスクの一覧」）を追加する場合、新しい `Visitor` のサブクラスを 1 つ追加するだけで済み、既存の `TaskComponent`・`Task`・`TaskGroup` クラスや、追加済みの他の `Visitor` のサブクラスを変更する必要はありません。
 
-この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、**OCP** の実践です。
 
 ### 要素の種類を追加する軸
 
-もし `TaskComponent` を継承した新しい要素クラス（例えば「マイルストーン」を表すクラス）を追加する場合、`Visitor` クラスに新しい `visit` メソッドを追加する必要があります。これに伴い、既存のすべての `Visitor` のサブクラスに新たに追加した `visit` メソッドの実装を行わなければなりません。
+もし `TaskComponent` を継承した新しい要素クラス（例えば「マイルストーン」を表すクラス）を追加する場合、`Visitor` クラスに新しい抽象メソッド `visit` を追加する必要があります。これに伴い、既存のすべての `Visitor` のサブクラスに、新たに追加した `visit` メソッドの具体的な実装を行わなければなりません。
 
-これは、「**OCP**」に違反しています。
+これは、**OCP** に違反しています。
+
+<a id="深堀り5-まとめ"></a>
 
 ### まとめ
 
-以上から Visitor パターンは「処理の追加は容易だが、要素の種類の追加は困難」という二面性を持っています。そのため、要素の種類（今回でいう `Task`・`TaskGroup`）が安定していて、処理の種類（一覧表示・集計・検索など）が今後も増えていくことが見込まれる場面に向いたパターンだといえます。
+以上から、Visitor パターンは「処理の追加は容易だが、要素の種類の追加は困難」という二面性を持っています。そのため、要素の種類（今回でいう `Task`・`TaskGroup`）が安定していて、処理の種類（一覧表示・集計・検索など）が今後も増えていくことが見込まれる場面に向いたパターンだといえます。
 
 <a id="深堀り6"></a>
 
