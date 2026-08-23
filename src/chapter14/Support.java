@@ -1,28 +1,48 @@
 package chapter14;
 
+// 練習問題14-3
+import java.util.ArrayList;
+import java.util.List;
+
 public abstract class Support {
     private String name;
-    private Support nextSupport;
+    // 練習問題14-3
+    // private Support nextSupport;
+    private List<Support> supportList = new ArrayList<>();
 
     public Support(String name) {
         this.name = name;
-        this.nextSupport = null;
+        // 練習問題14-3
+        // this.nextSupport = null;
     }
 
     // たらい回し先の設定
     public Support setNextSupport(Support nextSupport) {
-        this.nextSupport = nextSupport;
-        return nextSupport;
+        // 練習問題14-3
+        // this.nextSupport = nextSupport;
+        supportList.add(nextSupport);
+        return this;
     }
 
     // トラブル解決の手順を定める
     public void support(Trouble trouble) {
         if (resolve(trouble)) {
             done(trouble);
-        } else if (nextSupport != null) {
-            nextSupport.support(trouble);
+        // 練習問題14-3
+        // } else if (nextSupport != null) {
+            // nextSupport.support(trouble);
         } else {
-            fail(trouble);
+            // 練習問題14-3
+            int count = supportList.size();
+            for (int i = 0; i < count; i++) {
+                if (supportList.get(i).resolve(trouble)) {
+                    name = supportList.get(i).name;
+                    done(trouble);
+                    break;
+                } else if (i == count - 1) {
+                    fail(trouble);
+                }
+            }
         }
     }
 
