@@ -30,12 +30,12 @@ public abstract class Support {
     protected abstract boolean resolve(Trouble trouble);
 
     // 解決した
-    public void done(Trouble trouble) {
+    protected void done(Trouble trouble) {
         System.out.println(trouble + " is resolved by " + this + ".");
     }
 
     // 解決しなかった
-    public void fail(Trouble trouble) {
+    protected void fail(Trouble trouble) {
         System.out.println(trouble + " cannot be resolved.");
     }
 
