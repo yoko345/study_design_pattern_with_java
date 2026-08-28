@@ -488,10 +488,19 @@ Decorator パターンは、鎖につながれたオブジェクトが**すべ�
 
 ## 【深堀り③】OCP（オープン・クローズドの原則）
 
-正しい実装をもとに、新しい決裁権限のルールを追加してみましょう。<br>
-例えば「100 万円以上は役員決裁、50 万円以上 100 万円未満は本部長決裁とする」という規程改定があったとします。
+正しい実装を振り返ると、承認権限のルールが変わる場合（例えば「新しい金額区分を追加する」場合）、`Approver` のサブクラスを新たに 1 つ追加し、`Main` クラス側で鎖に組み込むだけで済み、既存の `Approver` クラス、`Approver` のサブクラスには一切手を加える必要がありません。
 
-まず、新しい `Approver` のサブクラスを追加します。
+この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Chain of Responsibility パターンは OCP を実現するための設計手段の一つと言えます。
+
+詳しくは「OCP」や「オープン・クローズドの原則」で検索してみてください。
+
+### 金額以外の軸でルールが増えた場合
+
+例えば、新しい費目の判定軸が増える場合を考えてみましょう。<br>
+費目の判定を担う `isEntertainment` メソッドは、`SupervisorApprover` をはじめとする既存の `Approver` の多くのサブクラスが、`canApprove` メソッド内でこのメソッドを直接呼び出しています。そのため、新しい費目の判定軸を追加しようとすると、呼び出し元である既存の複数クラスに手を加えることになり、**OCP** に違反しています。
+
+一方、金額区分が増える場合は異なります。例えば「50 万円以上 100 万円未満は本部長、100 万円以上は役員が承認する」という規程改定があった場合を考えてみましょう。<br>
+この場合、次のように `Approver` のサブクラスを追加し、鎖の組み立てを変更するだけで対応できます。
 
 **`GeneralManagerApprover.java`**
 
@@ -512,25 +521,25 @@ public class GeneralManagerApprover extends Approver {
 }
 ```
 
-次に、`Main` クラス側で鎖の組み立てを変更します。
+**`Main.java`（一部抜粋）**
 
 ```java
-Approver generalManager = new GeneralManagerApprover("本部長");
+package example;
 
-supervisor.setNext(sectionChief).setNext(departmentHead).setNext(generalManager).setNext(executive);
+public class Main {
+    public static void main(String[] args) {
+        Approver generalManager = new GeneralManagerApprover("本部長");
+
+        supervisor.setNext(sectionChief).setNext(departmentHead).setNext(generalManager).setNext(executive);
+    }
+}
 ```
 
-上記の修正のみで、新しい決裁権限のルールを反映できました。`Approver`・`SupervisorApprover`・`SectionChiefApprover`・`DepartmentHeadApprover`・`ExecutiveApprover` クラスには一切手を加えていません。
+上記の実装から、既存の `Approver` クラス、`Approver` のサブクラスには一切手を加えていないため、**OCP** を守っています。
 
-この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Chain of Responsibility パターンは OCP を実現するための設計手段の一つと言えます。
+以上から、本記事では、金額の区切りの追加は修正範囲が閉じている一方、費目のような判定軸の追加では閉じていない、という非対称な設計となっています。
 
-詳しくは「OCP」や「オープン・クローズドの原則」で検索してみてください。
-
-### 金額以外の軸でルールが増えた場合
-
-ここまでの例は、金額の区切りが増える場合にサブクラスを追加するだけで対応できることを示しました。しかし、`Approver` クラスに定義した `isEntertainment` メソッドのように、複数のサブクラスが共通して使う費目の判定は、`Approver` クラス自身に手を加えない限り増やせません。金額の区切りの追加には閉じている一方、費目のような判定軸の追加には閉じていない、という非対称な設計になっています。
-
-実務では、この種の条件をサブクラスやメソッドとして増やしていくのではなく、`Predicate<ExpenseRequest>` のような条件オブジェクトをコンストラクタで注入したり、承認ルールをデータベースや設定ファイルなどのデータとして持たせたりすることで、判定軸が増えてもコードを変更せずに対応できるようにするのが一般的です。
+実務では、この種の条件をサブクラスやメソッドとして増やしていくのではなく、`Predicate<ExpenseRequest>` インターフェースのような条件オブジェクトをコンストラクタで注入したり、承認ルールをデータベースや設定ファイルなどのデータとして持たせたりすることで、判定軸が増えてもコードを変更せずに対応できるようにするのが一般的です。
 
 <a id="深堀り4"></a>
 
