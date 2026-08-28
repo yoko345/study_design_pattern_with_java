@@ -15,7 +15,6 @@
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
 - [【深堀り①】鎖の並び順が結果を左右する](#深堀り1)
-    - [鎖の並び順を間違えるとどうなるか](#鎖の並び順を間違えるとどうなるか)
     - [鎖の終端まで到達した場合の安全策](#鎖の終端まで到達した場合の安全策)
     - [鎖が非常に長い場合の実装の選び方](#鎖が非常に長い場合の実装の選び方)
 - [【深堀り②】Decorator パターンとの構造的な違い](#深堀り2)
@@ -390,57 +389,86 @@ public class Main {
 
 ## 【深堀り①】鎖の並び順が結果を左右する
 
-### 鎖の並び順を間違えるとどうなるか
+正しい実装を振り返ると、承認処理の順番を次のようにしています。
 
-正しい実装では、`Main` クラスで次のように鎖を組み立てました。
-
-```java
-supervisor.setNext(sectionChief).setNext(departmentHead).setNext(executive);
-```
-
-もし、この並び順を間違えて `ExecutiveApprover` クラスのインスタンスを鎖の先頭に置いてしまうとどうなるでしょうか。
+**`Main.java`（一部抜粋）**
 
 ```java
-executive.setNext(supervisor).setNext(sectionChief).setNext(departmentHead);
+package example;
 
-executive.approve(new ExpenseRequest("鈴木", 5000, "交通費"));
+public class Main {
+    public static void main(String[] args) {
+        supervisor.setNext(sectionChief).setNext(departmentHead).setNext(executive);
+    }
+}
 ```
+
+もし、鎖の並び順を変えて、次のように `ExecutiveApprover` クラスのインスタンスを鎖の先頭に置くとどうなるでしょうか。
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        Approver supervisor = new SupervisorApprover("主任");
+        Approver sectionChief = new SectionChiefApprover("課長");
+        Approver departmentHead = new DepartmentHeadApprover("部長");
+        Approver executive = new ExecutiveApprover("役員");
+
+        executive.setNext(supervisor).setNext(sectionChief).setNext(departmentHead);
+
+        executive.approve(new ExpenseRequest("鈴木", 5000, "交通費"));
+    }
+}
+```
+
+**実行結果**
 
 ```
 鈴木さんの申請（交通費・5000円） → 役員が承認しました。
 ```
 
-`ExecutiveApprover` クラスの `canApprove` メソッドは常に `true` を返すため、鎖の先頭に置かれた時点で、後続の主任・課長・部長には一切処理が回ってこなくなります。
+実行結果を振り返ると、`ExecutiveApprover` クラスの `canApprove` メソッドは常に `true` を返すため、鎖の先頭に置くと、後続の主任・課長・部長には一切処理が回ってこなくなります。
 
 Chain of Responsibility パターンは、承認条件そのものを各 `Approver` のサブクラスへ分離してくれますが、オブジェクトをどの順番で鎖につなぐかという責任までは肩代わりしてくれません。好ましくない実装で問題になっていた「条件の並び順への依存」は、`if-else` の並び順から `setNext` の呼び出し順へと形を変えて残っています。ただし、好ましくない実装ではその依存が 1 つのメソッドの中の条件分岐に埋もれていたのに対し、正しい実装では `Main` クラスの鎖の組み立て箇所という 1 か所に集約されているため、見直しや確認がしやすくなっています。
 
 ### 鎖の終端まで到達した場合の安全策
 
-`Approver` クラスの `approve` メソッドには、鎖の末端まで進んでも `canApprove` メソッドが `true` を返すオブジェクトが見つからなかった場合の分岐（「承認できる担当者が見つかりませんでした。」という出力）を用意しています。
+正しい実装の抽象クラス `Approver` の `approve` メソッドを振り返ると、鎖の末端で `canApprove` メソッドが `true` を返すオブジェクトが見つからなかった場合の分岐を用意しています。
 
-本記事のシナリオでは `ExecutiveApprover` クラスが常に承認できるため、この分岐が実行されることはありません。しかし、鎖の組み立てを誤って `ExecutiveApprover` クラスのインスタンスを鎖に加え忘れた場合など、鎖の構成ミスによってどのオブジェクトも条件に一致しない状況は起こり得ます。そのような場合に何も出力されないまま処理が終わってしまうと、申請がどこにも承認されずに消えてしまったことに誰も気づけません。
+本記事では `ExecutiveApprover` クラスの `canApprove` メソッドが `true` を返すため、この分岐は実行されません。しかし、`Main` クラスで鎖の組み立てを誤り `ExecutiveApprover` クラスのインスタンスを鎖に加え忘れた場合など、鎖の構成ミスによってどのオブジェクトも条件に一致しない状況は起こり得ます。そのような場合に何も出力されないと、申請がどこにも承認されずに消えてしまっても、テストはおろか本番でも誰も気づけません。
 
 鎖の最後に「必ず処理できるオブジェクト」を置くか、あるいは今回のように鎖の末端に到達した場合の挙動を明示的に用意しておくかは、Chain of Responsibility パターンを使う際に意識しておきたい設計判断です。
 
 ### 鎖が非常に長い場合の実装の選び方
 
-正しい実装の `approve` メソッドは、自分が承認できなければ `nextApprover.approve(request)` を呼び出して次のオブジェクトへ処理を委譲する、という再帰呼び出しで鎖をたどっています。「自分で対応できなければ次のオブジェクトに委ねる」という Chain of Responsibility パターンの考え方が、そのままコードの構造として表れるため、パターンの意図が伝わりやすい実装です。
+正しい実装の抽象クラス `Approver` の `approve` メソッドを振り返ると、自分が承認できなければ `nextApprover.approve(request)` を呼び出して次のオブジェクトへ処理を委譲する、という再帰呼び出しで鎖をたどっています。「自分で対応できなければ次のオブジェクトに委ねる」という Chain of Responsibility パターンの考え方が、そのままコードの構造として表れるため、パターンの意図が伝わりやすい実装です。
 
-ただし、再帰呼び出しは、呼び出すたびに新しいスタックフレームを積むため、鎖の長さがそのままスタックの深さになります。本記事のシナリオのようにオブジェクトが数段程度であれば問題になりませんが、鎖につながるオブジェクトの数が数万に達するような極端なケースでは、`StackOverflowError` が発生するおそれがあります。
+ただし、再帰呼び出しは、呼び出すたびにメソッドの実行状態をスタックと呼ばれるメモリ領域に積んでいく仕組みのため、鎖の長さがそのままスタックの深さになります。本記事のシナリオのようにオブジェクトが数段程度であれば問題になりませんが、鎖につながるオブジェクトの数が数万に達するような極端なケースでは、`StackOverflowError` が発生するおそれがあります。
 
 そのような場合は、次のように `for` 文で鎖をたどる実装にすることで、スタックを消費せずに済みます。
 
+**`Approver.java`（一部抜粋）**
+
 ```java
-public void approve(ExpenseRequest request) {
-    for (Approver approver = this; approver != null; approver = approver.nextApprover) {
-        if (approver.canApprove(request)) {
-            System.out.println(request + " → " + approver.name + "が承認しました。");
-            return;
+package example;
+
+public abstract class Approver {
+    public void approve(ExpenseRequest request) {
+        for (Approver approver = this; approver != null; approver = approver.nextApprover) {
+            if (approver.canApprove(request)) {
+                System.out.println(request + " → " + approver.name + "が承認しました。");
+                return;
+            }
         }
+        System.out.println(request + " → 承認できる担当者が見つかりませんでした。");
     }
-    System.out.println(request + " → 承認できる担当者が見つかりませんでした。");
 }
 ```
+
+※ここでは `for` 文を使っていますが、`while` 文でも同様の実装は可能です。ただし `while` 文で書くと、ループ変数 `approver` の宣言がループの外に必要になり、スコープが不必要に広がってしまいます。ループ変数をループ内に閉じ込められる分、`for` 文の方がこの種の処理には向いています。
 
 再帰呼び出しによる実装と `for` 文による実装は、どちらも「鎖をたどって処理できるオブジェクトを探す」という結果は変わりません。パターンの意図を素直に表現したいか、鎖が極端に長くなる可能性を踏まえて安全性を優先したいかによって、どちらの実装を選ぶかが変わってきます。
 
