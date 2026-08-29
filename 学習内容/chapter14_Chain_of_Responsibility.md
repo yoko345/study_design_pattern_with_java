@@ -18,9 +18,9 @@
     - [鎖の終端まで到達した場合の安全策](#鎖の終端まで到達した場合の安全策)
     - [鎖が非常に長い場合の実装の選び方](#鎖が非常に長い場合の実装の選び方)
 - [【深堀り②】Decorator パターンとの構造的な違い](#深堀り2)
-- [【深堀り③】OCP（オープン・クローズドの原則）](#深堀り3)
+- [【深堀り③】Java 標準ライブラリにおける Chain of Responsibility パターンの例](#深堀り3)
+- [【深堀り④】OCP（オープン・クローズドの原則）](#深堀り4)
     - [金額以外の軸でルールが増えた場合](#金額以外の軸でルールが増えた場合)
-- [【深堀り④】Java 標準ライブラリにおける Chain of Responsibility パターンの例](#深堀り4)
 - [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
@@ -486,7 +486,60 @@ Decorator パターンは、鎖につながれたオブジェクトが**すべ�
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】OCP（オープン・クローズドの原則）
+## 【深堀り③】Java 標準ライブラリにおける Chain of Responsibility パターンの例
+
+Java 標準ライブラリにおける Chain of Responsibility パターンの例として、`java.util.logging` パッケージの `Logger` クラスによるログ出力の仕組みを見ていきましょう。
+
+**`Logger.java`（抜粋）**
+
+```java
+public class Logger {
+    public void log(LogRecord record) {
+        if (!isLoggable(record.getLevel())) {
+            return;
+        }
+        Filter theFilter = config.filter;
+        if (theFilter != null && !theFilter.isLoggable(record)) {
+            return;
+        }
+
+        Logger logger = this;
+        while (logger != null) {
+            final Handler[] loggerHandlers = isSystemLogger
+                ? logger.accessCheckedHandlers()
+                : logger.getHandlers();
+
+            for (Handler handler : loggerHandlers) {
+                handler.publish(record);
+            }
+
+            final boolean useParentHdls = isSystemLogger
+                ? logger.config.useParentHandlers
+                : logger.getUseParentHandlers();
+
+            if (!useParentHdls) {
+                break;
+            }
+
+            logger = isSystemLogger ? logger.parent : logger.getParent();
+        }
+    }
+}
+```
+
+> 引用元: OpenJDK [Logger.java](https://github.com/openjdk/jdk/blob/master/src/java.logging/share/classes/java/util/logging/Logger.java)
+
+`isSystemLogger` に関する分岐は JDK 内部向けの最適化のための実装なので読み飛ばして構いません。
+
+`while` ループの中身を振り返ると、`Logger` クラスは、自分に登録された `Handler` クラスのインスタンス（`loggerHandlers`）すべてに対して `publish` メソッドを呼び出します。その後 `useParentHandlers` が `false` であればそこでループを抜け（`if (!useParentHdls)`）、`true` であれば `logger = logger.getParent()` によって親の `Logger` クラスへと処理を移し、同じ手順を繰り返します。
+
+本記事の `Approver` クラスは、`canApprove` メソッドが `true` を返したオブジェクトが処理した時点で鎖を止めます。一方 `Logger` クラスは、`useParentHandlers` が `false` になるか鎖の終端に達するまで `publish` メソッドの呼び出しを続けるため、鎖上のすべてのオブジェクトが処理に関与し続けます。この「途中で止まるか、最後まで関与し続けるか」という結果の違いはありますが、「自分自身で対応しきれない場合に、次のオブジェクトへ処理を委ねる」という構造は共通しており、`Logger` クラスも Chain of Responsibility パターンの一例だと言えます。
+
+先ほどの `Logger` クラスの「鎖上のすべてのオブジェクトが処理に関与し続ける」という結果だけを見ると、Decorator パターンと同じに見えるかもしれません（→ [Decorator パターンとの構造的な違い](#深堀り2)）。しかし両者を分けるのは、関与するオブジェクトの数ではなく、次のオブジェクトへ処理を委ねるかどうかを鎖上の各オブジェクトがその都度、条件で判断しているかどうかです。Decorator パターンは鎖の構造自体が全オブジェクトの関与を保証しており、途中で処理を打ち切る分岐がありません。対して `Logger` クラスは `useParentHandlers` という条件を各オブジェクトがその都度評価しており、鎖の末端まで関与が続くのはその条件判定の結果に過ぎません。次に委ねるかどうかをオブジェクト自身がその都度判断する、という構造こそが Chain of Responsibility パターンの本質です。
+
+<a id="深堀り4"></a>
+
+## 【深堀り④】OCP（オープン・クローズドの原則）
 
 正しい実装を振り返ると、承認権限のルールが変わる場合（例えば「新しい金額区分を追加する」場合）、`Approver` のサブクラスを新たに 1 つ追加し、`Main` クラス側で鎖に組み込むだけで済み、既存の `Approver` クラス、`Approver` のサブクラスには一切手を加える必要がありません。
 
@@ -540,59 +593,6 @@ public class Main {
 以上から、本記事では、金額の区切りの追加は修正範囲が閉じている一方、費目のような判定軸の追加では閉じていない、という非対称な設計となっています。
 
 実務では、この種の条件をサブクラスやメソッドとして増やしていくのではなく、`Predicate<ExpenseRequest>` インターフェースのような条件オブジェクトをコンストラクタで注入したり、承認ルールをデータベースや設定ファイルなどのデータとして持たせたりすることで、判定軸が増えてもコードを変更せずに対応できるようにするのが一般的です。
-
-<a id="深堀り4"></a>
-
-## 【深堀り④】Java 標準ライブラリにおける Chain of Responsibility パターンの例
-
-Java 標準ライブラリにおける Chain of Responsibility パターンの例として、`java.util.logging` パッケージの `Logger` クラスによるログ出力の仕組みを見ていきましょう。
-
-**`Logger.java`（抜粋）**
-
-```java
-public class Logger {
-    public void log(LogRecord record) {
-        if (!isLoggable(record.getLevel())) {
-            return;
-        }
-        Filter theFilter = config.filter;
-        if (theFilter != null && !theFilter.isLoggable(record)) {
-            return;
-        }
-
-        Logger logger = this;
-        while (logger != null) {
-            final Handler[] loggerHandlers = isSystemLogger
-                ? logger.accessCheckedHandlers()
-                : logger.getHandlers();
-
-            for (Handler handler : loggerHandlers) {
-                handler.publish(record);
-            }
-
-            final boolean useParentHdls = isSystemLogger
-                ? logger.config.useParentHandlers
-                : logger.getUseParentHandlers();
-
-            if (!useParentHdls) {
-                break;
-            }
-
-            logger = isSystemLogger ? logger.parent : logger.getParent();
-        }
-    }
-}
-```
-
-> 引用元: OpenJDK [Logger.java](https://github.com/openjdk/jdk/blob/master/src/java.logging/share/classes/java/util/logging/Logger.java)
-
-`isSystemLogger` に関する分岐は JDK 内部向けの最適化のための実装なので読み飛ばして構いません。
-
-`while` ループの中身を振り返ると、`Logger` クラスは、自分に登録された `Handler` クラスのインスタンス（`loggerHandlers`）すべてに対して `publish` メソッドを呼び出します。その後 `useParentHandlers` が `false` であればそこでループを抜け（`if (!useParentHdls)`）、`true` であれば `logger = logger.getParent()` によって親の `Logger` クラスへと処理を移し、同じ手順を繰り返します。
-
-本記事の `Approver` クラスは、`canApprove` メソッドが `true` を返したオブジェクトが処理した時点で鎖を止めます。一方 `Logger` クラスは、`useParentHandlers` が `false` になるか鎖の終端に達するまで `publish` メソッドの呼び出しを続けるため、鎖上のすべてのオブジェクトが処理に関与し続けます。この「途中で止まるか、最後まで関与し続けるか」という結果の違いはありますが、「自分自身で対応しきれない場合に、次のオブジェクトへ処理を委ねる」という構造は共通しており、`Logger` クラスも Chain of Responsibility パターンの一例だと言えます。
-
-先ほどの `Logger` クラスの「鎖上のすべてのオブジェクトが処理に関与し続ける」という結果だけを見ると、Decorator パターンと同じに見えるかもしれません（→ [Decorator パターンとの構造的な違い](#深堀り2)）。しかし両者を分けるのは、関与するオブジェクトの数ではなく、次のオブジェクトへ処理を委ねるかどうかを鎖上の各オブジェクトがその都度、条件で判断しているかどうかです。Decorator パターンは鎖の構造自体が全オブジェクトの関与を保証しており、途中で処理を打ち切る分岐がありません。対して `Logger` クラスは `useParentHandlers` という条件を各オブジェクトがその都度評価しており、鎖の末端まで関与が続くのはその条件判定の結果に過ぎません。次に委ねるかどうかをオブジェクト自身がその都度判断する、という構造こそが Chain of Responsibility パターンの本質です。
 
 <a id="深堀り5"></a>
 
