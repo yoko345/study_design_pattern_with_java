@@ -550,43 +550,49 @@ Java 標準ライブラリにおける Chain of Responsibility パターンの�
 **`Logger.java`（抜粋）**
 
 ```java
-public void log(LogRecord record) {
-    if (!isLoggable(record.getLevel())) {
-        return;
-    }
-    Filter theFilter = config.filter;
-    if (theFilter != null && !theFilter.isLoggable(record)) {
-        return;
-    }
-
-    Logger logger = this;
-    while (logger != null) {
-        final Handler[] loggerHandlers = isSystemLogger
-            ? logger.accessCheckedHandlers()
-            : logger.getHandlers();
-
-        for (Handler handler : loggerHandlers) {
-            handler.publish(record);
+public class Logger {
+    public void log(LogRecord record) {
+        if (!isLoggable(record.getLevel())) {
+            return;
+        }
+        Filter theFilter = config.filter;
+        if (theFilter != null && !theFilter.isLoggable(record)) {
+            return;
         }
 
-        final boolean useParentHdls = isSystemLogger
-            ? logger.config.useParentHandlers
-            : logger.getUseParentHandlers();
+        Logger logger = this;
+        while (logger != null) {
+            final Handler[] loggerHandlers = isSystemLogger
+                ? logger.accessCheckedHandlers()
+                : logger.getHandlers();
 
-        if (!useParentHdls) {
-            break;
+            for (Handler handler : loggerHandlers) {
+                handler.publish(record);
+            }
+
+            final boolean useParentHdls = isSystemLogger
+                ? logger.config.useParentHandlers
+                : logger.getUseParentHandlers();
+
+            if (!useParentHdls) {
+                break;
+            }
+
+            logger = isSystemLogger ? logger.parent : logger.getParent();
         }
-
-        logger = isSystemLogger ? logger.parent : logger.getParent();
     }
 }
 ```
 
 > 引用元: OpenJDK [Logger.java](https://github.com/openjdk/jdk/blob/master/src/java.logging/share/classes/java/util/logging/Logger.java)
 
-`isSystemLogger` に関する分岐は JDK 内部向けの最適化のための実装なので読み飛ばして構いません。注目すべきは `while` ループの本体です。`Logger` クラスは、自分に登録された `Handler` すべてに対して `publish` メソッドを呼び出したあと、`useParentHandlers` が `true` である限り、`logger = logger.getParent()` によって親の `Logger` クラスへと処理を移し、同じ手順を繰り返します。
+`isSystemLogger` に関する分岐は JDK 内部向けの最適化のための実装なので読み飛ばして構いません。
 
-本記事の `Approver` クラスでは、`canApprove` メソッドが `true` を返した最初の 1 人だけが処理を行い、そこで鎖が止まる仕組みでした。一方、`Logger` クラスの場合は、途中で処理を打ち切るのではなく、`useParentHandlers` が `false` になるか、親をたどりきるまで、鎖上のすべての `Logger` クラスの `Handler` が呼び出され続けます。「途中で条件に合った 1 人が処理して止まる」か「鎖上の全員が処理に関与し続ける」かの違いはありますが、「自分自身では対応しきれない場合に、鎖でつながった次のオブジェクトへ処理を委ねていく」という構造は、本記事の Chain of Responsibility パターンと共通しています。
+`while` ループの中身を振り返ると、`Logger` クラスは、自分に登録された `Handler` クラスのインスタンス（`loggerHandlers`）すべてに対して `publish` メソッドを呼び出します。その後 `useParentHandlers` が `false` であればそこでループを抜け（`if (!useParentHdls)`）、`true` であれば `logger = logger.getParent()` によって親の `Logger` クラスへと処理を移し、同じ手順を繰り返します。
+
+本記事の `Approver` クラスは、`canApprove` メソッドが `true` を返したオブジェクトが処理した時点で鎖を止めます。一方 `Logger` クラスは、`useParentHandlers` が `false` になるか鎖の終端に達するまで `publish` メソッドの呼び出しを続けるため、鎖上のすべてのオブジェクトが処理に関与し続けます。この「途中で止まるか、最後まで関与し続けるか」という結果の違いはありますが、「自分自身で対応しきれない場合に、次のオブジェクトへ処理を委ねる」という構造は共通しており、`Logger` クラスも Chain of Responsibility パターンの一例だと言えます。
+
+先ほどの `Logger` クラスの「鎖上のすべてのオブジェクトが処理に関与し続ける」という結果だけを見ると、Decorator パターンと同じに見えるかもしれません（→ [Decorator パターンとの構造的な違い](#深堀り2)）。しかし両者を分けるのは、関与するオブジェクトの数ではなく、次のオブジェクトへ処理を委ねるかどうかを鎖上の各オブジェクトがその都度、条件で判断しているかどうかです。Decorator パターンは鎖の構造自体が全オブジェクトの関与を保証しており、途中で処理を打ち切る分岐がありません。対して `Logger` クラスは `useParentHandlers` という条件を各オブジェクトがその都度評価しており、鎖の末端まで関与が続くのはその条件判定の結果に過ぎません。次に委ねるかどうかをオブジェクト自身がその都度判断する、という構造こそが Chain of Responsibility パターンの本質です。
 
 <a id="深堀り5"></a>
 
