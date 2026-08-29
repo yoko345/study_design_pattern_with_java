@@ -429,7 +429,7 @@ public class Main {
 
 実行結果を振り返ると、`ExecutiveApprover` クラスの `canApprove` メソッドは常に `true` を返すため、先頭に置くと常に役員が承認することになり、後続の主任・課長・部長には一切処理が回ってこなくなります。
 
-Chain of Responsibility パターンは、承認条件そのものを各 `Approver` のサブクラスへ分離してくれますが、オブジェクトをどの順番で鎖に繋ぐかという責任までは肩代わりしてくれません。並び順への依存は、`if-else` の並び順から `setNext` の呼び出し順へと形を変えて残っています。ただし、`if-else` ではその依存が金額や費目の判定ロジックと同じ条件分岐に埋もれていたのに対し、正しい実装では `Main` クラスでの鎖の組み立ての 1 か所に集約されているため、見直しや確認がしやすくなっています。
+Chain of Responsibility パターンは、承認条件そのものを各 `Approver` のサブクラスへ分離してくれますが、オブジェクトをどの順番で鎖に繋ぐかという責任までは肩代わりしてくれません。並び順への依存は、`if-else` の並び順から `setNext` メソッドの呼び出し順へと形を変えて残っています。ただし、`if-else` ではその依存が金額や費目の判定ロジックと同じ条件分岐に埋もれていたのに対し、正しい実装では `Main` クラスでの鎖の組み立ての 1 か所に集約されているため、見直しや確認がしやすくなっています。
 
 ### 鎖の終端まで到達した場合の安全策
 
@@ -526,7 +526,7 @@ public class Logger {
 
 > 引用元: OpenJDK [Logger.java](https://github.com/openjdk/jdk/blob/master/src/java.logging/share/classes/java/util/logging/Logger.java)
 
-`isSystemLogger` に関する分岐は JDK 内部向けの最適化のための実装なので読み飛ばして構いません。
+`isSystemLogger` に関する分岐は、`getHandlers` メソッドや `getUseParentHandlers` メソッドがサブクラスでオーバーライドされていても、システムロガーの内部動作がその影響を受けないようにするための実装です。Chain of Responsibility パターンの理解には関係しない部分なので、読み飛ばして構いません。
 
 `while` ループの中身を振り返ると、`Logger` クラスは自分に登録された `Handler` クラスのインスタンス（`loggerHandlers`）すべてに対して `publish` メソッドを呼び出します。その後、`useParentHandlers` が `false` であればそこでループを抜け（`if (!useParentHdls)`）、`true` であれば `logger = logger.getParent()` によって親の `Logger` クラスへと処理を移し、同じ手順を繰り返します。
 
