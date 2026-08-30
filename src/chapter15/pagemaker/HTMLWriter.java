@@ -32,9 +32,7 @@ class HTMLWriter {
 
     // リンクの出力
     public void link(String href, String caption) throws IOException {
-        writer.write("<a href=\"" + href + "\">");
-        writer.write(caption);
-        writer.write("</a>\n\n");
+        paragraph("<a href=\"" + href + "\">" + caption + "</a>");
     }
 
     // メールアドレスの出力
