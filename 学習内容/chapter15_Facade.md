@@ -19,7 +19,8 @@
 - [【深堀り①】Facade はサブシステムへの直接アクセスを禁止しない](#深堀り1)
 - [【深堀り②】デメテルの法則との関係](#深堀り2)
 - [【深堀り③】Java 標準ライブラリにおける Facade パターンの例](#深堀り3)
-- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
+- [【深堀り④】解消されない手順の複雑さへの対処法](#深堀り4)
+- [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
 
@@ -56,9 +57,12 @@ public class InventoryService {
     public boolean reserve(String productName, int quantity) {
         if (quantity > MAX_RESERVABLE_QUANTITY) {
             System.out.println(productName + "の在庫が不足しているため、確保できませんでした。");
+
             return false;
         }
+
         System.out.println(productName + "の在庫を" + quantity + "個確保しました。");
+
         return true;
     }
 }
@@ -87,9 +91,12 @@ public class PaymentService {
     public boolean charge(String customerName, int amount) {
         if (amount > CREDIT_LIMIT) {
             System.out.println(customerName + "様の決済に失敗しました（利用限度額を超えています）。");
+
             return false;
         }
+
         System.out.println(customerName + "様に" + amount + "円の決済処理を行いました。");
+
         return true;
     }
 }
@@ -116,9 +123,12 @@ public class ShippingService {
     public boolean arrange(String customerName, String productName) {
         if ("特大家具".equals(productName)) {
             System.out.println(customerName + "様宛の" + productName + "は配送手配できませんでした（大型商品のため）。");
+
             return false;
         }
+
         System.out.println(customerName + "様宛に" + productName + "の配送手配を行いました。");
+
         return true;
     }
 }
@@ -146,15 +156,19 @@ public class OrderProcessor {
 
     public void processOrder(String customerName, String productName, int quantity, int amount) {
         System.out.println(customerName + "様の注文を受け付けました。");
+
         if (!inventoryService.reserve(productName, quantity)) {
             return;
         }
+
         if (!paymentService.charge(customerName, amount)) {
             return;
         }
+
         if (!shippingService.arrange(customerName, productName)) {
             return;
         }
+
         System.out.println("注文が完了しました。");
     }
 }
@@ -226,9 +240,12 @@ public class InventoryService {
     public boolean reserve(String productName, int quantity) {
         if (quantity > MAX_RESERVABLE_QUANTITY) {
             System.out.println(productName + "の在庫が不足しているため、確保できませんでした。");
+
             return false;
         }
+
         System.out.println(productName + "の在庫を" + quantity + "個確保しました。");
+
         return true;
     }
 
@@ -251,9 +268,12 @@ public class PaymentService {
     public boolean charge(String customerName, int amount) {
         if (amount > CREDIT_LIMIT) {
             System.out.println(customerName + "様の決済に失敗しました（利用限度額を超えています）。");
+
             return false;
         }
+
         System.out.println(customerName + "様に" + amount + "円の決済処理を行いました。");
+
         return true;
     }
 
@@ -280,27 +300,34 @@ public class OrderProcessor {
 
     public void processOrder(String customerName, String productName, int quantity, int amount) {
         System.out.println(customerName + "様の注文を受け付けました。");
+
         if (!inventoryService.reserve(productName, quantity)) {
             /* ここを追加（ここから） */
             System.out.println("在庫確保に失敗したため、注文を中止しました。");
+
             /* ここを追加（ここまで） */
             return;
         }
+
         if (!paymentService.charge(customerName, amount)) {
             /* ここを追加（ここから） */
             System.out.println("決済に失敗したため、注文を中止しました。");
             inventoryService.release(productName, quantity);
+
             /* ここを追加（ここまで） */
             return;
         }
+
         if (!shippingService.arrange(customerName, productName)) {
             /* ここを追加（ここから） */
             System.out.println("配送手配に失敗したため、注文を中止しました。");
             paymentService.refund(customerName, amount);
             inventoryService.release(productName, quantity);
+
             /* ここを追加（ここまで） */
             return;
         }
+
         System.out.println("注文が完了しました。");
     }
 }
@@ -386,19 +413,25 @@ public class OrderFacade {
     public void placeOrder(String customerName, String productName, int quantity, int amount) {
         if (!inventoryService.reserve(productName, quantity)) {
             System.out.println("在庫確保に失敗したため、注文を中止しました。");
+
             return;
         }
+
         if (!paymentService.charge(customerName, amount)) {
             System.out.println("決済に失敗したため、注文を中止しました。");
             inventoryService.release(productName, quantity);
+
             return;
         }
+
         if (!shippingService.arrange(customerName, productName)) {
             System.out.println("配送手配に失敗したため、注文を中止しました。");
             paymentService.refund(customerName, amount);
             inventoryService.release(productName, quantity);
+
             return;
         }
+
         System.out.println("注文が完了しました。");
     }
 }
@@ -485,34 +518,62 @@ public class Main {
     - そのため、注文処理の手順が複雑になっても影響を受けにくくなる。
 - 注文処理の手順が変わる場合、`OrderFacade` クラスの `placeOrder` メソッド 1 箇所を修正するだけで済み、その他の既存のクラスに手を加える必要がなくなる。
 
+<br>
+
 ここで以下のように感じた方もいるのではないでしょうか？
 
 `OrderProcessor` クラスの `processOrder` メソッドの中身の一部を `OrderFacade` クラスの `placeOrder` メソッドに移しただけで、呼び出しの階層が 1 つ増えただけではないか？
 
 確かに、正しい実装①で `OrderFacade` クラスを呼び出しているのが `OrderProcessor` クラス 1 つだけのため、Facade パターンを挟むメリットを実感しにくいかもしれません。
 
+### シナリオ（追加）
+
 では、実務ではあるあるの次のような要件が追加で発生したとしましょう。
 
-> 一時的な障害により処理が滞留してしまった注文をまとめて、通常の注文受付と同じ一連の処理（取り消し処理を含む）を再度呼び出す仕組みが必要になりました。
+> 一時的な障害により処理が滞留してしまった注文をまとめて、通常の注文受付と同じ一連の処理（取り消し処理を含む）を再度呼び出す仕組みが必要になりました。ただし、これは新規の注文ではないため、注文受付のログは出力しないようにしてください。
 
-※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
+### 既存コードの仕様（追加）
 
-<a id="好ましくない実装2"></a>
+※実務では、次の `FailedOrder` クラスのようなエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
 
-## 好ましくない実装②
+- `FailedOrder`（既存クラス）
 
-まず、思いつくままに実装すると、次のようになるのではないでしょうか？
+失敗した注文の情報を保持するクラスです。
 
-※実務では、次の `FailedOrder` のようなエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
+| フィールド     | 型       | 説明       |
+| -------------- | -------- | ---------- |
+| `customerName` | `String` | 顧客名     |
+| `productName`  | `String` | 商品名     |
+| `quantity`     | `int`    | 数量       |
+| `amount`       | `int`    | 支払い金額 |
 
 **`FailedOrder.java`**
 
 ```java
 package example;
 
-public record FailedOrder(String customerName, String productName, int quantity, int amount) {
+public class FailedOrder {
+    private final String customerName;
+    private final String productName;
+    private final int quantity;
+    private final int amount;
+
+    public FailedOrder(String customerName, String productName, int quantity, int amount) {
+        this.customerName = customerName;
+        this.productName = productName;
+        this.quantity = quantity;
+        this.amount = amount;
+    }
+
+    // 各フィールドに対応する getter メソッドは省略
 }
 ```
+
+<a id="好ましくない実装2"></a>
+
+## 好ましくない実装②
+
+好ましくない実装①のコードを基に追加要件の実装をすると次のようになると思います。
 
 **`FailedOrderRetryProcessor.java`**
 
@@ -526,51 +587,46 @@ public class FailedOrderRetryProcessor {
 
     public void retryAll(List<FailedOrder> failedOrders) {
         for (FailedOrder failedOrder: failedOrders) {
-            String customerName = failedOrder.customerName();
-            String productName = failedOrder.productName();
-            int quantity = failedOrder.quantity();
-            int amount = failedOrder.amount();
+            String customerName = failedOrder.getCustomerName();
+            String productName = failedOrder.getProductName();
+            int quantity = failedOrder.getQuantity();
+            int amount = failedOrder.getAmount();
+
             if (!inventoryService.reserve(productName, quantity)) {
                 System.out.println("在庫確保に失敗したため、注文を中止しました。");
+
                 continue;
             }
+
             if (!paymentService.charge(customerName, amount)) {
                 System.out.println("決済に失敗したため、注文を中止しました。");
                 inventoryService.release(productName, quantity);
+
                 continue;
             }
+
             if (!shippingService.arrange(customerName, productName)) {
                 System.out.println("配送手配に失敗したため、注文を中止しました。");
                 paymentService.refund(customerName, amount);
                 inventoryService.release(productName, quantity);
+
                 continue;
             }
+
             System.out.println("注文が完了しました。");
         }
     }
 }
 ```
 
-`FailedOrderRetryProcessor` クラスの `retryAll` メソッドの中身を見ると、`OrderProcessor` クラスの `processOrder` メソッドに書いた在庫確保・決済処理・配送手配の手順と取り消し処理を、そのままコピーして書いていることが分かります。
-
-最後に、再試行の仕組みを呼び出す実行クラスを見ていきましょう。
-
-**`Main.java`**
+**`Main.java`（一部抜粋）**
 
 ```java
 package example;
 
 public class Main {
     public static void main(String[] args) {
-        OrderProcessor orderProcessor = new OrderProcessor();
-        orderProcessor.processOrder("鈴木", "ノートパソコン", 1, 120000);
-        System.out.println();
-        orderProcessor.processOrder("田中", "文房具セット", 15, 3000);
-        System.out.println();
-        orderProcessor.processOrder("佐藤", "デジタルカメラ", 1, 2000000);
-        System.out.println();
-        orderProcessor.processOrder("高橋", "特大家具", 1, 45000);
-        System.out.println();
+        // 既存の orderProcessor 呼び出しは省略（実行結果は好ましくない実装①と同じ）
 
         FailedOrderRetryProcessor retryProcessor = new FailedOrderRetryProcessor();
         List<FailedOrder> failedOrders = List.of(
@@ -581,33 +637,11 @@ public class Main {
 }
 ```
 
-**実行結果**
+既存の受注処理部分（4 件の注文）の実行結果は好ましくない実装①と同じため省略します。以下はリトライ処理分の実行結果のみを抜粋しています。
+
+**実行結果（一部抜粋）**
 
 ```
-鈴木様の注文を受け付けました。
-ノートパソコンの在庫を1個確保しました。
-鈴木様に120000円の決済処理を行いました。
-鈴木様宛にノートパソコンの配送手配を行いました。
-注文が完了しました。
-
-田中様の注文を受け付けました。
-文房具セットの在庫が不足しているため、確保できませんでした。
-在庫確保に失敗したため、注文を中止しました。
-
-佐藤様の注文を受け付けました。
-デジタルカメラの在庫を1個確保しました。
-佐藤様の決済に失敗しました（利用限度額を超えています）。
-決済に失敗したため、注文を中止しました。
-デジタルカメラの確保していた在庫1個を解放しました。
-
-高橋様の注文を受け付けました。
-特大家具の在庫を1個確保しました。
-高橋様に45000円の決済処理を行いました。
-高橋様宛の特大家具は配送手配できませんでした（大型商品のため）。
-配送手配に失敗したため、注文を中止しました。
-高橋様への45000円の決済を取り消しました。
-特大家具の確保していた在庫1個を解放しました。
-
 文房具セットの在庫を5個確保しました。
 田中様に3000円の決済処理を行いました。
 田中様宛に文房具セットの配送手配を行いました。
@@ -622,14 +656,17 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- `FailedOrderRetryProcessor` クラスの `retryAll` メソッドにも、`OrderProcessor` クラスに書いた在庫確保・決済処理・配送手配の手順と取り消しロジックが、まったく同じ内容のままコピーされてしまっている。
+- `FailedOrderRetryProcessor` クラスの `retryAll` メソッドに、`OrderProcessor` クラスの `processOrder` メソッドの「受付ログの出力」以外とまったく同じ内容がそのままコピーされてしまっている。
+    - このように、今後も同じ注文の処理手順を必要とする呼び出し元が増えるたびに、同様のコピーを持つクラスが量産されてしまう。
+- 手順変更が必要になった場合（取り消し処理の順序を変更するなど）、コピーされたすべてのクラスを漏れなく修正しなければならず、修正漏れが発生するリスクが高まる。
 
 <a id="正しい実装2"></a>
 
 ## 正しい実装②
 
-では、好ましくない実装②で挙げた問題点を解決するにはどうすればよいのでしょうか？<br>
-再試行の仕組みを、正しい実装①で用意した `OrderFacade` クラスを使って書き換えてみましょう。
+好ましくない実装②の問題点は、`OrderProcessor` クラスの手順をそのままコピーしてしまった点にありました。この手順はすでに正しい実装①で `OrderFacade` クラスという窓口に集約してあるため、コピーする代わりにこの `OrderFacade` クラスを呼び出すだけで解消でき、`FailedOrderRetryProcessor` クラス側で手順を再実装する必要もなくなります。
+
+では、実装を見ていきましょう。
 
 **`FailedOrderRetryProcessor.java`**
 
@@ -641,44 +678,20 @@ public class FailedOrderRetryProcessor {
 
     public void retryAll(List<FailedOrder> failedOrders) {
         for (FailedOrder failedOrder: failedOrders) {
-            orderFacade.placeOrder(failedOrder.customerName(), failedOrder.productName(),
-                    failedOrder.quantity(), failedOrder.amount());
+            orderFacade.placeOrder(failedOrder.getCustomerName(), failedOrder.getProductName(),
+                    failedOrder.getQuantity(), failedOrder.getAmount());
         }
     }
 }
 ```
 
-好ましくない実装②では `retryAll` メソッドに `OrderProcessor` クラスと同じ在庫確保・決済処理・配送手配の手順と取り消しロジックをコピーして書いていましたが、正しい実装の `FailedOrderRetryProcessor` クラスは `OrderFacade` クラスのインスタンスを 1 つ持ち、`placeOrder` メソッドを呼び出すだけになっています。複雑な手順をコードとして重複させることなく再利用できています。
+`FailedOrderRetryProcessor` クラスを振り返ると、`OrderFacade` クラスのインスタンスを 1 つ持ち、`OrderFacade` クラスの `placeOrder` メソッドを呼び出すだけになっています。
 
-最後に、実行結果を確認しましょう。`Main` クラスに変更はありません。
+`Main` クラスは好ましくない実装②と同じです。
 
-**実行結果**
+**実行結果（一部抜粋）**
 
 ```
-鈴木様の注文を受け付けました。
-ノートパソコンの在庫を1個確保しました。
-鈴木様に120000円の決済処理を行いました。
-鈴木様宛にノートパソコンの配送手配を行いました。
-注文が完了しました。
-
-田中様の注文を受け付けました。
-文房具セットの在庫が不足しているため、確保できませんでした。
-在庫確保に失敗したため、注文を中止しました。
-
-佐藤様の注文を受け付けました。
-デジタルカメラの在庫を1個確保しました。
-佐藤様の決済に失敗しました（利用限度額を超えています）。
-決済に失敗したため、注文を中止しました。
-デジタルカメラの確保していた在庫1個を解放しました。
-
-高橋様の注文を受け付けました。
-特大家具の在庫を1個確保しました。
-高橋様に45000円の決済処理を行いました。
-高橋様宛の特大家具は配送手配できませんでした（大型商品のため）。
-配送手配に失敗したため、注文を中止しました。
-高橋様への45000円の決済を取り消しました。
-特大家具の確保していた在庫1個を解放しました。
-
 文房具セットの在庫を5個確保しました。
 田中様に3000円の決済処理を行いました。
 田中様宛に文房具セットの配送手配を行いました。
@@ -691,17 +704,18 @@ public class FailedOrderRetryProcessor {
 
 実行結果は、好ましくない実装②とまったく同じになっています。
 
-再試行処理は `OrderProcessor` クラスを経由せず、`FailedOrderRetryProcessor` クラスから直接 `OrderFacade` クラスを呼び出しています。再試行処理は顧客からの新規注文ではないため受付ログは不要ですが、在庫確保・決済処理・配送手配とその取り消しという処理そのものは、通常の注文受付とまったく同じものが必要です。この手順を `OrderFacade` クラス 1 つに集約しておいたことで、`FailedOrderRetryProcessor` クラスは取り消しロジックを一切書かずに済んでいます。
-
 以上のような実装を行うと、以下のメリットがあります。
 
-- `OrderProcessor` クラスと `FailedOrderRetryProcessor` クラスのように、同じ手順を複数の呼び出し元から利用する場合でも、それぞれが `OrderFacade` クラスを呼び出すだけで済み、取り消しロジックを重複して実装する必要がない。
+- `FailedOrderRetryProcessor` クラスは `OrderProcessor` クラスと同様に、同じ手順が集約されている `OrderFacade` クラスを呼び出すだけで済む。
+    - そのため、今後も同じ注文の処理手順を必要とする呼び出し元が増えても、好ましくない実装②の問題点の「同様のコピーを持つクラスが量産されてしまう」ということが生じず、`OrderFacade` クラスを呼び出す修正だけとなる。
+- `OrderProcessor` クラスは受付ログの出力という固有の責務だけを、`FailedOrderRetryProcessor` クラスは再試行対象の抽出という固有の責務だけを持ち、在庫確保・決済処理・配送手配とその取り消しという共通の処理手順の責務は `OrderFacade` クラスに完全に分離されている。
+- 手順に変更が必要になった場合（取り消し処理の順序を変更するなど）、修正箇所が `OrderFacade` クラス 1 つに集約されているため、修正漏れが発生するリスクが低い。
 
-なお、`OrderFacade` クラスに手順の判断基準を集約したことで `OrderProcessor` クラスや `FailedOrderRetryProcessor` クラスはその複雑さから解放されますが、新しい手順（例えば「配送手配の後にポイントを付与する」）を追加する際に `placeOrder` メソッドを読み解いて正しい位置に処理を挿入する手間そのものがなくなるわけではありません。Facade パターンが解決するのは、手順に関する判断基準を呼び出し側から切り離すことであり、手順自体の複雑さを軽減することではない点には注意が必要です。
+なお、`OrderFacade` クラスに手順の判断基準を集約したことで、`OrderProcessor` クラスや `FailedOrderRetryProcessor` クラスはその複雑さから解放されます。ただし、Facade パターンが解決するのは、手順に関する判断基準を呼び出し側から切り離すことであり、手順自体の複雑さを軽減することではない点には注意が必要です（→ [解消されない手順の複雑さへの対処法](#深堀り4)）。
 
 ## まとめ
 
-正しい実装を振り返ると、`OrderFacade` クラスは在庫確保・決済処理・配送手配という処理が通ったときの手順と、失敗時の取り消し処理という複雑な手順をまとめて 1 つのメソッドに集約しました。`OrderProcessor` クラスと `FailedOrderRetryProcessor` クラスは、どちらもその窓口を呼び出すだけの薄い実装になり、複雑な手順を重複して書く必要がなくなっています。<br>
+正しい実装を振り返ると、`OrderFacade` クラスは在庫確保・決済処理・配送手配という処理が通ったときの手順と、失敗時の取り消し処理という複雑な手順をまとめて 1 つのメソッドに集約しています。`OrderProcessor`・`FailedOrderRetryProcessor` クラスは、どちらもその窓口を呼び出すだけの薄い実装になり、複雑な手順を重複して書く必要がなくなっています。<br>
 このように、Facade パターンは、複数のクラスにまたがる複雑な手順に対して、利用者が扱いやすい単純な窓口を 1 つ提供するパターンです。
 
 本記事の内容はここまでとなります。
@@ -796,7 +810,23 @@ public class ImageIO {
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】GoF デザインパターンとの位置づけ
+## 【深堀り④】解消されない手順の複雑さへの対処法
+
+正しい実装②で触れたとおり、`OrderFacade` クラスに手順を集約しても、手順そのものの複雑さは解消されません。具体的には、次のような点が残ります。
+
+- 新しい手順（例えば「配送手配の後にポイントを付与する」）を追加する際に、`placeOrder` メソッドを読み解いて正しい位置に処理を挿入する手間
+- 取り消しの順序を注意深く実装する必要がある点
+- 処理の後半で失敗するほど、条件分岐の中身が肥大化していく点
+
+このうち、取り消しの順序管理と条件分岐の肥大化については、実務では「成功した処理の取り消し操作をその都度スタックのようなデータ構造に積んでおき、失敗時にはそのスタックを逆順に取り出しながら取り消しを実行する」という補償トランザクションの考え方（分散処理の世界では Saga パターンとも呼ばれます）で解消できます。この方式では、新しい手順を追加する際も「処理を呼び出し、その取り消し操作を積む」という同じ形を繰り返すだけで済み、取り消しの順序をコードの各所に手動で書き並べる必要がなくなります。
+
+一方、新しい手順をどこに追加すべきかを判断する手間は、この方式でも解消されません。これは、複数の処理を 1 つの手順としてまとめている以上避けられない制約であり、Facade パターンが担う責務の範囲外です。
+
+詳しくは「補償トランザクション」や「Saga パターン」で検索してみてください。
+
+<a id="深堀り5"></a>
+
+## 【深堀り⑤】GoF デザインパターンとの位置づけ
 
 今回使った Facade パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「構造パターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
