@@ -29,7 +29,7 @@
 
 > あなたは通販サイトの注文処理システムの開発チームに所属しています。<br>
 > 担当している通販サイトは、急ピッチでプレリリースしたものです。<br>
-> 現在、注文を受け付けると「在庫を確保し、決済処理を行い、配送手配をする」という一連の処理を、専用のクラスが順に呼び出す仕組みが実装されています。処理が失敗することもあり得ることを考慮して、失敗した場合はその時点で処理を中止する、という単純な作りでリリースしました。そのため、途中まで確保・決済済みの内容を元に戻す処理は実装していません。<br>
+> 現在、注文を受け付けると「在庫を確保し、決済処理を行い、配送手配をする」という一連の処理を、専用のクラスが順に呼び出す仕組みが実装されています。処理が失敗することもあり得ることを考慮して、失敗した場合はその時点で処理を中止する、という単純な作りでリリースしました。<br>
 > ある日、配送手配が失敗した注文を調査したところ、在庫だけが確保されたまま、あるいは決済だけが完了したままになっているケースが複数件見つかりました。<br>
 > 本格リリースに向けて、あなたは注文処理が途中で失敗した際に、それまでの処理を取り消す仕組みを追加することになりました。
 
@@ -51,7 +51,7 @@
 package example;
 
 public class InventoryService {
-    private static final int MAX_RESERVABLE_QUANTITY = 10; // 1 回の注文で確保できる最大数量を表す定数
+    private static final int MAX_RESERVABLE_QUANTITY = 10;
 
     public boolean reserve(String productName, int quantity) {
         if (quantity > MAX_RESERVABLE_QUANTITY) {
@@ -63,6 +63,8 @@ public class InventoryService {
     }
 }
 ```
+
+※ `MAX_RESERVABLE_QUANTITY` の `10` は、1 回の注文で確保できる最大数量を表す想定値です。
 
 <br>
 
@@ -80,7 +82,7 @@ public class InventoryService {
 package example;
 
 public class PaymentService {
-    private static final int CREDIT_LIMIT = 1_000_000; // 1 回の決済で許容する利用限度額を表す定数
+    private static final int CREDIT_LIMIT = 1_000_000;
 
     public boolean charge(String customerName, int amount) {
         if (amount > CREDIT_LIMIT) {
@@ -92,6 +94,8 @@ public class PaymentService {
     }
 }
 ```
+
+※ `CREDIT_LIMIT` の `1_000_000` は、1 回の決済で許容する利用限度額を表す想定値です。
 
 <br>
 
@@ -217,7 +221,7 @@ public class Main {
 package example;
 
 public class InventoryService {
-    private static final int MAX_RESERVABLE_QUANTITY = 10; // 1 回の注文で確保できる最大数量を表す定数
+    private static final int MAX_RESERVABLE_QUANTITY = 10;
 
     public boolean reserve(String productName, int quantity) {
         if (quantity > MAX_RESERVABLE_QUANTITY) {
@@ -242,7 +246,7 @@ public class InventoryService {
 package example;
 
 public class PaymentService {
-    private static final int CREDIT_LIMIT = 1_000_000; // 1 回の決済で許容する利用限度額を表す定数
+    private static final int CREDIT_LIMIT = 1_000_000;
 
     public boolean charge(String customerName, int amount) {
         if (amount > CREDIT_LIMIT) {
@@ -261,7 +265,8 @@ public class PaymentService {
 }
 ```
 
-次に、`OrderProcessor` クラスの `processOrder` メソッドに、失敗時の取り消し処理を追記する必要がありますが、真っ先に思いつくのは、この取り消し処理をそのまま `processOrder` メソッドに書き加えていく、という実装ではないでしょうか？
+次に、`OrderProcessor` クラスの `processOrder` メソッドに、失敗時の取り消し処理を追記する必要があります。<br>
+こちらの実装に関して真っ先に思いつくのは、取り消し処理をそのまま `processOrder` メソッドに書き加えていく、という実装ではないでしょうか？
 
 **`OrderProcessor.java`**
 
@@ -301,7 +306,26 @@ public class OrderProcessor {
 }
 ```
 
-最後に、実行結果を確認しましょう。`Main` クラスに変更はありません。
+- `Main`（既存コードの仕様から変更はありません）
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        OrderProcessor orderProcessor = new OrderProcessor();
+        orderProcessor.processOrder("鈴木", "ノートパソコン", 1, 120000);
+        System.out.println();
+        orderProcessor.processOrder("田中", "文房具セット", 15, 3000);
+        System.out.println();
+        orderProcessor.processOrder("佐藤", "デジタルカメラ", 1, 2000000);
+        System.out.println();
+        orderProcessor.processOrder("高橋", "特大家具", 1, 45000);
+    }
+}
+```
 
 **実行結果**
 
@@ -335,8 +359,8 @@ public class OrderProcessor {
 
 しかし、この実装には以下の問題点があります。
 
-- `OrderProcessor` クラスの `processOrder` メソッドの中に、処理が通ったときの 3 手順に加えて、失敗パターンごとの取り消し処理（`release`・`refund` メソッドの呼び出しとその順序）がすべて書き込まれており、`processOrder` メソッドの中が長くなり読みにくくなる。しかも手順が後の方で失敗するほど取り消し処理の呼び出しは増えていくため、後半の条件分岐ほど中身が肥大化していく。
-- 取り消しの順序についての判断基準が `OrderProcessor` クラス 1 つに集中しており、呼び出し側であるはずの `OrderProcessor` が、本来意識する必要のない注文処理の詳細な手順にまで責任を持ってしまっている。
+- `OrderProcessor` クラスの `processOrder` メソッドの中に、処理が通ったときの 3 手順に加えて、失敗パターンごとの取り消し処理（`release`・`refund` メソッドの呼び出しとその順序）がすべて書き込まれており、`processOrder` メソッドの中が長くなり可読性が悪くなる。
+- 取り消しの順序についての判断基準を、呼び出し側であるはずの `OrderProcessor` 自身が持ってしまっており、本来は意識する必要のない注文処理の詳細な手順にまで責任を負ってしまっている。
 
 <a id="正しい実装1"></a>
 
@@ -346,6 +370,8 @@ public class OrderProcessor {
 
 これらの問題を解決するのが **Facade パターン**です。<br>
 在庫確保・決済処理・配送手配、及びそれらの失敗時の取り消し処理までを含めた一連の手順を「窓口」となる 1 つのクラスにまとめることで、呼び出し側は手順の複雑さを意識せず、窓口となるクラスのメソッドを呼び出すだけで済むようになります。
+
+まず、一連の手順の「窓口」となるクラスから見ていきましょう。
 
 **`OrderFacade.java`**
 
@@ -378,9 +404,10 @@ public class OrderFacade {
 }
 ```
 
-`OrderFacade` は新たに追加したクラスで、既存の `InventoryService`・`PaymentService`・`ShippingService` クラスをフィールドとして保持し、`placeOrder` メソッド 1 つに処理が通ったときの手順と取り消しの手順をまとめています。手順自体は好ましくない実装①の `OrderProcessor` クラスにあったものと同じですが、この手順を知っているクラスが `OrderFacade` という 1 箇所に集約された点が異なります。
+`OrderFacade` は新たに追加したクラスで、手順自体は好ましくない実装①の `OrderProcessor` クラスにあったものと同じで、既存の `InventoryService`・`PaymentService`・`ShippingService` クラスをフィールドとして保持しています。また、`placeOrder` メソッドに処理が通ったときの手順と取り消しの手順をまとめています。<br>
+確かに `OrderProcessor` クラスの名称を変更しただけのように感じますが、一連の処理を知っているクラスが `OrderFacade` という 1 箇所に集約された点が設計思想として異なります。
 
-続いて、`OrderProcessor` クラスを見ていきましょう。
+次に、`OrderFacade` クラスを呼び出すクラスを見ていきましょう。
 
 **`OrderProcessor.java`**
 
@@ -397,9 +424,28 @@ public class OrderProcessor {
 }
 ```
 
-`OrderProcessor` クラスを振り返ると、好ましくない実装①では処理が通ったときの手順と取り消しの手順をすべて自身の `processOrder` メソッドに直接書いていましたが、正しい実装①では `OrderFacade` クラスのインスタンスを 1 つ持ち、`placeOrder` メソッドを呼び出すだけになっています。
+`OrderProcessor` は新たに追加したクラスで、`OrderFacade` クラスのインスタンスを 1 つ持ち、`processOrder` メソッド内で `placeOrder` メソッドを呼び出しています。
 
-最後に、実行結果を確認しましょう。`Main` クラスに変更はありません。
+- `Main`（既存コードの仕様から変更はありません）
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        OrderProcessor orderProcessor = new OrderProcessor();
+        orderProcessor.processOrder("鈴木", "ノートパソコン", 1, 120000);
+        System.out.println();
+        orderProcessor.processOrder("田中", "文房具セット", 15, 3000);
+        System.out.println();
+        orderProcessor.processOrder("佐藤", "デジタルカメラ", 1, 2000000);
+        System.out.println();
+        orderProcessor.processOrder("高橋", "特大家具", 1, 45000);
+    }
+}
+```
 
 **実行結果**
 
@@ -429,14 +475,23 @@ public class OrderProcessor {
 特大家具の確保していた在庫1個を解放しました。
 ```
 
-実行結果は、好ましくない実装①とまったく同じになっています。
+実行結果を振り返ると、好ましくない実装①と同じ結果になっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 注文処理の手順が変わる場合、`OrderFacade` クラスの `placeOrder` メソッド 1 箇所を修正するだけで済み、`OrderProcessor` クラスは変更する必要がない。
-- `OrderProcessor` クラスは在庫確保・決済処理・配送手配それぞれの成否や取り消しの順序を意識する必要がなくなり、手順が複雑になっても影響を受けにくくなる。
+- `OrderProcessor` クラスの `processOrder` メソッドの中身が、受付ログの出力と `OrderFacade` クラスの `placeOrder` メソッドの呼び出しの 2 行だけになり、可読性が向上する。
+    - これは、処理が通ったときの 3 手順や失敗パターンごとの取り消し処理が `OrderFacade` クラスの `placeOrder` メソッドに移ったためである。
+- `OrderProcessor` クラスは在庫確保・決済処理・配送手配それぞれの成否や取り消しの順序を意識する必要がなくなる。
+    - そのため、注文処理の手順が複雑になっても影響を受けにくくなる。
+- 注文処理の手順が変わる場合、`OrderFacade` クラスの `placeOrder` メソッド 1 箇所を修正するだけで済み、その他の既存のクラスに手を加える必要がなくなる。
 
-ここまでの実装では `OrderFacade` クラスを呼び出しているのは `OrderProcessor` クラス 1 つだけのため、Facade パターンを挟むメリットを実感しにくいかもしれません。そこで、次のような要件が追加で発生したとしましょう。
+ここで以下のように感じた方もいるのではないでしょうか？
+
+`OrderProcessor` クラスの `processOrder` メソッドの中身の一部を `OrderFacade` クラスの `placeOrder` メソッドに移しただけで、呼び出しの階層が 1 つ増えただけではないか？
+
+確かに、正しい実装①で `OrderFacade` クラスを呼び出しているのが `OrderProcessor` クラス 1 つだけのため、Facade パターンを挟むメリットを実感しにくいかもしれません。
+
+では、実務ではあるあるの次のような要件が追加で発生したとしましょう。
 
 > 一時的な障害により処理が滞留してしまった注文をまとめて、通常の注文受付と同じ一連の処理（取り消し処理を含む）を再度呼び出す仕組みが必要になりました。
 
