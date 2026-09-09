@@ -337,7 +337,7 @@ public class OrderProcessor {
 }
 ```
 
-- `Main`（既存コードの仕様から変更はありません）
+`Main` クラスは、既存コードの仕様から変更していません。
 
 **`Main.java`**
 
@@ -467,7 +467,7 @@ public class OrderProcessor {
 
 `OrderProcessor` クラスを振り返ると、既存の仕様にあった `InventoryService`・`PaymentService`・`ShippingService` の 3 つのフィールドが `OrderFacade` フィールド 1 つに置き換わり、`processOrder` メソッドの中身も `placeOrder` メソッドを呼び出すだけになっています。
 
-- `Main`（既存コードの仕様から変更はありません）
+`Main` クラスは、既存コードの仕様から変更していません。
 
 **`Main.java`**
 
@@ -792,7 +792,7 @@ public class OrderFacade {
 
 ※スタックの実装には `java.util.Stack` ではなく `java.util.Deque`（`java.util.ArrayDeque`）を使っています。`Stack` は内部で同期化されている古いクラスで、単純なスタック用途であれば `Deque` の使用が推奨されているためです。
 
-処理が成功するたびに、その取り消し操作を `compensations`（`Deque` インタフェースをスタックとして利用）に `push` メソッドで積んでいます。失敗時は `compensations.forEach(Runnable::run)` でスタックの中身を取り出していますが、`push` メソッドは先頭に要素を追加するため、成功した順序とは逆順（後入れ先出し）で取り消しが実行されます。
+処理が成功するたびに、その取り消し操作を `compensations`（`Deque` インターフェースをスタックとして利用）に `push` メソッドで積んでいます。失敗時は `compensations.forEach(Runnable::run)` でスタックの中身を取り出していますが、`push` メソッドは先頭に要素を追加するため、成功した順序とは逆順（後入れ先出し）で取り消しが実行されます。
 
 一方、新しい手順をどこに追加すべきかを判断する手間は、上記の方式でも解消されません。これは、複数の処理を 1 つの手順としてまとめている以上避けられない制約であり、Facade パターンが担う責務の範囲外です。
 
@@ -810,7 +810,7 @@ public class OrderFacade {
 
 ### デフォルトによるアクセス制限
 
-Java では「アクセスを `Facade` 経由に限定する」設計を言語機能で実現できます。
+Java では「アクセスを窓口経由に限定する」設計を言語機能で実現できます。
 
 まず、`InventoryService`・`PaymentService`・`ShippingService`・`OrderFacade` クラスを別パッケージに切り出します。<br>
 次に、サブシステムクラスのアクセス修飾子を `public` ではなくデフォルト（アクセス修飾子を省略した状態で、パッケージプライベートとも呼ばれる）にし、`OrderFacade` クラスだけを `public` にします。<br>
