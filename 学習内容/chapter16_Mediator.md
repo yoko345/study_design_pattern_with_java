@@ -107,8 +107,8 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
-        TransportRobot robotA = new TransportRobot("RobotA", 0);
-        TransportRobot robotB = new TransportRobot("RobotB", 0);
+        TransportRobot robotA = new TransportRobot("ロボットA", 0);
+        TransportRobot robotB = new TransportRobot("ロボットB", 0);
         robotA.setPartner(robotB);
         robotB.setPartner(robotA);
 
@@ -124,9 +124,9 @@ public class Main {
 **実行結果**
 
 ```
-RobotA: レーン1に進入しました
-RobotB: レーン1はRobotAが使用中のため待機します
-RobotB: レーン2に進入しました
+ロボットA: レーン1に進入しました
+ロボットB: レーン1はロボットAが使用中のため待機します
+ロボットB: レーン2に進入しました
 ```
 
 ※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
@@ -141,9 +141,6 @@ RobotB: レーン2に進入しました
 
 ```java
 package example;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class TransportRobot {
     private String name;
@@ -195,11 +192,11 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
-        TransportRobot robotA = new TransportRobot("RobotA", 0);
-        TransportRobot robotB = new TransportRobot("RobotB", 0);
-        TransportRobot robotC = new TransportRobot("RobotC", 0);
-        TransportRobot robotD = new TransportRobot("RobotD", 0);
-        TransportRobot robotE = new TransportRobot("RobotE", 0);
+        TransportRobot robotA = new TransportRobot("ロボットA", 0);
+        TransportRobot robotB = new TransportRobot("ロボットB", 0);
+        TransportRobot robotC = new TransportRobot("ロボットC", 0);
+        TransportRobot robotD = new TransportRobot("ロボットD", 0);
+        TransportRobot robotE = new TransportRobot("ロボットE", 0);
 
         robotA.addOtherRobot(robotB);
         robotA.addOtherRobot(robotC);
@@ -240,18 +237,18 @@ public class Main {
 **実行結果**
 
 ```
-RobotA: レーン1に進入しました
-RobotB: レーン1はRobotAが使用中のため待機します
-RobotB: レーン2に進入しました
+ロボットA: レーン1に進入しました
+ロボットB: レーン1はロボットAが使用中のため待機します
+ロボットB: レーン2に進入しました
 
-RobotE: レーン3に進入しました
-RobotD: レーン3に進入しました
+ロボットE: レーン3に進入しました
+ロボットD: レーン3に進入しました
 ```
 
-実行結果を振り返ると、`RobotA` と `RobotB` においては `RobotB` が `RobotA` の存在を検知してレーン 1 への進入を待機しており、正しく衝突を回避できています。<br>
-一方、`RobotD` と `RobotE` においては `RobotD` が `RobotE` のいるレーン 3 に同時に進入しているため、衝突の回避ができていません。
+実行結果を振り返ると、`ロボットA` と `ロボットB` においては `ロボットB` が `ロボットA` の存在を検知してレーン 1 への進入を待機しており、正しく衝突を回避できています。<br>
+一方、`ロボットD` と `ロボットE` においては `ロボットD` が `ロボットE` のいるレーン 3 に同時に進入しているため、衝突の回避ができていません。
 
-この原因は、`RobotD` の登録処理にあります。`robotD.addOtherRobot(robotE)` の呼び出しだけが漏れているため、`robotA`・`robotB`・`robotC` の登録しかされていません。そのため、`RobotD` は `RobotE` の存在を知らないまま `enterLane` メソッドを呼び出すため、`RobotE` がレーン 3 にいることを検知できず、そのまま進入してしまいました。
+この原因は、`ロボットD` の登録処理にあります。`robotD.addOtherRobot(robotE)` の呼び出しだけが漏れているため、`robotA`・`robotB`・`robotC` の登録しかされていません。そのため、`ロボットD` は `ロボットE` の存在を知らないまま `enterLane` メソッドを呼び出すため、`ロボットE` がレーン 3 にいることを検知できず、そのまま進入してしまいました。
 
 このように、この実装には、次のような問題点があります。
 
@@ -262,19 +259,10 @@ RobotD: レーン3に進入しました
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-これらの問題を解決するのが **Mediator パターン**です。ロボット同士が直接確認し合うのをやめ、レーンの空き状況を一元管理する仲介役のクラスを新たに用意することで、ロボットの台数が増えても、既存のロボット同士の参照を配線し直す必要がなくなります。
+これらの問題を解決するのが **Mediator パターン**です。<br>
+ロボット同士が直接確認し合うのをやめ、レーンの空き状況を一元管理する仲介役のクラスを新たに用意することで、ロボットの台数が増えても、既存のロボット同士の参照を配線し直す必要がなくなります。
 
-まず、ロボットと仲介役に共通する振る舞いを定義するインターフェースから見ていきましょう。
-
-**`Mediator.java`**
-
-```java
-package example;
-
-public interface Mediator {
-    void requestEnterLane(Colleague colleague, int lane);
-}
-```
+まず、ロボット側に共通する振る舞いを定義するインターフェースから見ていきましょう。
 
 **`Colleague.java`**
 
@@ -286,16 +274,17 @@ public interface Colleague {
 
     String getName();
 
+    int getCurrentLane();
+
     void onLaneGranted(int lane);
 
     void onLaneDenied(int lane, String occupiedBy);
 }
 ```
 
-インターフェース `Mediator` は、ロボットからレーンへの進入要求を受け取る `requestEnterLane` メソッドを 1 つだけ持ちます。<br>
-インターフェース `Colleague` は、`Mediator` インターフェースを設定する `setMediator` メソッドと、`Mediator` インターフェースから進入の可否を伝えられる `onLaneGranted` メソッド・`onLaneDenied` メソッドを持ちます。ロボットはこの 2 つのメソッドで結果を受け取るだけでよく、他のロボットの状態を自分で確認する必要がなくなります。
+`Colleague` は新たに追加したインターフェースで、`Mediator` インターフェースを設定する `setMediator` メソッドと、`Mediator` インターフェースから進入の可否を伝えられる `onLaneGranted`・`onLaneDenied` メソッドを持ちます。また、`getName`・`getCurrentLane` メソッドは、`Colleague` インターフェースを実装したクラスが `Colleague` インターフェースだけを通じてロボットの状態を参照するためのものです。
 
-次に、`Colleague` を実装した `TransportRobot` クラスを見ていきましょう。
+次に、インターフェース `Colleague` を実装したクラスを見ていきましょう。
 
 **`TransportRobot.java`**
 
@@ -303,7 +292,7 @@ public interface Colleague {
 package example;
 
 public class TransportRobot implements Colleague {
-    private final String name;
+    private String name;
     private int currentLane;
     private Mediator mediator;
 
@@ -322,6 +311,7 @@ public class TransportRobot implements Colleague {
         return name;
     }
 
+    @Override
     public int getCurrentLane() {
         return currentLane;
     }
@@ -343,41 +333,57 @@ public class TransportRobot implements Colleague {
 }
 ```
 
-`TransportRobot` クラスを振り返ると、好ましくない実装にあった `otherRobots` フィールドと `addOtherRobot` メソッドがなくなりました。レーンへの進入は `requestEnterLane` メソッドで `mediator` に要求するだけで、判定結果は `onLaneGranted` メソッドまたは `onLaneDenied` メソッドとして受け取ります。
+`TransportRobot` クラスを振り返ると、インターフェース `Colleague` を実装しています。これにより、`getName`・`getCurrentLane` メソッドはオーバーライドされています。また、既存の仕様にあった `partner` フィールドと `setPartner` メソッドが、`mediator` フィールドと `setMediator` メソッドに置き換わっています。さらに、衝突判定を行っていた `enterLane` メソッドがなくなり、レーンへの進入は `requestEnterLane` メソッドで `mediator` に要求するだけとなり、判定結果は `onLaneGranted`・`onLaneDenied` メソッドの引数として渡された内容だけを利用します。
 
-続いて、`Mediator` を実装した仲介役のクラスを見ていきましょう。
+次に、仲介役に共通する振る舞いを定義するインターフェースを見ていきましょう。
 
-**`FleetController.java`**
+**`Mediator.java`**
 
 ```java
 package example;
 
-import java.util.ArrayList;
-import java.util.List;
+public interface Mediator {
+    void requestEnterLane(Colleague colleague, int lane);
+}
+```
 
-public class FleetController implements Mediator {
-    private final List<TransportRobot> robots = new ArrayList<>();
+`Mediator` は新たに追加したインターフェースで、ロボットからレーンへの進入要求を受け取る `requestEnterLane` メソッドを 1 つだけ持ちます。
 
-    public void addRobot(TransportRobot robot) {
+次に、インターフェース `Mediator` を実装したクラスを見ていきましょう。
+
+**`RobotManager.java`**
+
+```java
+package example;
+
+public class RobotManager implements Mediator {
+    private final List<Colleague> robots = new ArrayList<>();
+
+    public void addRobot(Colleague robot) {
         robots.add(robot);
         robot.setMediator(this);
     }
 
     @Override
     public void requestEnterLane(Colleague colleague, int lane) {
-        for (TransportRobot robot: robots) {
+        for (Colleague robot: robots) {
             if (robot != colleague && robot.getCurrentLane() == lane) {
                 colleague.onLaneDenied(lane, robot.getName());
+
                 return;
             }
         }
+
         colleague.onLaneGranted(lane);
     }
 }
 ```
 
-`FleetController` クラスは、登録された全ロボット（`robots` フィールド）を一元管理する仲介役です。`addRobot` メソッドでロボットを登録すると同時に、`robot.setMediator(this)` を呼び出し、自分自身をそのロボットの仲介役として設定します。<br>
-`requestEnterLane` メソッドの中身を振り返ると、要求元のロボット自身（`colleague`）を除いた登録済みの全ロボットを確認し、指定したレーンを使用中のロボットが 1 台でもいれば `onLaneDenied` メソッドで待機を伝え、いなければ `onLaneGranted` メソッドで進入を許可します。好ましくない実装では各ロボットが個別に持っていた判定ロジックが、`FleetController` クラス 1 箇所に集約されています。
+`RobotManager` は新たに追加されたクラスで、`robots` フィールドに登録済みの全ロボットを保持します。<br>
+`addRobot` メソッドでロボットを登録すると同時に、`robot.setMediator(this)` を呼び出し、自分自身をそのロボットの仲介役として設定します。<br>
+`requestEnterLane` メソッドでは、要求元のロボット自身を除いて登録済みの全ロボットを確認し、指定したレーンを使用中のロボットが 1 台でもいれば `onLaneDenied` メソッドで待機を伝え、いなければ `onLaneGranted` メソッドで進入を許可します。
+
+最後に、実行クラスを見てみましょう。
 
 **`Main.java`**
 
@@ -386,19 +392,25 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
-        FleetController fleetController = new FleetController();
+        RobotManager robotManager = new RobotManager();
 
-        TransportRobot robotA = new TransportRobot("RobotA", 0);
-        TransportRobot robotB = new TransportRobot("RobotB", 0);
-        TransportRobot robotC = new TransportRobot("RobotC", 0);
-        TransportRobot robotD = new TransportRobot("RobotD", 0);
-        TransportRobot robotE = new TransportRobot("RobotE", 0);
+        TransportRobot robotA = new TransportRobot("ロボットA", 0);
+        TransportRobot robotB = new TransportRobot("ロボットB", 0);
+        TransportRobot robotC = new TransportRobot("ロボットC", 0);
+        TransportRobot robotD = new TransportRobot("ロボットD", 0);
+        TransportRobot robotE = new TransportRobot("ロボットE", 0);
 
-        fleetController.addRobot(robotA);
-        fleetController.addRobot(robotB);
-        fleetController.addRobot(robotC);
-        fleetController.addRobot(robotD);
-        fleetController.addRobot(robotE);
+        robotManager.addRobot(robotA);
+        robotManager.addRobot(robotB);
+        robotManager.addRobot(robotC);
+        robotManager.addRobot(robotD);
+        robotManager.addRobot(robotE);
+
+        robotA.requestEnterLane(1);
+        robotB.requestEnterLane(1);
+        robotB.requestEnterLane(2);
+
+        System.out.println();
 
         robotE.requestEnterLane(3);
         robotD.requestEnterLane(3);
@@ -409,22 +421,30 @@ public class Main {
 **実行結果**
 
 ```
-RobotE: レーン3に進入しました
-RobotD: レーン3はRobotEが使用中のため待機します
+ロボットA: レーン1に進入しました
+ロボットB: レーン1はロボットAが使用中のため待機します
+ロボットB: レーン2に進入しました
+
+ロボットE: レーン3に進入しました
+ロボットD: レーン3はロボットEが使用中のため待機します
 ```
 
-`Main` クラスを振り返ると、ロボットの登録は `fleetController.addRobot(robotX)` を 1 回呼び出すだけで済み、好ましくない実装にあった、ロボット同士を総当たりで登録する処理がなくなりました。新しいロボットを追加する場合も、`FleetController` に登録する 1 行を追加するだけでよく、既存のロボットのクラスや `Main` クラスの他の部分を変更する必要はありません。<br>
-実行結果を振り返ると、`RobotD` が `RobotE` の存在を正しく検知し、待機する結果になっています。好ましくない実装で発生していた、レーンへの同時進入という不具合が解消されました。
+`Main` クラスを振り返ると、`RobotManager` のインスタンスを 1 つ生成しています。また、既存の仕様にあった、ロボット同士が `setPartner` メソッドで互いを直接設定し合う処理がなくなり、`robotManager.addRobot(robotX)` を 1 回呼び出すだけで登録が完了するようになっています。さらに、レーンへの進入も `enterLane` メソッドの呼び出しから `requestEnterLane` メソッドの呼び出しに置き換わっています。
+
+実行結果を振り返ると、`ロボットA` と `ロボットB` においては既存コードの結果と一致しています。また、`ロボットD` と `ロボットE` においては `ロボットD` が `ロボットE` の存在を正しく検知し、待機する結果になっています。これにより、好ましくない実装で発生していた、レーンへの同時進入という不具合が解消されています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- ロボットの台数が増える場合、`FleetController` クラスに `addRobot` メソッドで登録するだけでよく、既存のロボットのクラス同士を相互に配線し直す必要がない。
-- レーンの空き状況を判定するロジックが `FleetController` クラスの `requestEnterLane` メソッドに集約されているため、判定ルールを変更する場合も修正箇所が 1 箇所で済む。
+- ロボットの台数が増えても、`RobotManager` クラスに `addRobot` メソッドで登録するだけでよく、好ましくない実装の問題点にあった「相互登録」による不具合がすべて解消されている。
+    - これは、`RobotManager` クラスがインターフェース `Colleague` の型を通じてロボットを扱うため、ロボットの具象クラスを一切知らずに済むためである。
+- レーンの空き状況を判定するロジックが `RobotManager` クラスの `requestEnterLane` メソッドに集約されているため、`TransportRobot` クラスは自身の名前・現在のレーンといった状態と、指定されたレーンに移動するという振る舞いだけの責務になっている。
+    - その結果、判定ルールが変更（例えば「優先度の高いロボットを優先させる」）したとしても、`RobotManager` クラスの `requestEnterLane` メソッドの修正だけで済み、責務が混在して複雑になるということが生じない。
+    - また、ロボット自身は `onLaneGranted`・`onLaneDenied` メソッドで判定結果を受け取るだけでよく、他のロボットの状態を自分で確認する必要もなくなる。
 
 ## まとめ
 
-正しい実装を振り返ると、`TransportRobot` クラスは、自分がレーンに進入したいという意思を `FleetController` クラスに伝えるだけで、他のロボットの状態を直接確認する処理を一切持っていません。<br>
-このように、Mediator パターンは、複数のオブジェクトが互いを直接参照し合う代わりに、そのやり取りを 1 つの仲介役のオブジェクトに集約するパターンです。
+正しい実装を振り返ると、`TransportRobot` クラス同士が互いを直接参照することはなくなり、レーンの空き状況の判定はすべて `RobotManager` クラスに集約されています。<br>
+このように Mediator パターンは、複数のオブジェクトが互いを直接参照し合う代わりに、そのやり取りを 1 つの仲介役のオブジェクトに集約する設計パターンです。
 
 本記事の内容はここまでとなります。
 
@@ -436,17 +456,17 @@ RobotD: レーン3はRobotEが使用中のため待機します
 
 ## 【深堀り①】Mediator が肥大化するリスク（God Object 化）
 
-正しい実装を振り返ると、レーンの空き状況を判定するロジックが `FleetController` クラスの `requestEnterLane` メソッド 1 箇所に集約されました。ロボットの台数やレーンの数が今後さらに増え、判定のルールが複雑化する（例えば「優先度の高い荷物を運ぶロボットを優先する」「特定のロボットは特定のレーンを使えない」など）と、`FleetController` クラス 1 つに全てのルールが集中し、クラス自体が肥大化していく可能性があります。
+正しい実装を振り返ると、レーンの空き状況を判定するロジックが `RobotManager` クラスの `requestEnterLane` メソッド 1 箇所に集約されました。ロボットの台数やレーンの数が今後さらに増え、判定のルールが複雑化する（例えば「優先度の高い荷物を運ぶロボットを優先する」「特定のロボットは特定のレーンを使えない」など）と、`RobotManager` クラス 1 つに全てのルールが集中し、クラス自体が肥大化していく可能性があります。
 
 このように、複数のオブジェクト間の調整ロジックを 1 箇所に集めることで、その集約先自身が巨大化してしまう問題は、「**God Object（神オブジェクト）**」と呼ばれるアンチパターンとして知られています。
 
-Mediator パターンは「複数オブジェクト間の複雑な依存関係を 1 箇所にまとめる」ことでコードの見通しを良くしますが、まとめた先の仲介役自身が複雑になりすぎないようにする責任までは肩代わりしてくれません。判定ルールが増えてきた場合は、`FleetController` クラスの中身をさらに小さなクラス（例えば、レーンの優先順位だけを判定するクラスなど）に分割するといった設計判断が必要になります。
+Mediator パターンは「複数オブジェクト間の複雑な依存関係を 1 箇所にまとめる」ことでコードの見通しを良くしますが、まとめた先の仲介役自身が複雑になりすぎないようにする責任までは肩代わりしてくれません。判定ルールが増えてきた場合は、`RobotManager` クラスの中身をさらに小さなクラス（例えば、レーンの優先順位だけを判定するクラスなど）に分割するといった設計判断が必要になります。
 
 <a id="深堀り2"></a>
 
 ## 【深堀り②】デメテルの法則との関係
 
-好ましくない実装を振り返ると、`TransportRobot` クラスは、衝突を確認するために他の全ロボット（最大 4 台）への参照を直接保持する必要がありました。正しい実装により、`TransportRobot` クラスがやり取りする相手は `Mediator` インターフェース（実体は `FleetController` クラス）1 つだけになり、他のロボットの存在やインスタンスへの参照を一切持たなくてよくなっています。
+好ましくない実装を振り返ると、`TransportRobot` クラスは、衝突を確認するために他の全ロボット（最大 4 台）への参照を直接保持する必要がありました。正しい実装により、`TransportRobot` クラスがやり取りする相手は `Mediator` インターフェース（実体は `RobotManager` クラス）1 つだけになり、他のロボットの存在やインスタンスへの参照を一切持たなくてよくなっています。
 
 この「やり取りするオブジェクトの数を減らす」という考え方は、「**デメテルの法則（Law of Demeter）**」と呼ばれる設計原則に沿っています。デメテルの法則は「最小知識の原則」とも呼ばれ、あるオブジェクトが直接やり取りするオブジェクトの範囲を必要最小限に留めるべきだという考え方です。
 
@@ -458,12 +478,12 @@ Mediator パターンは「複数オブジェクト間の複雑な依存関係�
 
 ## 【深堀り③】SRP（単一責任の原則）
 
-好ましくない実装の `TransportRobot` クラスを振り返ると、`enterLane` メソッドは「自分がレーンに進入する」処理と「他のロボットとレーンが重複していないか判定する」処理を、1 つのクラスの中に併せ持っていました。正しい実装では、前者を `TransportRobot` クラスの `onLaneGranted` メソッドなどに、後者を `FleetController` クラスの `requestEnterLane` メソッドにそれぞれ切り出し、1 つのクラスが担う責務を 1 つに絞っています。
+好ましくない実装の `TransportRobot` クラスを振り返ると、`enterLane` メソッドは「自分がレーンに進入する」処理と「他のロボットとレーンが重複していないか判定する」処理を、1 つのクラスの中に併せ持っていました。正しい実装では、前者を `TransportRobot` クラスの `onLaneGranted` メソッドなどに、後者を `RobotManager` クラスの `requestEnterLane` メソッドにそれぞれ切り出し、1 つのクラスが担う責務を 1 つに絞っています。
 
 この「1 つのクラスが持つ責務を 1 つに絞る」という考え方は、「**SRP（Single Responsibility Principle：単一責任の原則）**」と呼ばれる設計原則です。SRP は、あるクラスが変更される理由は 1 つだけであるべきだという考え方で、責務が複数混在していると、片方の都合による変更がもう片方に意図せず影響を及ぼすリスクが生まれます。
 
-正しい実装では、レーンの判定ルールが変わっても `TransportRobot` クラスを変更する必要はなく、ロボット自身の振る舞いが変わっても `FleetController` クラスを変更する必要がありません。Mediator パターンは、複数のオブジェクト間の調整という責務を、各オブジェクト自身の責務から切り離して 1 つの仲介役に集約することで、SRP を実現する設計手段の一つと言えます。<br>
-ただし、判定ルールの種類が今後さらに増えていくと、`FleetController` クラス自身が抱える責務が増えていき、結果として 1 つのクラスに複数の責務が集まってしまう可能性があります（→ [Mediator が肥大化するリスク（God Object 化）](#深堀り1)）。
+正しい実装では、レーンの判定ルールが変わっても `TransportRobot` クラスを変更する必要はなく、ロボット自身の振る舞いが変わっても `RobotManager` クラスを変更する必要がありません。Mediator パターンは、複数のオブジェクト間の調整という責務を、各オブジェクト自身の責務から切り離して 1 つの仲介役に集約することで、SRP を実現する設計手段の一つと言えます。<br>
+ただし、判定ルールの種類が今後さらに増えていくと、`RobotManager` クラス自身が抱える責務が増えていき、結果として 1 つのクラスに複数の責務が集まってしまう可能性があります（→ [Mediator が肥大化するリスク（God Object 化）](#深堀り1)）。
 
 詳しくは「SRP」や「単一責任の原則」で検索してみてください。
 
@@ -474,9 +494,9 @@ Mediator パターンは「複数オブジェクト間の複雑な依存関係�
 Mediator パターンは、「複数のオブジェクトの間で状態の変化を伝え合う」という点で Observer パターンと似ており、しばしば混同されます。両者を分けるのは、状態の変化を伝えた後、誰が判断を行うかという役割分担です。
 
 Observer パターンは、Subject（状態を持つ側のオブジェクト）が Observer に対して「状態が変わったこと」を一律に通知するだけで、通知を受け取った後の判断はすべて Observer 自身に委ねられます。Subject は、通知先の Observer 同士の関係や、通知を受けてどう振る舞うべきかについては関知しません。<br>
-一方 Mediator パターンでは、`FleetController` クラスの `requestEnterLane` メソッドのように、仲介役自身が `TransportRobot` クラスから受け取った情報をもとに判断を行い、`onLaneGranted` メソッドや `onLaneDenied` メソッドで個々の `TransportRobot` クラスに対して異なる結果を返します。
+一方 Mediator パターンでは、`RobotManager` クラスの `requestEnterLane` メソッドのように、仲介役自身が `TransportRobot` クラスから受け取った情報をもとに判断を行い、`onLaneGranted` メソッドや `onLaneDenied` メソッドで個々の `TransportRobot` クラスに対して異なる結果を返します。
 
-つまり、`TransportRobot` クラス同士の関係を調整する「判断のロジック」そのものを `FleetController` クラスが担っている点が、Observer パターンとの大きな違いです。
+つまり、`TransportRobot` クラス同士の関係を調整する「判断のロジック」そのものを `RobotManager` クラスが担っている点が、Observer パターンとの大きな違いです。
 
 <a id="深堀り5"></a>
 
@@ -526,7 +546,7 @@ private void sched(TimerTask task, long time, long period) {
 
 `schedule` メソッドの中身を振り返ると、実際の処理は `sched` メソッドに委ねられています。`sched` メソッドは、渡された `TimerTask` のインスタンス（本記事の `Colleague` インターフェースの実装に相当）を `Timer` クラスが内部に持つ `queue` フィールドに追加しているだけで、他の `TimerTask` のインスタンスへの参照は一切登場しません。`queue` に追加されたタスクは、`Timer` クラスが内部で管理する専用のスレッドによって実行予定時刻が近い順に取り出され、順番に実行されます（この実行順序を管理する部分はスレッド間の同期処理が絡み複雑になるため、本記事では割愛します）。
 
-本記事の `TransportRobot` クラスが `FleetController` クラスに進入を要求するだけでレーンの空き状況の判定を一切持たなかったのと同様に、`TimerTask` クラスも、自分がいつ実行されるか、他にどんなタスクが予約されているかを一切知る必要がなく、その調整はすべて `Timer` クラスに集約されています。
+本記事の `TransportRobot` クラスが `RobotManager` クラスに進入を要求するだけでレーンの空き状況の判定を一切持たなかったのと同様に、`TimerTask` クラスも、自分がいつ実行されるか、他にどんなタスクが予約されているかを一切知る必要がなく、その調整はすべて `Timer` クラスに集約されています。
 
 <a id="深堀り6"></a>
 
