@@ -28,8 +28,9 @@
 ### シナリオ
 
 > あなたは物流倉庫の搬送システムの開発チームに所属しています。<br>
-> 現在、倉庫内には 2 台の自動搬送ロボットが稼働しており、共有する 2 本のレーンを使ってピッキング済みの荷物を出荷エリアまで運んでいます。ロボット同士の衝突を避けるため、各ロボットはもう 1 台のロボットを直接参照し、目的のレーンにもう 1 台がいないかを確認してから進入する、というシンプルな仕組みで運用してきました。<br>
-> ある日、荷物量の増加に伴い、倉庫内のレーンを 3 本に増設し、搬送ロボットも 5 台に増やすことになりました。あなたは、既存の「ロボット同士が直接確認し合う」仕組みを、5 台のロボットに対応できるよう拡張することになりました。
+> 現在、倉庫内には 2 台の自動搬送ロボットが、棚から取り出した荷物を出荷エリアまで運んでいる状況です。棚と出荷エリアの間は 2 本のレーンでつながっており、ロボットは荷物を取り出した棚の位置に応じて、どちらのレーンを使うかが決まります。レーンは一本道のため、同じレーンに 2 台が同時に入るとすれ違えず衝突してしまう危険があります。そこで各ロボットはもう 1 台のロボットを直接参照し、目的のレーンにもう 1 台がいないかを確認してから進入する、というシンプルな仕組みで運用している状態です。<br>
+> ある日、荷物量の増加に伴い、倉庫内のレーンを 3 本に増設し、搬送ロボットも 5 台に増やすことになりました。<br>
+> あなたは、既存の「ロボット同士が直接確認し合う」仕組みを、5 台のロボットにも対応できる形に拡張することになりました。
 
 ※実際の搬送ロボットでは、駆動輪モーターの制御やセンサーによる障害物検知などの実装が必要ですが、本記事では Mediator パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
@@ -39,7 +40,8 @@
 
 - `TransportRobot`（既存クラス）
 
-搬送ロボット 1 台を表すクラスです。名前と現在のレーン番号、衝突を確認する相手ロボットへの参照を保持します。
+搬送ロボット 1 台を表すクラスです。<br>
+名前と現在のレーン番号、衝突を確認する相手ロボットへの参照を保持します。
 
 | フィールド    | 型               | 説明                                     |
 | ------------- | ---------------- | ---------------------------------------- |
@@ -84,8 +86,10 @@ public class TransportRobot {
     public void enterLane(int lane) {
         if (partner.getCurrentLane() == lane) {
             System.out.println(name + ": レーン" + lane + "は" + partner.getName() + "が使用中のため待機します");
+
             return;
         }
+
         currentLane = lane;
         System.out.println(name + ": レーン" + lane + "に進入しました");
     }
@@ -115,6 +119,8 @@ public class Main {
 }
 ```
 
+※ コンストラクタの第 2 引数に渡している `0` は、まだどのレーンにも進入していない待機状態を表す値です。倉庫内のレーンは 1 から始まる番号で管理されています。
+
 **実行結果**
 
 ```
@@ -129,7 +135,7 @@ RobotB: レーン2に進入しました
 
 では、シナリオに従い追加実装をしていきましょう。
 
-ロボットの台数が増えるので、まず思いつくのは、`TransportRobot` クラスの `partner` フィールドを「他の全ロボットへの参照リスト」に変更し、`enterLane` メソッドでリストの中身を順番に確認する、という実装ではないでしょうか？
+まず思いつくのは、相手ロボットへの参照が増えるので、`TransportRobot` クラスの `partner` フィールドをリスト化し、`enterLane` メソッド内にて、先のリストの中身を順番に確認する、という実装ではないでしょうか？
 
 **`TransportRobot.java`**
 
@@ -142,16 +148,20 @@ import java.util.List;
 public class TransportRobot {
     private String name;
     private int currentLane;
+    /* ここを追加（ここから） */
     private List<TransportRobot> otherRobots = new ArrayList<>();
+    /* ここを追加（ここまで） */
 
     public TransportRobot(String name, int currentLane) {
         this.name = name;
         this.currentLane = currentLane;
     }
 
+    /* ここを追加（ここから） */
     public void addOtherRobot(TransportRobot robot) {
         otherRobots.add(robot);
     }
+    /* ここを追加（ここまで） */
 
     public String getName() {
         return name;
@@ -162,19 +172,21 @@ public class TransportRobot {
     }
 
     public void enterLane(int lane) {
+        /* ここを追加（ここから） */
         for (TransportRobot other: otherRobots) {
             if (other.getCurrentLane() == lane) {
                 System.out.println(name + ": レーン" + lane + "は" + other.getName() + "が使用中のため待機します");
+
                 return;
             }
         }
+        /* ここを追加（ここまで） */
+
         currentLane = lane;
         System.out.println(name + ": レーン" + lane + "に進入しました");
     }
 }
 ```
-
-`otherRobots` フィールドに登録された他のロボットを順番に確認し、指定したレーンに 1 台でも存在すれば待機する、という実装です。
 
 **`Main.java`**
 
@@ -213,6 +225,12 @@ public class Main {
         robotE.addOtherRobot(robotC);
         robotE.addOtherRobot(robotD);
 
+        robotA.enterLane(1);
+        robotB.enterLane(1);
+        robotB.enterLane(2);
+
+        System.out.println();
+
         robotE.enterLane(3);
         robotD.enterLane(3);
     }
@@ -222,18 +240,23 @@ public class Main {
 **実行結果**
 
 ```
+RobotA: レーン1に進入しました
+RobotB: レーン1はRobotAが使用中のため待機します
+RobotB: レーン2に進入しました
+
 RobotE: レーン3に進入しました
 RobotD: レーン3に進入しました
 ```
 
-実行結果を振り返ると、`RobotE` と `RobotD` の両方が「レーン 3 に進入しました」と出力されています。同じレーンに 2 台のロボットが同時に存在するという、実際の倉庫運用ではあってはならない状態です。
+実行結果を振り返ると、`RobotA` と `RobotB` においては `RobotB` が `RobotA` の存在を検知してレーン 1 への進入を待機しており、正しく衝突を回避できています。<br>
+一方、`RobotD` と `RobotE` においては `RobotD` が `RobotE` のいるレーン 3 に同時に進入しているため、衝突の回避ができていません。
 
-原因は、`RobotD` の登録処理にあります。`robotA`・`robotB`・`robotC`・`robotE` の 4 台のうち、`robotD.addOtherRobot(robotE)` の呼び出しだけが漏れています。`RobotD` は `RobotE` の存在を知らないまま `enterLane` メソッドを呼び出すため、`RobotE` がレーン 3 にいることを検知できず、そのまま進入してしまいました。
+この原因は、`RobotD` の登録処理にあります。`robotD.addOtherRobot(robotE)` の呼び出しだけが漏れているため、`robotA`・`robotB`・`robotC` の登録しかされていません。そのため、`RobotD` は `RobotE` の存在を知らないまま `enterLane` メソッドを呼び出すため、`RobotE` がレーン 3 にいることを検知できず、そのまま進入してしまいました。
 
-この実装には、次のような問題点があります。
+このように、この実装には、次のような問題点があります。
 
-- ロボットの台数が増えるほど、相互登録の組み合わせがロボット数の 2 乗のオーダーで増加する（本記事の 5 台では 20 通り）ため、登録漏れが起きやすく、かつ気づきにくい。
-- レーンの空き状況を判定するロジックが `TransportRobot` クラス自身の `enterLane` メソッドに書かれているため、判定ルールを変更する場合（例えば優先度の高いロボットを優先させるなど）、変更内容が全ロボットのクラスに分散してしまう。
+- ロボットの台数が増えるほど、相互登録の組み合わせが爆発的に増加する（本記事の 5 台では 20 通り）ため、登録漏れが起きやすく、かつ気づきにくい。
+- `TransportRobot` クラスの責務を考えると、本来保持すべきなのは自身の名前・現在のレーンといった状態と、指定されたレーンに移動するという振る舞いだけのはずである。ところが現状は、`enterLane` メソッドの中に他のロボットの状況を判定するロジックまで入り込んでおり、「移動する」という本来の責務に「他のロボットと調整する」という別の責務がすでに混在してしまっている。今後「優先度の高いロボットを優先させる」のような判定ルールが増えるほど、この混在はさらに複雑になっていく。
 
 ## 正しい実装
 
