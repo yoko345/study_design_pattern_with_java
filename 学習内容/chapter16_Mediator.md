@@ -17,9 +17,7 @@
 - [【深堀り①】Mediator が肥大化するリスク（God Object 化）](#深堀り1)
 - [【深堀り②】デメテルの法則との関係](#深堀り2)
 - [【深堀り③】SRP（単一責任の原則）](#深堀り3)
-- [【深堀り④】Observer パターンとの違い](#深堀り4)
-- [【深堀り⑤】Java 標準ライブラリにおける Mediator パターンの例](#深堀り5)
-- [【深堀り⑥】GoF デザインパターンとの位置づけ](#深堀り6)
+- [【深堀り④】GoF デザインパターンとの位置づけ](#深堀り4)
 
 ---
 
@@ -456,17 +454,17 @@ public class Main {
 
 ## 【深堀り①】Mediator が肥大化するリスク（God Object 化）
 
-正しい実装を振り返ると、レーンの空き状況を判定するロジックが `RobotManager` クラスの `requestEnterLane` メソッド 1 箇所に集約されました。ロボットの台数やレーンの数が今後さらに増え、判定のルールが複雑化する（例えば「優先度の高い荷物を運ぶロボットを優先する」「特定のロボットは特定のレーンを使えない」など）と、`RobotManager` クラス 1 つに全てのルールが集中し、クラス自体が肥大化していく可能性があります。
+正しい実装を振り返ると、レーンの空き状況を判定するロジックが `RobotManager` クラスの `requestEnterLane` メソッド 1 箇所に集約されました。ロボットの台数やレーンの数が今後さらに増え、判定のルールが複雑化する（例えば「優先度の高い荷物を運ぶロボットを優先する」）と、`RobotManager` クラス 1 つに全てのルールが集中し、クラス自体が肥大化していく可能性があります。
 
 このように、複数のオブジェクト間の調整ロジックを 1 箇所に集めることで、その集約先自身が巨大化してしまう問題は、「**God Object（神オブジェクト）**」と呼ばれるアンチパターンとして知られています。
 
-Mediator パターンは「複数オブジェクト間の複雑な依存関係を 1 箇所にまとめる」ことでコードの見通しを良くしますが、まとめた先の仲介役自身が複雑になりすぎないようにする責任までは肩代わりしてくれません。判定ルールが増えてきた場合は、`RobotManager` クラスの中身をさらに小さなクラス（例えば、レーンの優先順位だけを判定するクラスなど）に分割するといった設計判断が必要になります。
+Mediator パターンは「複数オブジェクト間の複雑な依存関係を 1 箇所にまとめる」ことでコードの見通しを良くしますが、まとめた先の仲介役自身が複雑になりすぎないようにする責任までは肩代わりしてくれません。判定ルールが増えてきた場合は、`RobotManager` クラスの中身をさらに小さなクラス（例えば「レーンの優先順位だけを判定するクラス」）に分割するといった設計判断が必要になります。
 
 <a id="深堀り2"></a>
 
 ## 【深堀り②】デメテルの法則との関係
 
-好ましくない実装を振り返ると、`TransportRobot` クラスは、衝突を確認するために他の全ロボット（最大 4 台）への参照を直接保持する必要がありました。正しい実装により、`TransportRobot` クラスがやり取りする相手は `Mediator` インターフェース（実体は `RobotManager` クラス）1 つだけになり、他のロボットの存在やインスタンスへの参照を一切持たなくてよくなっています。
+好ましくない実装を振り返ると、`TransportRobot` クラスは、`otherRobots` フィールドにより、衝突を確認するために他の全ロボットへの参照を直接保持する必要がありました。正しい実装では、`TransportRobot` クラスは `mediator` フィールドを通じて `Mediator` インターフェースだけを保持すればよく、他のロボットへの参照を一切持たなくてよくなっています。
 
 この「やり取りするオブジェクトの数を減らす」という考え方は、「**デメテルの法則（Law of Demeter）**」と呼ばれる設計原則に沿っています。デメテルの法則は「最小知識の原則」とも呼ばれ、あるオブジェクトが直接やり取りするオブジェクトの範囲を必要最小限に留めるべきだという考え方です。
 
@@ -478,79 +476,18 @@ Mediator パターンは「複数オブジェクト間の複雑な依存関係�
 
 ## 【深堀り③】SRP（単一責任の原則）
 
-好ましくない実装の `TransportRobot` クラスを振り返ると、`enterLane` メソッドは「自分がレーンに進入する」処理と「他のロボットとレーンが重複していないか判定する」処理を、1 つのクラスの中に併せ持っていました。正しい実装では、前者を `TransportRobot` クラスの `onLaneGranted` メソッドなどに、後者を `RobotManager` クラスの `requestEnterLane` メソッドにそれぞれ切り出し、1 つのクラスが担う責務を 1 つに絞っています。
+好ましくない実装を振り返ると、`TransportRobot` クラスの `enterLane` メソッドは、「自分がレーンに進入する」処理と「他のロボットとレーンが重複していないか判定する」処理を、1 つのクラスの中に併せ持っていました。正しい実装により、「自分がレーンに進入する」処理は `TransportRobot` クラスの `onLaneGranted` メソッドに、「他のロボットとレーンが重複していないか判定する」処理は `RobotManager` クラスの `requestEnterLane` メソッドにそれぞれ切り出すことで、1 つのクラスが担う責務を 1 つに絞っています。
 
-この「1 つのクラスが持つ責務を 1 つに絞る」という考え方は、「**SRP（Single Responsibility Principle：単一責任の原則）**」と呼ばれる設計原則です。SRP は、あるクラスが変更される理由は 1 つだけであるべきだという考え方で、責務が複数混在していると、片方の都合による変更がもう片方に意図せず影響を及ぼすリスクが生まれます。
+この「1 つのクラスが持つ責務を 1 つに絞る」という考え方は、「**SRP（Single Responsibility Principle：単一責任の原則）**」と呼ばれる設計原則です。SRP は、あるクラスが変更される理由は 1 つだけであるべきだという考え方です。
 
-正しい実装では、レーンの判定ルールが変わっても `TransportRobot` クラスを変更する必要はなく、ロボット自身の振る舞いが変わっても `RobotManager` クラスを変更する必要がありません。Mediator パターンは、複数のオブジェクト間の調整という責務を、各オブジェクト自身の責務から切り離して 1 つの仲介役に集約することで、SRP を実現する設計手段の一つと言えます。<br>
+正しい実装の `TransportRobot` クラスと `RobotManager` クラスは、それぞれ「自分がレーンに進入する」処理と「他のロボットとの重複判定」処理という、単一の責務だけを持つようになりました。Mediator パターンは、この SRP を実践するための設計手段の一つと言えます。<br>
 ただし、判定ルールの種類が今後さらに増えていくと、`RobotManager` クラス自身が抱える責務が増えていき、結果として 1 つのクラスに複数の責務が集まってしまう可能性があります（→ [Mediator が肥大化するリスク（God Object 化）](#深堀り1)）。
 
 詳しくは「SRP」や「単一責任の原則」で検索してみてください。
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】Observer パターンとの違い
-
-Mediator パターンは、「複数のオブジェクトの間で状態の変化を伝え合う」という点で Observer パターンと似ており、しばしば混同されます。両者を分けるのは、状態の変化を伝えた後、誰が判断を行うかという役割分担です。
-
-Observer パターンは、Subject（状態を持つ側のオブジェクト）が Observer に対して「状態が変わったこと」を一律に通知するだけで、通知を受け取った後の判断はすべて Observer 自身に委ねられます。Subject は、通知先の Observer 同士の関係や、通知を受けてどう振る舞うべきかについては関知しません。<br>
-一方 Mediator パターンでは、`RobotManager` クラスの `requestEnterLane` メソッドのように、仲介役自身が `TransportRobot` クラスから受け取った情報をもとに判断を行い、`onLaneGranted` メソッドや `onLaneDenied` メソッドで個々の `TransportRobot` クラスに対して異なる結果を返します。
-
-つまり、`TransportRobot` クラス同士の関係を調整する「判断のロジック」そのものを `RobotManager` クラスが担っている点が、Observer パターンとの大きな違いです。
-
-<a id="深堀り5"></a>
-
-## 【深堀り⑤】Java 標準ライブラリにおける Mediator パターンの例
-
-Java 標準ライブラリにおける Mediator パターンの例として、`java.util.Timer` クラスの `schedule` メソッドを見ていきましょう。
-
-**`Timer.java`（一部抜粋）**
-
-```java
-public void schedule(TimerTask task, long delay) {
-    if (delay < 0)
-        throw new IllegalArgumentException("Negative delay.");
-    sched(task, System.currentTimeMillis()+delay, 0);
-}
-
-private void sched(TimerTask task, long time, long period) {
-    if (time < 0)
-        throw new IllegalArgumentException("Illegal execution time.");
-
-    // Constrain value of period sufficiently to prevent numeric
-    // overflow while still being effectively infinitely large.
-    if (Math.abs(period) > (Long.MAX_VALUE >> 1))
-        period >>= 1;
-
-    synchronized(queue) {
-        if (!thread.newTasksMayBeScheduled)
-            throw new IllegalStateException("Timer already cancelled.");
-
-        synchronized(task.lock) {
-            if (task.state != TimerTask.VIRGIN)
-                throw new IllegalStateException(
-                    "Task already scheduled or cancelled");
-            task.nextExecutionTime = time;
-            task.period = period;
-            task.state = TimerTask.SCHEDULED;
-        }
-
-        queue.add(task);
-        if (queue.getMin() == task)
-            queue.notify();
-    }
-}
-```
-
-> 引用元: OpenJDK [Timer.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Timer.java)
-
-`schedule` メソッドの中身を振り返ると、実際の処理は `sched` メソッドに委ねられています。`sched` メソッドは、渡された `TimerTask` のインスタンス（本記事の `Colleague` インターフェースの実装に相当）を `Timer` クラスが内部に持つ `queue` フィールドに追加しているだけで、他の `TimerTask` のインスタンスへの参照は一切登場しません。`queue` に追加されたタスクは、`Timer` クラスが内部で管理する専用のスレッドによって実行予定時刻が近い順に取り出され、順番に実行されます（この実行順序を管理する部分はスレッド間の同期処理が絡み複雑になるため、本記事では割愛します）。
-
-本記事の `TransportRobot` クラスが `RobotManager` クラスに進入を要求するだけでレーンの空き状況の判定を一切持たなかったのと同様に、`TimerTask` クラスも、自分がいつ実行されるか、他にどんなタスクが予約されているかを一切知る必要がなく、その調整はすべて `Timer` クラスに集約されています。
-
-<a id="深堀り6"></a>
-
-## 【深堀り⑥】GoF デザインパターンとの位置づけ
+## 【深堀り④】GoF デザインパターンとの位置づけ
 
 今回使った Mediator パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「振る舞いパターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
