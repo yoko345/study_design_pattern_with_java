@@ -54,8 +54,6 @@ public class FrameObserver extends Frame implements Observer, ActionListener {
     private GraphCanvas canvasGraph = new GraphCanvas();
     private Button buttonClose = new Button("Close");
 
-
-
     public FrameObserver() {
         super("FrameObserver");
         setLayout(new BorderLayout());

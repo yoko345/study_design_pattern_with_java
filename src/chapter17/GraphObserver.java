@@ -3,10 +3,10 @@ package chapter17;
 public class GraphObserver implements Observer {
     @Override
     public void update(NumberGenerator generator) {
-        System.out.print("GraphObservers:");
+        System.out.print("GraphObserver:");
 
         for (int i = 0; i < generator.getNumber(); i++) {
-            System.err.print("*");
+            System.out.print("*");
         }
 
         System.out.println();
@@ -14,7 +14,7 @@ public class GraphObserver implements Observer {
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
-            e.getStackTrace();
+            e.printStackTrace();
         }
     }
 }

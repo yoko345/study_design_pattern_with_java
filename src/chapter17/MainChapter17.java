@@ -1,6 +1,5 @@
 package chapter17;
 
-
 public class MainChapter17 {
     public static void main(String[] args) {
         // 練習問題17-1
