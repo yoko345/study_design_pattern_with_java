@@ -27,11 +27,11 @@
 ### シナリオ
 
 > あなたは社内の人事システムの開発チームに所属しています。<br>
-> 現状の人事システムでは、社員の異動を登録すると、その社員の社内システムのアクセス権限と、部署ごとのメーリングリストの登録先が、異動後の部署に合わせて自動で更新される仕組みになっています。一方、勤怠システムと経費精算システムは、昨年実施した外部のクラウドサービスへの切り替えの際に、人事システムとの連携が後回しになってしまいました。そのため、異動者が出るたびに、総務部が各システムの承認者を手作業で更新している状態です。<br>
+> 現状の人事システムでは、社員の異動を登録すると、その社員の社内システムのアクセス権限と、部署ごとのメーリングリストの登録先が、異動後の部署に合わせて自動で更新される仕組みになっています。一方、勤怠システムは、昨年実施した外部のクラウドサービスへの切り替えの際に、人事システムとの連携が後回しになってしまいました。そのため、異動者が出るたびに、総務部が勤怠システムの承認者を手作業で更新している状態です。<br>
 > このたび、後回しになっていた人事システムとの連携に着手することになりました。<br>
-> あなたは、異動登録の際に、勤怠システムと経費精算システムの承認者も自動で更新される仕組みを追加することになりました。
+> あなたは、異動登録の際に、勤怠システムの承認者も自動で更新される仕組みを追加することになりました。
 
-※実際の異動登録では、アクセス権限・メーリングリストを管理する社内システムや、勤怠システム、経費精算システムとの連携を行う実装が必要ですが、本記事では Observer パターンの解説に集中するため、コンソールへの文字列出力のみとします。
+※実際の異動登録では、アクセス権限・メーリングリストを管理する社内システムや、勤怠システムとの連携を行う実装が必要ですが、本記事では Observer パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
 ### 既存コードの仕様
 
@@ -204,7 +204,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-まず思いつくのは、勤怠システムと経費精算システムの承認者を更新するクラスをそれぞれ作成し、既存の連携先と同じように異動を登録するクラスの `registerTransfer` メソッドから直接呼び出す、という実装ではないでしょうか？
+まず思いつくのは、勤怠システムの承認者を更新するクラスを作成し、既存の連携先と同じように異動を登録するクラスの `registerTransfer` メソッドから直接呼び出す、という実装ではないでしょうか？
 
 **`AttendanceApprovalService.java`**
 
@@ -214,18 +214,6 @@ package example;
 public class AttendanceApprovalService {
     public void changeApprover(Employee employee) {
         System.out.println("[勤怠承認] " + employee.getName() + "さんの承認者を" + employee.getDepartment() + "の部長に変更しました");
-    }
-}
-```
-
-**`ExpenseApprovalService.java`**
-
-```java
-package example;
-
-public class ExpenseApprovalService {
-    public void assignApprover(Employee employee) {
-        System.out.println("[経費承認] " + employee.getName() + "さんの経費精算の承認者を" + employee.getDepartment() + "の部長に変更しました");
     }
 }
 ```
@@ -240,7 +228,6 @@ public class TransferService {
     private MailingListService mailingListService = new MailingListService();
     /* ここを追加（ここから） */
     private AttendanceApprovalService attendanceApprovalService = new AttendanceApprovalService();
-    private ExpenseApprovalService expenseApprovalService = new ExpenseApprovalService();
     /* ここを追加（ここまで） */
 
     public void registerTransfer(Employee employee, String newDepartment) {
@@ -252,7 +239,6 @@ public class TransferService {
         mailingListService.moveMember(employee, oldDepartment);
         /* ここを追加（ここから） */
         attendanceApprovalService.changeApprover(employee);
-        expenseApprovalService.assignApprover(employee);
         /* ここを追加（ここまで） */
     }
 }
@@ -267,20 +253,18 @@ public class TransferService {
 [アクセス権限] 山田太郎さんの権限を営業部用に更新しました
 [メーリングリスト] 山田太郎さんを開発部から営業部のメーリングリストへ移動しました
 [勤怠承認] 山田太郎さんの承認者を営業部の部長に変更しました
-[経費承認] 山田太郎さんの経費精算の承認者を営業部の部長に変更しました
 
 [異動登録] 佐藤花子さんを総務部から人事部へ異動しました
 [アクセス権限] 佐藤花子さんの権限を人事部用に更新しました
 [メーリングリスト] 佐藤花子さんを総務部から人事部のメーリングリストへ移動しました
 [勤怠承認] 佐藤花子さんの承認者を人事部の部長に変更しました
-[経費承認] 佐藤花子さんの経費精算の承認者を人事部の部長に変更しました
 ```
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
 
 しかし、この実装には以下の問題点があります。
 
-- 新しい連携先（例えば「社員証の所属表示」）が増えるたびに `TransferService` クラスにフィールドを追加し、`registerTransfer` メソッドの中身を修正しなければならないため、追加した連携先だけでなく、すでにテストが完了している所属部署の変更や既存の連携先の呼び出しまで、再テストが必要になってしまう。
+- 新しい連携先（例えば「経費精算システム」）が増えるたびに `TransferService` クラスにフィールドを追加し、`registerTransfer` メソッドの中身を修正しなければならないため、追加した連携先だけでなく、すでにテストが完了している所属部署の変更や既存の連携先の呼び出しまで、再テストが必要になってしまう。
 - 新しい連携先が増えるたびに `TransferService` クラスの `registerTransfer` メソッドを直接修正する必要があるため、所属部署の変更や既存の連携先の呼び出しを誤って壊してしまうおそれがある。
 
 ## 正しい実装
@@ -304,7 +288,7 @@ public interface TransferObserver {
 
 `TransferObserver` は新たに追加したインターフェースで、異動が発生したときに呼び出される `onTransferred` メソッドを 1 つだけ持ちます。引数には異動した社員と異動前の部署を受け取ります。異動後の部署は `employee.getDepartment()` で取得できるため、引数には含めていません。
 
-次に、インターフェース `TransferObserver` を実装したクラスを見ていきましょう。既存の `AccountPermissionService`・`MailingListService` クラスと、好ましくない実装で作成した `AttendanceApprovalService`・`ExpenseApprovalService` クラスを、いずれもインターフェース `TransferObserver` を実装する形に変更します。
+次に、インターフェース `TransferObserver` を実装したクラスを見ていきましょう。既存の `AccountPermissionService`・`MailingListService` クラスと、好ましくない実装で作成した `AttendanceApprovalService` クラスを、いずれもインターフェース `TransferObserver` を実装する形に変更します。
 
 **`AccountPermissionService.java`**
 
@@ -345,20 +329,7 @@ public class AttendanceApprovalService implements TransferObserver {
 }
 ```
 
-**`ExpenseApprovalService.java`**
-
-```java
-package example;
-
-public class ExpenseApprovalService implements TransferObserver {
-    @Override
-    public void onTransferred(Employee employee, String oldDepartment) {
-        System.out.println("[経費承認] " + employee.getName() + "さんの経費精算の承認者を" + employee.getDepartment() + "の部長に変更しました");
-    }
-}
-```
-
-4 つのクラスを振り返ると、クラスごとにバラバラだった `updatePermission`・`moveMember`・`changeApprover`・`assignApprover` メソッドが、すべてインターフェース `TransferObserver` の `onTransferred` メソッドのオーバーライドに置き換わっています。一方、コンソールへの出力内容は変わっていません。
+3 つのクラスを振り返ると、クラスごとにバラバラだった `updatePermission`・`moveMember`・`changeApprover` メソッドが、すべてインターフェース `TransferObserver` の `onTransferred` メソッドのオーバーライドに置き換わっています。一方、コンソールへの出力内容は変わっていません。
 
 次に、異動を通知する側のクラスを見ていきましょう。
 
@@ -390,7 +361,7 @@ public class TransferService {
 }
 ```
 
-`TransferService` クラスを振り返ると、4 つの連携先クラスのフィールドがなくなり、代わりにインターフェース `TransferObserver` のリストである `observers` フィールドを保持しています。<br>
+`TransferService` クラスを振り返ると、3 つの連携先クラスのフィールドがなくなり、代わりにインターフェース `TransferObserver` のリストである `observers` フィールドを保持しています。<br>
 `addObserver` メソッドで通知先を登録し、`registerTransfer` メソッドでは所属部署を変更した後に `notifyObservers` メソッドを呼び出して、登録済みのすべての通知先に異動を通知しています。<br>
 `TransferService` クラスは、登録された通知先が具体的にどのクラスなのかを知らず、「`onTransferred` メソッドを持っている」ことだけを知っている状態です。
 
@@ -407,7 +378,6 @@ public class Main {
         transferService.addObserver(new AccountPermissionService());
         transferService.addObserver(new MailingListService());
         transferService.addObserver(new AttendanceApprovalService());
-        transferService.addObserver(new ExpenseApprovalService());
 
         Employee yamada = new Employee("山田太郎", "開発部");
         Employee sato = new Employee("佐藤花子", "総務部");
@@ -428,22 +398,20 @@ public class Main {
 [アクセス権限] 山田太郎さんの権限を営業部用に更新しました
 [メーリングリスト] 山田太郎さんを開発部から営業部のメーリングリストへ移動しました
 [勤怠承認] 山田太郎さんの承認者を営業部の部長に変更しました
-[経費承認] 山田太郎さんの経費精算の承認者を営業部の部長に変更しました
 
 [異動登録] 佐藤花子さんを総務部から人事部へ異動しました
 [アクセス権限] 佐藤花子さんの権限を人事部用に更新しました
 [メーリングリスト] 佐藤花子さんを総務部から人事部のメーリングリストへ移動しました
 [勤怠承認] 佐藤花子さんの承認者を人事部の部長に変更しました
-[経費承認] 佐藤花子さんの経費精算の承認者を人事部の部長に変更しました
 ```
 
-`Main` クラスを振り返ると、`TransferService` クラスのインスタンスを生成した直後に、`addObserver` メソッドで 4 つの通知先を登録しています。どの連携先に異動を通知するかは、`TransferService` クラスの中ではなく、この登録処理で決まるようになっています。
+`Main` クラスを振り返ると、`TransferService` クラスのインスタンスを生成した直後に、`addObserver` メソッドで 3 つの通知先を登録しています。どの連携先に異動を通知するかは、`TransferService` クラスの中ではなく、この登録処理で決まるようになっています。
 
 実行結果を振り返ると、好ましくない実装の実行結果と完全に一致しています。つまり、外から見た振る舞いを変えずに、内部の構造だけを変更できたことになります。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 新しい連携先（例えば「社員証の所属表示」）を追加する場合も、インターフェース `TransferObserver` を実装したクラスを新たに作成し、`Main` クラスで `addObserver` メソッドを呼び出して登録するだけでよく、`TransferService` クラスには一切手を加える必要がないため、テスト済みの所属部署の変更や既存の連携先の呼び出しを再テストする必要もない。
+- 新しい連携先（例えば「経費精算システム」）を追加する場合も、インターフェース `TransferObserver` を実装したクラスを新たに作成し、`Main` クラスで `addObserver` メソッドを呼び出して登録するだけでよく、`TransferService` クラスには一切手を加える必要がないため、テスト済みの所属部署の変更や既存の連携先の呼び出しを再テストする必要もない。
     - これは、`TransferService` クラスがインターフェース `TransferObserver` の型を通じて通知先を扱うため、連携先の具象クラスを一切知らずに済むためである。
 - 連携先の追加で `registerTransfer` メソッドを修正することがなくなるため、所属部署の変更や既存の連携先の呼び出しを誤って壊す心配がない。
 
@@ -464,7 +432,7 @@ public class Main {
 
 正しい実装を振り返ると、`onTransferred` メソッドは「異動した社員」と「異動前の部署」を引数として通知先に渡しています。このように、通知する側が必要そうな情報をあらかじめ引数に詰めて渡す方式は「**push 型**」と呼ばれます。
 
-push 型は通知先が受け取った情報をそのまま使えるため分かりやすい一方、通知先ごとに必要な情報が異なると無駄が生じます。実際、`AccountPermissionService`・`AttendanceApprovalService`・`ExpenseApprovalService` クラスは、引数の `oldDepartment` を一切使っていません。さらに、今後「異動日」や「役職」を必要とする連携先が現れた場合、`onTransferred` メソッドの引数を増やすことになり、その変更は `TransferObserver` を実装したすべてのクラスに及びます。
+push 型は通知先が受け取った情報をそのまま使えるため分かりやすい一方、通知先ごとに必要な情報が異なると無駄が生じます。実際、`AccountPermissionService`・`AttendanceApprovalService` クラスは、引数の `oldDepartment` を一切使っていません。さらに、今後「異動日」や「役職」を必要とする連携先が現れた場合、`onTransferred` メソッドの引数を増やすことになり、その変更は `TransferObserver` を実装したすべてのクラスに及びます。
 
 これに対し、通知の際には「変化があった」ことと通知元のオブジェクトだけを渡し、必要な情報は通知先が通知元から取りに行く方式は「**pull 型**」と呼ばれます。pull 型は通知先が必要な情報だけを取得できる一方、通知先が通知元の具象クラスとその取得用メソッドを知る必要があるため、通知元と通知先の結びつきが強くなります。
 
@@ -506,9 +474,9 @@ public class TransferEvent {
 
 ## 【深堀り②】通知の途中で例外が発生した場合
 
-正しい実装の `notifyObservers` メソッドは、登録済みの通知先を先頭から順番に呼び出しています。ここで、例えば勤怠システムに接続できず、`AttendanceApprovalService` クラスの `onTransferred` メソッドで例外が発生した場合を考えてみましょう。
+正しい実装の `notifyObservers` メソッドは、登録済みの通知先を先頭から順番に呼び出しています。ここで、メリットで例に挙げた経費精算システムの連携先を追加し、勤怠システムの連携先の後ろに登録したとします。この状態で、勤怠システムに接続できず、`AttendanceApprovalService` クラスの `onTransferred` メソッドで例外が発生した場合を考えてみましょう。
 
-例外が発生した時点で `for` 文は中断されるため、その後ろに登録されている `ExpenseApprovalService` クラスには異動が通知されません。つまり、無関係な連携先の障害によって、経費精算システムの承認者だけが異動前のまま残ってしまいます。
+例外が発生した時点で `for` 文は中断されるため、その後ろに登録されている経費精算システムの連携先には異動が通知されません。つまり、無関係な連携先の障害によって、経費精算システムの承認者だけが異動前のまま残ってしまいます。
 
 これを防ぐには、次のように通知先ごとに例外を捕捉し、1 つの通知先が失敗しても残りの通知先への通知を続けるようにします。
 
@@ -627,7 +595,7 @@ public class PropertyChangeSupport implements Serializable {
 
 ## 【深堀り④】OCP（オープン・クローズドの原則）
 
-正しい実装を振り返ると、異動の連携先が増える（例えば「社員証の所属表示」を追加する）場合、インターフェース `TransferObserver` を実装したクラスを新たに 1 つ追加し、`Main` クラス側で `addObserver` メソッドを呼び出して登録するだけで、既存の `TransferService` クラスや、他の通知先クラスには一切手を加える必要がありません。
+正しい実装を振り返ると、異動の連携先が増える（例えば「経費精算システム」を追加する）場合、インターフェース `TransferObserver` を実装したクラスを新たに 1 つ追加し、`Main` クラス側で `addObserver` メソッドを呼び出して登録するだけで、既存の `TransferService` クラスや、他の通知先クラスには一切手を加える必要がありません。
 
 この「既存コードを変えずに、新しいクラスを追加するだけで機能を拡張できる」という設計は、「**OCP（Open/Closed Principle：オープン・クローズドの原則）**」と呼ばれる設計原則の実践です。Observer パターンは OCP を実現するための設計手段の一つと言えます。
 
