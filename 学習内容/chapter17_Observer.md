@@ -14,7 +14,11 @@
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
-- [【深堀り①】通知で渡す情報の決め方（push 型と pull 型）](#深堀り1)
+- [【深堀り①】通知で渡す情報の決め方](#深堀り1)
+    - [push 型](#push-型)
+    - [pull 型](#pull-型)
+    - [イベントオブジェクト](#イベントオブジェクト)
+    - [3 つの方式の使い分け](#3-つの方式の使い分け)
 - [【深堀り②】通知の途中で例外が発生した場合](#深堀り2)
 - [【深堀り③】Java 標準ライブラリにおける Observer パターンの例](#深堀り3)
 - [【深堀り④】OCP（オープン・クローズドの原則）](#深堀り4)
@@ -437,15 +441,20 @@ public class Main {
 
 <a id="深堀り1"></a>
 
-## 【深堀り①】通知で渡す情報の決め方（push 型と pull 型）
+## 【深堀り①】通知で渡す情報の決め方
 
-正しい実装を振り返ると、`onTransferred` メソッドは「異動した社員」と「異動前の部署」を引数として各連携先のクラスに渡しています。<br>
-このように、通知する側が必要そうな情報をあらかじめ引数に詰めて渡す方式は「**push 型**」と呼ばれます。
+### push 型
 
-push 型は受け取った情報をそのまま使えるため分かりやすい一方、連携先ごとに必要な情報が異なると無駄が生じます。実際、`AccountPermissionService`・`AttendanceApprovalService` クラスは、引数の `oldDepartment` を一切使っていません。<br>
+正しい実装を振り返ると、`TransferService` クラスは `onTransferred` メソッドの引数として、「異動した社員」と「異動前の部署」を各連携先のクラスに渡しています。<br>
+このように、通知する側が、受け取る側で必要になりそうな情報をあらかじめ引数に詰めて渡す方式は「**push 型**」と呼ばれます。
+
+push 型は、受け取る側が渡された情報をそのまま使えるため分かりやすい一方、連携先ごとに必要な情報が異なると無駄が生じます。実際、`AccountPermissionService`・`AttendanceApprovalService` クラスは、引数の `oldDepartment` を一切使っていません。<br>
 また、「異動日」や「役職」を必要とする連携先が今後現れた場合、`onTransferred` メソッドの引数を増やすことになるため、`TransferObserver` を実装したすべてのクラスに手を加える必要が出てきます。
 
-これらの問題を解決するのが「**pull 型**」と呼ばれる方式です。pull 型は、通知の際に「変化があったこと」と「通知する側のオブジェクト」を渡し、必要な情報は受け取る側が取りに行く流れをとります。
+### pull 型
+
+push 型のこれらの問題を解決するのが「**pull 型**」と呼ばれる方式です。pull 型では、通知する側は「変化があったこと」だけを知らせ、必要な情報は受け取る側が通知する側から取りに行きます。<br>
+本記事では、受け取る側が情報を取りに行けるように、通知の際に通知する側のオブジェクト自身を渡します。
 
 pull 型で実装すると、次のようになります。
 
@@ -527,13 +536,17 @@ public class MailingListService implements TransferObserver {
 }
 ```
 
-`onTransferred` メソッドの引数は `TransferService` クラスだけになり、各連携先は getter メソッド（`getTransferredEmployee`・`getOldDepartment` メソッド）を通じて自分が使う情報だけを取りに行っています。実際、`AccountPermissionService` クラスは異動前の部署を取得していません。<br>
+※ `AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
+
+`onTransferred` メソッドの引数は `TransferService` クラスだけになり、各連携先は getter メソッド（`getTransferredEmployee`・`getOldDepartment`）を通じて自分が使う情報だけを取りに行っています。実際、`AccountPermissionService` クラスは異動前の部署を取得していません。<br>
 そのため、必要な情報が増えても `TransferService` クラスにフィールドと getter メソッドを追加するだけで済み、`onTransferred` メソッドの引数を変える必要はありません。
 
-ただし、pull 型では、受け取る側が通知する側のクラス（`TransferService` クラス）とその getter メソッドを知る必要があるため、両者の結びつきが強くなるという欠点があります。<br>
+ただし、pull 型では、受け取る側が通知する側のクラス（`TransferService`）とその getter メソッドを知る必要があるため、両者の結びつきが強くなるという欠点があります。<br>
 例えば、`AccountPermissionService` クラスの動作だけを確認したい場合、push 型であれば `onTransferred` メソッドに社員と異動前の部署を直接渡すだけで済みます。一方、pull 型では `TransferService` クラスのインスタンスを用意し、`registerTransfer` メソッドで異動を登録しなければ、異動した社員を取得できません。そのため、`registerTransfer` メソッドに不具合があると、`AccountPermissionService` クラスの動作確認まで失敗してしまいます。
 
-そこで実務では、push 型と pull 型の良いところを取り入れた方式として、通知する情報を 1 つのクラスにまとめた「イベントオブジェクト」を渡す方式がよく使われます。
+### イベントオブジェクト
+
+pull 型の欠点を補うため、実務では push 型と pull 型の良いところを取り入れ、通知する情報を 1 つのオブジェクトにまとめた「**イベントオブジェクト**」を渡す方式がよく使われます。
 
 イベントオブジェクトを使って実装すると、次のようになります。
 
@@ -633,8 +646,16 @@ public class MailingListService implements TransferObserver {
 }
 ```
 
-`onTransferred` メソッドの引数を `TransferEvent` クラス 1 つにしておけば、後から「異動日」などの情報が必要になっても、`TransferEvent` クラスにフィールドを追加するだけで済み、`onTransferred` メソッドのシグネチャ（メソッド名と引数の組み合わせ）は変わりません。そのため、既存の連携先のクラスを修正する必要もありません。<br>
-また、各連携先のクラスは `TransferEvent` クラスから必要な情報だけを取り出せばよく、pull 型のように `TransferService` クラスを知る必要もありません。そのため、連携先のクラスの動作を確認する際も、`TransferEvent` クラスのインスタンスを生成して渡すだけで済みます。Java 標準ライブラリの `PropertyChangeEvent` クラスも、この考え方に基づいたイベントオブジェクトです（→ [Java 標準ライブラリにおける Observer パターンの例](#深堀り3)）。
+※ `AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
+
+`onTransferred` メソッドの引数を `TransferEvent` クラス 1 つにしておけば、後から「異動日」などの情報が必要になっても、`TransferEvent` クラスにフィールドと getter メソッドを追加し、`TransferService` クラスでその値を渡すだけで済み、`onTransferred` メソッドのシグネチャ（メソッド名と引数の組み合わせ）は変わりません。そのため、既存の連携先のクラスを修正する必要もありません。<br>
+また、各連携先のクラスは `TransferEvent` クラスから必要な情報だけを取り出せばよく、pull 型のように `TransferService` クラスを知る必要もありません。そのため、連携先のクラスの動作を確認する際も、`TransferEvent` クラスのインスタンスを生成して渡すだけで済みます。<br>
+Java 標準ライブラリの `PropertyChangeEvent` クラスも、この考え方に基づいたイベントオブジェクトです（→ [【深堀り③】Java 標準ライブラリにおける Observer パターンの例](#深堀り3)）。
+
+### 3 つの方式の使い分け
+
+連携先が少なく、渡す情報が今後増える見込みも小さい場合は、本記事の正しい実装のように push 型で十分です。一方、連携先ごとに必要な情報が異なる場合や、今後渡す情報が増える見込みがある場合は、イベントオブジェクトを使うとよいでしょう。<br>
+pull 型は、受け取る側と通知する側の結びつきが強くなっても問題ない場合に限って選ぶのが無難です。
 
 <a id="深堀り2"></a>
 
