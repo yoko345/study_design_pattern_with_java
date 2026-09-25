@@ -147,8 +147,8 @@ public class MailingListService {
 package example;
 
 public class TransferService {
-    private final AccountPermissionService accountPermissionService = new AccountPermissionService();
-    private final MailingListService mailingListService = new MailingListService();
+    private AccountPermissionService accountPermissionService = new AccountPermissionService();
+    private MailingListService mailingListService = new MailingListService();
 
     public void registerTransfer(Employee employee, String newDepartment) {
         String oldDepartment = employee.getDepartment();
@@ -204,7 +204,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-まず思いつくのは、勤怠システムと経費精算システムの承認者を更新するクラスをそれぞれ作成し、既存の連携先と同じように、`TransferService` クラスの `registerTransfer` メソッドから直接呼び出す、という実装ではないでしょうか？
+まず思いつくのは、勤怠システムと経費精算システムの承認者を更新するクラスをそれぞれ作成し、既存の連携先と同じように異動を登録するクラスの `registerTransfer` メソッドから直接呼び出す、という実装ではないでしょうか？
 
 **`AttendanceApprovalService.java`**
 
@@ -236,11 +236,11 @@ public class ExpenseApprovalService {
 package example;
 
 public class TransferService {
-    private final AccountPermissionService accountPermissionService = new AccountPermissionService();
-    private final MailingListService mailingListService = new MailingListService();
+    private AccountPermissionService accountPermissionService = new AccountPermissionService();
+    private MailingListService mailingListService = new MailingListService();
     /* ここを追加（ここから） */
-    private final AttendanceApprovalService attendanceApprovalService = new AttendanceApprovalService();
-    private final ExpenseApprovalService expenseApprovalService = new ExpenseApprovalService();
+    private AttendanceApprovalService attendanceApprovalService = new AttendanceApprovalService();
+    private ExpenseApprovalService expenseApprovalService = new ExpenseApprovalService();
     /* ここを追加（ここまで） */
 
     public void registerTransfer(Employee employee, String newDepartment) {
@@ -280,15 +280,14 @@ public class TransferService {
 
 しかし、この実装には以下の問題点があります。
 
-- 異動の連携先が増えるたびに、`TransferService` クラスを修正しなければならない。`TransferService` クラスが本来担うべき責務は「社員の所属部署を変更する」ことのはずだが、連携先が追加されるたびにフィールドと呼び出しが書き足され、異動登録そのものとは関係のない理由で修正・再テストが必要になる。今後も社員証の所属表示や組織図など、連携先はさらに増えていく可能性がある。
-- `TransferService` クラスが、4 つの連携先の具象クラスと、それぞれのメソッド名・引数を直接知っている。連携先ごとにメソッド名（`updatePermission`・`moveMember`・`changeApprover`・`assignApprover`）も引数もバラバラなため、新しい連携先を追加する担当者は、毎回 `TransferService` クラスの中身を読み解いて呼び出しを書き足す必要がある。書き足しを忘れれば、その連携先だけ承認者が更新されないまま、異動登録が完了してしまう。
-- 連携先がコード上に固定されているため、「経費精算システムのメンテナンス中だけ連携を止めたい」といった一時的な変更であっても、`TransferService` クラス自体を書き換えるしかない。
+- 新しい連携先（例えば「社員証の所属表示」）が増えるたびに `TransferService` クラスにフィールドを追加し、`registerTransfer` メソッドの中身を修正しなければならないため、追加した連携先だけでなく、すでにテストが完了している所属部署の変更や既存の連携先の呼び出しまで、再テストが必要になってしまう。
+- 新しい連携先が増えるたびに `TransferService` クラスの `registerTransfer` メソッドを直接修正する必要があるため、所属部署の変更や既存の連携先の呼び出しを誤って壊してしまうおそれがある。
 
 ## 正しい実装
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-これらの問題を解決するのが **Observer パターン**です。<br>
+この問題を解決するのが **Observer パターン**です。<br>
 異動登録を行う側が連携先を 1 つずつ直接呼び出すのをやめ、「異動が発生したことを知りたいオブジェクト」を共通のインターフェースで登録しておき、異動が発生したら登録済みのオブジェクトへ一斉に通知する形にすることで、連携先が増えても異動登録のクラスを修正する必要がなくなります。
 
 まず、異動の通知を受け取る側に共通する振る舞いを定義するインターフェースから見ていきましょう。
@@ -369,7 +368,7 @@ public class ExpenseApprovalService implements TransferObserver {
 package example;
 
 public class TransferService {
-    private final List<TransferObserver> observers = new ArrayList<>();
+    private List<TransferObserver> observers = new ArrayList<>();
 
     public void addObserver(TransferObserver observer) {
         observers.add(observer);
@@ -444,10 +443,9 @@ public class Main {
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 新しい連携先（例えば社員証の所属表示）を追加する場合も、インターフェース `TransferObserver` を実装したクラスを新たに作成し、`Main` クラスで `addObserver` メソッドを呼び出して登録するだけでよく、`TransferService` クラスには一切手を加える必要がない。
+- 新しい連携先（例えば「社員証の所属表示」）を追加する場合も、インターフェース `TransferObserver` を実装したクラスを新たに作成し、`Main` クラスで `addObserver` メソッドを呼び出して登録するだけでよく、`TransferService` クラスには一切手を加える必要がないため、テスト済みの所属部署の変更や既存の連携先の呼び出しを再テストする必要もない。
     - これは、`TransferService` クラスがインターフェース `TransferObserver` の型を通じて通知先を扱うため、連携先の具象クラスを一切知らずに済むためである。
-- 連携先の呼び出し方が `onTransferred` メソッドに統一されたため、新しい連携先を追加する担当者は、`TransferService` クラスの中身を読み解く必要がなく、インターフェース `TransferObserver` を実装するだけでよい。
-- どの連携先に通知するかを登録処理で決められるため、「経費精算システムのメンテナンス中だけ連携を止めたい」といった場合も、`TransferService` クラスを変更せずに、登録する通知先の組み合わせを変えるだけで対応できる。
+- 連携先の追加で `registerTransfer` メソッドを修正することがなくなるため、所属部署の変更や既存の連携先の呼び出しを誤って壊す心配がない。
 
 ## まとめ
 
