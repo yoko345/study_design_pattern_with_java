@@ -439,13 +439,103 @@ public class Main {
 
 ## 【深堀り①】通知で渡す情報の決め方（push 型と pull 型）
 
-正しい実装を振り返ると、`onTransferred` メソッドは「異動した社員」と「異動前の部署」を引数として各連携先のクラスに渡しています。このように、通知する側が必要そうな情報をあらかじめ引数に詰めて渡す方式は「**push 型**」と呼ばれます。
+正しい実装を振り返ると、`onTransferred` メソッドは「異動した社員」と「異動前の部署」を引数として各連携先のクラスに渡しています。<br>
+このように、通知する側が必要そうな情報をあらかじめ引数に詰めて渡す方式は「**push 型**」と呼ばれます。
 
-push 型は受け取った情報をそのまま使えるため分かりやすい一方、連携先ごとに必要な情報が異なると無駄が生じます。実際、`AccountPermissionService`・`AttendanceApprovalService` クラスは、引数の `oldDepartment` を一切使っていません。さらに、今後「異動日」や「役職」を必要とする連携先が現れた場合、`onTransferred` メソッドの引数を増やすことになり、その変更は `TransferObserver` を実装したすべてのクラスに及びます。
+push 型は受け取った情報をそのまま使えるため分かりやすい一方、連携先ごとに必要な情報が異なると無駄が生じます。実際、`AccountPermissionService`・`AttendanceApprovalService` クラスは、引数の `oldDepartment` を一切使っていません。<br>
+また、「異動日」や「役職」を必要とする連携先が今後現れた場合、`onTransferred` メソッドの引数を増やすことになるため、`TransferObserver` を実装したすべてのクラスに手を加える必要が出てきます。
 
-これに対し、通知の際には「変化があった」ことと通知する側のオブジェクトだけを渡し、必要な情報は受け取る側が取りに行く方式は「**pull 型**」と呼ばれます。pull 型は必要な情報だけを取得できる一方、受け取る側が通知する側の具体的なクラスとその取得用メソッドを知る必要があるため、両者の結びつきが強くなります。
+これらの問題を解決するのが「**pull 型**」と呼ばれる方式です。pull 型は、通知の際に「変化があったこと」と「通知する側のオブジェクト」を渡し、必要な情報は受け取る側が取りに行く流れをとります。
 
-実務では、両者の中間として、通知する情報を 1 つのクラスにまとめた「イベントオブジェクト」を渡す方式がよく使われます。
+pull 型で実装すると、次のようになります。
+
+**`TransferObserver.java`**
+
+```java
+package example;
+
+public interface TransferObserver {
+    void onTransferred(TransferService transferService);
+}
+```
+
+**`TransferService.java`**
+
+```java
+package example;
+
+public class TransferService {
+    private List<TransferObserver> observers = new ArrayList<>();
+    private Employee transferredEmployee;
+    private String oldDepartment;
+
+    public void addObserver(TransferObserver observer) {
+        observers.add(observer);
+    }
+
+    public void registerTransfer(Employee employee, String newDepartment) {
+        oldDepartment = employee.getDepartment();
+        employee.changeDepartment(newDepartment);
+        transferredEmployee = employee;
+        System.out.println("[異動登録] " + employee.getName() + "さんを" + oldDepartment + "から" + newDepartment + "へ異動しました");
+
+        notifyObservers();
+    }
+
+    public Employee getTransferredEmployee() {
+        return transferredEmployee;
+    }
+
+    public String getOldDepartment() {
+        return oldDepartment;
+    }
+
+    private void notifyObservers() {
+        for (TransferObserver observer: observers) {
+            observer.onTransferred(this);
+        }
+    }
+}
+```
+
+**`AccountPermissionService.java`**
+
+```java
+package example;
+
+public class AccountPermissionService implements TransferObserver {
+    @Override
+    public void onTransferred(TransferService transferService) {
+        Employee employee = transferService.getTransferredEmployee();
+        System.out.println("[アクセス権限] " + employee.getName() + "さんの権限を" + employee.getDepartment() + "用に更新しました");
+    }
+}
+```
+
+**`MailingListService.java`**
+
+```java
+package example;
+
+public class MailingListService implements TransferObserver {
+    @Override
+    public void onTransferred(TransferService transferService) {
+        Employee employee = transferService.getTransferredEmployee();
+        String oldDepartment = transferService.getOldDepartment();
+        System.out.println("[メーリングリスト] " + employee.getName() + "さんを" + oldDepartment + "から" + employee.getDepartment() + "のメーリングリストへ移動しました");
+    }
+}
+```
+
+`onTransferred` メソッドの引数は `TransferService` クラスだけになり、各連携先は getter メソッド（`getTransferredEmployee`・`getOldDepartment` メソッド）を通じて自分が使う情報だけを取りに行っています。実際、`AccountPermissionService` クラスは異動前の部署を取得していません。<br>
+そのため、必要な情報が増えても `TransferService` クラスにフィールドと getter メソッドを追加するだけで済み、`onTransferred` メソッドの引数を変える必要はありません。
+
+ただし、pull 型では、受け取る側が通知する側のクラス（`TransferService` クラス）とその getter メソッドを知る必要があるため、両者の結びつきが強くなるという欠点があります。<br>
+例えば、`AccountPermissionService` クラスの動作だけを確認したい場合、push 型であれば `onTransferred` メソッドに社員と異動前の部署を直接渡すだけで済みます。一方、pull 型では `TransferService` クラスのインスタンスを用意し、`registerTransfer` メソッドで異動を登録しなければ、異動した社員を取得できません。そのため、`registerTransfer` メソッドに不具合があると、`AccountPermissionService` クラスの動作確認まで失敗してしまいます。
+
+そこで実務では、push 型と pull 型の良いところを取り入れた方式として、通知する情報を 1 つのクラスにまとめた「イベントオブジェクト」を渡す方式がよく使われます。
+
+イベントオブジェクトを使って実装すると、次のようになります。
 
 **`TransferEvent.java`**
 
@@ -477,7 +567,74 @@ public class TransferEvent {
 }
 ```
 
-`onTransferred` メソッドの引数を `TransferEvent` クラス 1 つにしておけば、後から「異動日」などの情報が必要になっても、`TransferEvent` クラスにフィールドを追加するだけで済み、`onTransferred` メソッドのシグネチャ（メソッド名と引数の組み合わせ）は変わりません。そのため、既存の連携先のクラスを修正する必要もありません。Java 標準ライブラリの `PropertyChangeEvent` クラスも、この考え方に基づいたイベントオブジェクトです（→ [Java 標準ライブラリにおける Observer パターンの例](#深堀り3)）。
+**`TransferObserver.java`**
+
+```java
+package example;
+
+public interface TransferObserver {
+    void onTransferred(TransferEvent event);
+}
+```
+
+**`TransferService.java`**
+
+```java
+package example;
+
+public class TransferService {
+    private List<TransferObserver> observers = new ArrayList<>();
+
+    public void addObserver(TransferObserver observer) {
+        observers.add(observer);
+    }
+
+    public void registerTransfer(Employee employee, String newDepartment) {
+        String oldDepartment = employee.getDepartment();
+        employee.changeDepartment(newDepartment);
+        System.out.println("[異動登録] " + employee.getName() + "さんを" + oldDepartment + "から" + newDepartment + "へ異動しました");
+
+        notifyObservers(new TransferEvent(employee, oldDepartment, newDepartment));
+    }
+
+    private void notifyObservers(TransferEvent event) {
+        for (TransferObserver observer: observers) {
+            observer.onTransferred(event);
+        }
+    }
+}
+```
+
+**`AccountPermissionService.java`**
+
+```java
+package example;
+
+public class AccountPermissionService implements TransferObserver {
+    @Override
+    public void onTransferred(TransferEvent event) {
+        Employee employee = event.getEmployee();
+        System.out.println("[アクセス権限] " + employee.getName() + "さんの権限を" + event.getNewDepartment() + "用に更新しました");
+    }
+}
+```
+
+**`MailingListService.java`**
+
+```java
+package example;
+
+public class MailingListService implements TransferObserver {
+    @Override
+    public void onTransferred(TransferEvent event) {
+        Employee employee = event.getEmployee();
+        System.out.println("[メーリングリスト] " + employee.getName() + "さんを" + event.getOldDepartment() + "から" + event.getNewDepartment() + "のメーリングリストへ移動しました");
+    }
+}
+```
+
+`onTransferred` メソッドの引数を `TransferEvent` クラス 1 つにしておけば、後から「異動日」などの情報が必要になっても、`TransferEvent` クラスにフィールドを追加するだけで済み、`onTransferred` メソッドのシグネチャ（メソッド名と引数の組み合わせ）は変わりません。そのため、既存の連携先のクラスを修正する必要もありません。<br>
+また、各連携先のクラスは `TransferEvent` クラスから必要な情報だけを取り出せばよく、pull 型のように `TransferService` クラスを知る必要もありません。そのため、連携先のクラスの動作を確認する際も、`TransferEvent` クラスのインスタンスを生成して渡すだけで済みます。Java 標準ライブラリの `PropertyChangeEvent` クラスも、この考え方に基づいたイベントオブジェクトです（→ [Java 標準ライブラリにおける Observer パターンの例](#深堀り3)）。
 
 <a id="深堀り2"></a>
 
