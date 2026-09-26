@@ -756,12 +756,6 @@ public class PropertyChangeSupport implements Serializable {
         }
     }
 
-    public void firePropertyChange(String propertyName, Object oldValue, Object newValue) {
-        if (oldValue == null || newValue == null || !oldValue.equals(newValue)) {
-            firePropertyChange(new PropertyChangeEvent(this.source, propertyName, oldValue, newValue));
-        }
-    }
-
     public void firePropertyChange(PropertyChangeEvent event) {
         Object oldValue = event.getOldValue();
         Object newValue = event.getNewValue();
@@ -794,7 +788,8 @@ public class PropertyChangeSupport implements Serializable {
 
 `PropertyChangeSupport` クラスの `addPropertyChangeListener` メソッドは、リスナーを `map` フィールド（プロパティ名ごとにリスナーを管理する内部クラス）に登録します。`PropertyChangeListenerProxy` の分岐は特定のプロパティだけを監視するリスナー向けの処理で、それ以外のリスナーは `null` をキーとして「すべてのプロパティの変化を受け取るリスナー」として登録されます。これは、本記事の `addObserver` メソッドにあたります。
 
-`firePropertyChange` メソッドは、変化したプロパティ名と変化前後の値から `PropertyChangeEvent`（変化の内容をまとめたイベントオブジェクト）を生成し、`fire` メソッドで登録済みのリスナーの `propertyChange` メソッドを順番に呼び出しています。これは、本記事の `notifyObservers` メソッドにあたります。値の変化 1 回ごとに、その変化の内容を持つ `PropertyChangeEvent` が 1 つ生成されて通知されるため、「状態の変化と通知が 1 対 1 に対応していない」という `Observable` クラスの弱点が解消されています。また、変化前後の値が等しい場合は、実際には変化していないものとして通知しない判定も組み込まれています。
+`firePropertyChange` メソッドは、変化したプロパティ名と変化前後の値をまとめた `PropertyChangeEvent`（イベントオブジェクト）を受け取り、`fire` メソッドで登録済みのリスナーの `propertyChange` メソッドを順番に呼び出しています。これは、本記事の `notifyObservers` メソッドにあたります。値の変化 1 回ごとに、その変化の内容を持つ `PropertyChangeEvent` が 1 つ通知されるため、「状態の変化と通知が 1 対 1 に対応していない」という `Observable` クラスの弱点が解消されています。また、変化前後の値が等しい場合は、実際には変化していないものとして通知しない判定も組み込まれています。<br>
+さらに、イベントオブジェクトがプロパティ名と変化前後の値を持ち、特定のプロパティだけを監視するリスナーも登録できるため、「サポートしているイベントモデルが限定的」という弱点も改善されています。一方で、上記のコードは登録順にリスナーを呼び出していますが、この順番は `PropertyChangeSupport` クラスの仕様として保証されたものではありません。そのため、通知の順番に依存しない作りにすることが重要な点は変わりません（→ [【深堀り②】通知の途中で例外が発生した場合](#深堀り2)）。
 
 利用する側は、自分のクラスに `PropertyChangeSupport` クラスのインスタンスを持たせ、値を変更するたびに `firePropertyChange` メソッドを呼び出すだけで、登録済みのリスナーへの通知を任せられます。継承ではなくフィールドとして持たせる形のため、`Observable` クラスのように継承の枠を使ってしまうこともありません。
 
