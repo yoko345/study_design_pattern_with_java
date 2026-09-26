@@ -715,7 +715,7 @@ Observer パターンは、異動の知らせを受け取る側のクラスが�
 
 Java には、JDK 1.0 の時代から `java.util.Observer` インターフェースと `java.util.Observable` クラスという、名前のとおり Observer パターンを実装するための仕組みが用意されていました。しかし、この 2 つは Java 9 で非推奨（`@Deprecated`）となっています。
 
-`Observable` クラスの Javadoc には、非推奨とされた理由として「サポートしているイベントモデルが限定的であること」「通知の順番が規定されていないこと」「状態の変化と通知が 1 対 1 に対応していないこと」が挙げられており、代わりに `java.beans` パッケージの利用が案内されています（→ OpenJDK [Observable.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Observable.java)）。また、`Observable` はインターフェースではなくクラスであるため、通知する側のクラスは `Observable` クラスを継承しなければならず、他のクラスを継承できなくなるという使いづらさもありました。
+`Observable` クラスの Javadoc には、非推奨とされた理由として「サポートしているイベントモデルが限定的であること」「通知の順番が規定されていないこと」「状態の変化と通知が 1 対 1 に対応していないこと」が挙げられており、代わりに `java.beans` パッケージなどの利用が案内されています（→ OpenJDK [Observable.java](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/util/Observable.java)）。また、`Observable` はインターフェースではなくクラスであるため、通知する側のクラスは `Observable` クラスを継承しなければならず、他のクラスを継承できなくなるという使いづらさもありました。
 
 そこで、案内されている `java.beans` パッケージの `PropertyChangeListener` インターフェースと `PropertyChangeSupport` クラスを見ていきましょう。
 
