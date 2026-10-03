@@ -1,5 +1,7 @@
 package chapter18.game;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -9,6 +11,20 @@ public class Gamer {
     private List<String> fruits = new ArrayList<>();
     private Random random = new Random();
     private static String[] fruitNames = {"りんご", "ぶどう", "ばなな", "みかん"};
+
+    // 練習問題18-4
+    public Gamer(String filename) {
+        Path path = Path.of(Memento.BASE_FILE_PATH + filename);
+
+        if (Files.exists(path)) {
+            Memento memento = new Memento(filename);
+
+            this.money = memento.getMoney();
+            this.fruits = memento.getFruits();
+        } else {
+            this.money = 100;
+        }
+    }
 
     public Gamer(int money) {
         this.money = money;
@@ -42,8 +58,10 @@ public class Gamer {
         }
     }
 
+    // 練習問題18-4
     // スナップショットをとる
-    public Memento createMemento() {
+    // public Memento createMemento() {
+    public Memento createMemento(String filename) {
         Memento memento = new Memento(money);
 
         for (String fruit : fruits) {
@@ -52,7 +70,12 @@ public class Gamer {
             }
         }
 
-        return memento;
+        // 練習問題18-4
+        if (memento.saveToFile(filename, memento)) {
+            return memento;
+        } else {
+            return null;
+        }
     }
 
     // アンドゥを行う
