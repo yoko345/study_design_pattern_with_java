@@ -2,7 +2,7 @@
 
 次のような経験をしたことはありませんか？
 
-> オブジェクトを以前の状態に戻す機能を作るために、呼び出す側でオブジェクトの値を 1 つずつ取り出して退避しておき、戻すときに 1 つずつ書き戻す実装にした。そのせいで、本来は外から自由に書き換えられたくない値まで、どこからでも書き換えられるようにする羽目になった。おまけに、退避したはずの値の一部だけが元に戻らない不具合を生んでしまうこともあった。
+> 編集をキャンセルしたら編集前の状態に戻す、処理の途中で失敗したら元の状態に戻す、といった機能を作るために、呼び出す側でオブジェクトの値を 1 つずつ取り出して退避しておき、戻すときに 1 つずつ書き戻す実装にした。そのせいで、本来は外から自由に書き換えられたくない値まで、どこからでも書き換えられる状態になってしまった。おまけに、後から項目を追加したときに退避と書き戻しの処理を直し忘れて、その項目だけ元に戻らない不具合を生んだこともあった。
 
 この記事では、社内ポータルのお知らせ記事の編集画面に「元に戻す」機能を追加するシナリオを通して、Memento パターンがこの問題をどのように解決するかを紹介します。
 
@@ -27,69 +27,64 @@
 ### シナリオ
 
 > あなたは社内ポータルの開発チームに所属しています。<br>
-> 社内ポータルのお知らせ記事の編集画面には、編集中の内容を下書き保存する機能はありますが、操作を元に戻す機能がありません。そのため、誤って本文や公開先の部署を書き換えてしまうと、記事の担当者が記憶を頼りに手で直すしかありませんでした。<br>
-> 先日、公開先を変更している途中で操作を誤り、人事部向けの記事が全部署向けの設定のまま公開されかける、というヒヤリハットがありました。これを受けて、編集画面に「1 つ前の操作に戻す」機能と、「編集を破棄して、最後に下書き保存した時点に戻す」機能を追加することになりました。
+> 社内ポータルのお知らせ記事は、メールの宛先のように公開先の部署を 1 つずつ追加して、公開する範囲を決めます。<br>
+> 現在、お知らせ記事の編集画面では、本文の編集や公開先の部署の設定に加えて、編集中の内容の下書き保存もできます。しかし、操作を元に戻す機能は実装されていないため、誤って本文や公開先の部署を書き換えてしまうと、記事の担当者が記憶を頼りに手動で直すしかない状態です。<br>
+> 先日、人事部向けの記事の公開先を変更している途中で、誤って別の部署を追加してしまいました。記憶を頼りに手動で直したものの削除し忘れがあり、ほかの部署にも公開されかける、というヒヤリハットがありました。これを受けて、編集画面に「1 つ前の操作に戻す」機能と、「編集を破棄して、最後に下書き保存した時点に戻す」機能を追加することになりました。
 
 ※実際のお知らせ記事の編集画面では、画面への表示や、下書きをデータベースへ保存する処理を行う実装が必要ですが、本記事では Memento パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
 ### 既存コードの仕様
 
-※実務では、次の `Article` のようなエンティティクラスは専用のパッケージに切り出すのが一般的です。本記事でも、`Article` クラスは `example.article` パッケージに配置し、編集画面を表す `ArticleEditor` クラスと実行クラスは `example` パッケージに配置しています。
-
-> ```
-> example.article パッケージ
->   └── Article.java          お知らせ記事
->
-> example パッケージ
->   ├── ArticleEditor.java    お知らせ記事の編集画面
->   └── Main.java             実行クラス
-> ```
+※実務では、次の `Article` のようなエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
 
 - `Article`（既存クラス）
 
 お知らせ記事 1 件を表すクラスです。<br>
-記事の本文と公開先の部署を保持します。公開先の部署は 1 つ以上必要なため、最後の 1 つを削除しようとすると例外を投げます。<br>
-本文や公開先は、`getSummary` メソッドで表示用の文字列としてのみ取り出せます。
+記事の本文と公開先の部署を保持します。<br>
+公開先に部署を追加するときは、すでに追加されている部署ではないかをチェックしています。また、下書き保存の前に呼び出す `validate` メソッドで、本文が入力され、公開先の部署が 1 つ以上設定されているかをチェックしています。
 
 | フィールド          | 型             | 説明         |
 | ------------------- | -------------- | ------------ |
 | `body`              | `String`       | 本文         |
 | `targetDepartments` | `List<String>` | 公開先の部署 |
 
-| メソッド                 | 引数                | 戻り値の型 | 説明                                                                                   |
-| ------------------------ | ------------------- | ---------- | -------------------------------------------------------------------------------------- |
-| `changeBody`             | `String body`       | `void`     | 本文を変更する                                                                         |
-| `addTargetDepartment`    | `String department` | `void`     | 公開先に部署を追加する                                                                 |
-| `removeTargetDepartment` | `String department` | `void`     | 公開先から部署を削除する。公開先が 1 つしかない場合は `IllegalStateException` を投げる |
-| `getSummary`             | なし                | `String`   | 本文と公開先をまとめた表示用の文字列を返す                                             |
+| メソッド                 | 引数                | 戻り値の型 | 説明                                                                                                                                               |
+| ------------------------ | ------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `changeBody`             | `String body`       | `void`     | 本文を変更する                                                                                                                                     |
+| `addTargetDepartment`    | `String department` | `void`     | 公開先に部署を追加する<br>すでに追加されている部署の場合は `IllegalArgumentException` を投げる                                                     |
+| `removeTargetDepartment` | `String department` | `void`     | 公開先から部署を削除する                                                                                                                           |
+| `validate`               | なし                | `void`     | 下書き保存できる状態かをチェックする<br>本文が入力されていない、または公開先の部署が 1 つも設定されていない場合は `IllegalStateException` を投げる |
+| `getSummary`             | なし                | `String`   | 本文と公開先をまとめた表示用の文字列を返す                                                                                                         |
 
 **`Article.java`**
 
 ```java
-package example.article;
+package example;
 
 public class Article {
-    private String body;
+    private String body = "";
     private List<String> targetDepartments = new ArrayList<>();
-
-    public Article(String body, String targetDepartment) {
-        this.body = body;
-        targetDepartments.add(targetDepartment);
-    }
 
     public void changeBody(String body) {
         this.body = body;
     }
 
     public void addTargetDepartment(String department) {
+        if (targetDepartments.contains(department)) {
+            throw new IllegalArgumentException("すでに公開先に追加されている部署です");
+        }
+
         targetDepartments.add(department);
     }
 
     public void removeTargetDepartment(String department) {
-        if (targetDepartments.size() == 1) {
-            throw new IllegalStateException("公開先の部署を空にすることはできません");
-        }
         targetDepartments.remove(department);
+    }
+
+    public void validate() {
+        if (body.isBlank() || targetDepartments.isEmpty()) {
+            throw new IllegalStateException("本文と公開先の部署をどちらも入力してから、下書き保存してください");
+        }
     }
 
     public String getSummary() {
@@ -103,25 +98,24 @@ public class Article {
 - `ArticleEditor`（既存クラス）
 
 お知らせ記事の編集画面を表すクラスです。<br>
+記事の新規作成でも、この編集画面を使います。<br>
 本文の変更、公開先の追加・削除、下書き保存の操作を受け付け、操作後の記事の内容をコンソールに出力します。
 
 | フィールド | 型        | 説明                 |
 | ---------- | --------- | -------------------- |
 | `article`  | `Article` | 編集中のお知らせ記事 |
 
-| メソッド                 | 引数                | 戻り値の型 | 説明                                                             |
-| ------------------------ | ------------------- | ---------- | ---------------------------------------------------------------- |
-| `changeBody`             | `String body`       | `void`     | 記事の本文を変更し、変更後の内容をコンソールに出力する           |
-| `addTargetDepartment`    | `String department` | `void`     | 記事の公開先に部署を追加し、追加後の内容をコンソールに出力する   |
-| `removeTargetDepartment` | `String department` | `void`     | 記事の公開先から部署を削除し、削除後の内容をコンソールに出力する |
-| `saveDraft`              | なし                | `void`     | 記事を下書き保存し、保存した内容をコンソールに出力する           |
+| メソッド                 | 引数                | 戻り値の型 | 説明                                                                                           |
+| ------------------------ | ------------------- | ---------- | ---------------------------------------------------------------------------------------------- |
+| `changeBody`             | `String body`       | `void`     | 記事の本文を変更し、変更後の内容をコンソールに出力する                                         |
+| `addTargetDepartment`    | `String department` | `void`     | 記事の公開先に部署を追加し、追加後の内容をコンソールに出力する                                 |
+| `removeTargetDepartment` | `String department` | `void`     | 記事の公開先から部署を削除し、削除後の内容をコンソールに出力する                               |
+| `saveDraft`              | なし                | `void`     | 記事が下書き保存できる状態かをチェックしてから下書き保存し、保存した内容をコンソールに出力する |
 
 **`ArticleEditor.java`**
 
 ```java
 package example;
-
-import example.article.Article;
 
 public class ArticleEditor {
     private Article article;
@@ -132,20 +126,25 @@ public class ArticleEditor {
 
     public void changeBody(String body) {
         article.changeBody(body);
+
         System.out.println("[本文を変更] " + article.getSummary());
     }
 
     public void addTargetDepartment(String department) {
         article.addTargetDepartment(department);
+
         System.out.println("[公開先を追加] " + article.getSummary());
     }
 
     public void removeTargetDepartment(String department) {
         article.removeTargetDepartment(department);
+
         System.out.println("[公開先を削除] " + article.getSummary());
     }
 
     public void saveDraft() {
+        article.validate();
+
         System.out.println("[下書き保存] " + article.getSummary());
     }
 }
@@ -160,14 +159,20 @@ public class ArticleEditor {
 ```java
 package example;
 
-import example.article.Article;
-
 public class Main {
     public static void main(String[] args) {
-        Article article = new Article("新しい評価制度の検討を始めます。", "人事部");
-        ArticleEditor editor = new ArticleEditor(article);
+        ArticleEditor editor = new ArticleEditor(new Article());
+
+        editor.changeBody("新しい評価制度の検討を始めます。");
+        editor.addTargetDepartment("人事部");
+        editor.saveDraft();
+
+        System.out.println();
 
         editor.changeBody("来月から新しい評価制度の検討を始めます。");
+        editor.addTargetDepartment("総務部");
+        editor.removeTargetDepartment("総務部");
+        // 誤って削除してしまったため、手動で追加し直している
         editor.addTargetDepartment("総務部");
         editor.saveDraft();
     }
@@ -177,7 +182,13 @@ public class Main {
 **実行結果**
 
 ```
+[本文を変更] 本文：新しい評価制度の検討を始めます。／公開先：[]
+[公開先を追加] 本文：新しい評価制度の検討を始めます。／公開先：[人事部]
+[下書き保存] 本文：新しい評価制度の検討を始めます。／公開先：[人事部]
+
 [本文を変更] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部]
+[公開先を追加] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
+[公開先を削除] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部]
 [公開先を追加] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
 [下書き保存] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
 ```
@@ -188,36 +199,37 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-まず思いつくのは、編集画面（`ArticleEditor` クラス）で、各操作の直前に記事の本文と公開先を取り出して退避しておき、元に戻すときにそれらを記事へ書き戻す、という実装ではないでしょうか？<br>
-ただし、`Article` クラスは本文や公開先を表示用の文字列としてしか取り出せないため、退避と書き戻しに使うメソッドを `Article` クラスに追加する必要があります。本文は既存の `changeBody` メソッドで書き戻せるので、追加するのは、本文を取り出す `getBody` メソッド、公開先を取り出す `getTargetDepartments` メソッド、公開先を書き戻す `setTargetDepartments` メソッドの 3 つです。
+まず思いつくのは、編集画面（`ArticleEditor` クラス）で、各操作の直前に記事の本文と公開先を取り出して退避しておき、元に戻すときにそれらを記事へ書き戻す、という実装ではないでしょうか？
 
 **`Article.java`**
 
 ```java
-package example.article;
+package example;
 
 public class Article {
-    private String body;
+    private String body = "";
     private List<String> targetDepartments = new ArrayList<>();
-
-    public Article(String body, String targetDepartment) {
-        this.body = body;
-        targetDepartments.add(targetDepartment);
-    }
 
     public void changeBody(String body) {
         this.body = body;
     }
 
     public void addTargetDepartment(String department) {
+        if (targetDepartments.contains(department)) {
+            throw new IllegalArgumentException("すでに公開先に追加されている部署です");
+        }
+
         targetDepartments.add(department);
     }
 
     public void removeTargetDepartment(String department) {
-        if (targetDepartments.size() == 1) {
-            throw new IllegalStateException("公開先の部署を空にすることはできません");
-        }
         targetDepartments.remove(department);
+    }
+
+    public void validate() {
+        if (body.isBlank() || targetDepartments.isEmpty()) {
+            throw new IllegalStateException("本文と公開先の部署をどちらも入力してから、下書き保存してください");
+        }
     }
 
     /* ここを追加（ここから） */
@@ -245,8 +257,6 @@ public class Article {
 ```java
 package example;
 
-import example.article.Article;
-
 public class ArticleEditor {
     private Article article;
     /* ここを追加（ここから） */
@@ -269,6 +279,7 @@ public class ArticleEditor {
         saveHistory();
         /* ここを追加（ここまで） */
         article.changeBody(body);
+
         System.out.println("[本文を変更] " + article.getSummary());
     }
 
@@ -277,6 +288,7 @@ public class ArticleEditor {
         saveHistory();
         /* ここを追加（ここまで） */
         article.addTargetDepartment(department);
+
         System.out.println("[公開先を追加] " + article.getSummary());
     }
 
@@ -285,14 +297,17 @@ public class ArticleEditor {
         saveHistory();
         /* ここを追加（ここまで） */
         article.removeTargetDepartment(department);
+
         System.out.println("[公開先を削除] " + article.getSummary());
     }
 
     public void saveDraft() {
+        article.validate();
         /* ここを追加（ここから） */
         draftBody = article.getBody();
         draftTargetDepartments = article.getTargetDepartments();
         /* ここを追加（ここまで） */
+
         System.out.println("[下書き保存] " + article.getSummary());
     }
 
@@ -304,6 +319,7 @@ public class ArticleEditor {
         }
         article.changeBody(bodyHistory.pop());
         article.setTargetDepartments(targetDepartmentsHistory.pop());
+
         System.out.println("[元に戻す] " + article.getSummary());
     }
 
@@ -312,6 +328,7 @@ public class ArticleEditor {
         article.setTargetDepartments(draftTargetDepartments);
         bodyHistory.clear();
         targetDepartmentsHistory.clear();
+
         System.out.println("[下書きに戻す] " + article.getSummary());
     }
 
@@ -338,18 +355,26 @@ public class ArticleEditor {
 ```java
 package example;
 
-import example.article.Article;
-
 public class Main {
     public static void main(String[] args) {
-        Article article = new Article("新しい評価制度の検討を始めます。", "人事部");
-        ArticleEditor editor = new ArticleEditor(article);
+        ArticleEditor editor = new ArticleEditor(new Article());
+
+        editor.changeBody("新しい評価制度の検討を始めます。");
+        editor.addTargetDepartment("人事部");
+        editor.saveDraft();
+
+        System.out.println();
 
         editor.changeBody("来月から新しい評価制度の検討を始めます。");
         editor.addTargetDepartment("総務部");
+        editor.removeTargetDepartment("総務部");
+        // 誤って削除してしまったため、手動で追加し直している
+        editor.addTargetDepartment("総務部");
         editor.saveDraft();
-
         /* ここを追加（ここから） */
+
+        System.out.println();
+
         editor.changeBody("来月から全社で新しい評価制度を導入します。");
         editor.addTargetDepartment("営業部");
         editor.undo();
@@ -359,21 +384,28 @@ public class Main {
 }
 ```
 
-`Main` クラスでは、下書き保存の後に、本文を誤った内容に書き換え、公開先に営業部を誤って追加してから、「1 つ前に戻す」と「下書きに戻す」を順に実行しています。
+`Main` クラスでは、2 回目の下書き保存の後に、本文を誤った内容に書き換え、公開先に営業部を誤って追加してから、「1 つ前に戻す」と「下書きに戻す」を順に実行しています。
 
 **実行結果**
 
 ```
+[本文を変更] 本文：新しい評価制度の検討を始めます。／公開先：[]
+[公開先を追加] 本文：新しい評価制度の検討を始めます。／公開先：[人事部]
+[下書き保存] 本文：新しい評価制度の検討を始めます。／公開先：[人事部]
+
 [本文を変更] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部]
 [公開先を追加] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
+[公開先を削除] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部]
+[公開先を追加] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
 [下書き保存] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
+
 [本文を変更] 本文：来月から全社で新しい評価制度を導入します。／公開先：[人事部, 総務部]
 [公開先を追加] 本文：来月から全社で新しい評価制度を導入します。／公開先：[人事部, 総務部, 営業部]
 [元に戻す] 本文：来月から全社で新しい評価制度を導入します。／公開先：[人事部, 総務部, 営業部]
 [下書きに戻す] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部, 営業部]
 ```
 
-実行結果の 6 行目では、「1 つ前に戻す」を実行したにもかかわらず、誤って追加した営業部が公開先に残ったままになっています。さらに 7 行目では、本文は下書き保存した時点に戻っているのに、公開先には営業部が残っています。シナリオのヒヤリハットと同じく、人事部向けの記事が、ほかの部署にも公開される設定のままになってしまいました。
+実行結果の 13 行目では、「1 つ前に戻す」を実行したにもかかわらず、誤って追加した営業部が公開先に残ったままになっています。さらに 14 行目では、本文は下書き保存した時点に戻っているのに、公開先には営業部が残っています。シナリオのヒヤリハットと同じく、公開する予定のない営業部にも公開される設定のままになってしまいました。
 
 原因は、`getTargetDepartments` メソッドが、`Article` クラスが保持しているリストそのもの（参照）を返していることにあります。`ArticleEditor` クラスが履歴や下書きに退避していたのは、その時点の公開先の中身ではなく、`Article` クラスと共有している 1 つのリストでした。そのため、営業部を追加すると、退避しておいたはずのリストにも営業部が追加されてしまいます。<br>
 一方、本文の `String` クラスは中身を書き換えられない（不変な）クラスで、`changeBody` メソッドは本文を別の文字列に差し替えるだけです。そのため、退避しておいた本文は書き換わらず、正しく元に戻せています。
@@ -383,7 +415,7 @@ public class Main {
 - 値を正しく退避するには、編集画面である `ArticleEditor` クラスが、`Article` クラスの内部の作り（公開先をリストで保持し、そのリストをそのまま返していることなど）まで知っていなければならない。
     - 今回のように内部の作りを知らないまま退避すると、コンパイルエラーも例外も発生しないまま、一部の値だけが元に戻らない不具合が生まれてしまう。
 - 退避と書き戻しのために追加した `getTargetDepartments`・`setTargetDepartments` メソッドは `public` のため、`ArticleEditor` クラス以外のどこからでも呼び出せてしまう。
-    - 例えば、`setTargetDepartments` メソッドに空のリストを渡したり、`getTargetDepartments` メソッドで取り出したリストを直接空にしたりすれば、`removeTargetDepartment` メソッドのチェックを経由せずに、公開先を空にできてしまう。
+    - 例えば、`setTargetDepartments` メソッドに同じ部署が重複したリストを渡したり、`getTargetDepartments` メソッドで取り出したリストに直接部署を追加したりすれば、`addTargetDepartment` メソッドのチェックを経由せずに、同じ部署を重複して登録できてしまう。
 - `Article` クラスにフィールド（例えば「公開日」）を追加するたびに、`ArticleEditor` クラスにも履歴用・下書き用のフィールドを追加し、コンストラクタと `saveDraft`・`undo`・`revertToDraft`・`saveHistory` メソッドをすべて修正しなければならない。
     - 修正が 1 か所でも漏れると、公開日だけが元に戻らない不具合が生まれるが、1 つ目の問題点と同じく、コンパイルエラーも例外も発生しないため気づきにくい。
 
@@ -395,12 +427,14 @@ public class Main {
 編集画面が記事の値を 1 つずつ取り出して退避するのをやめ、記事自身に「ある時点の自分の状態」を 1 つのオブジェクトにまとめて作らせます。編集画面はそのオブジェクトを中身を見ないまま預かっておき、元に戻すときは、そのオブジェクトを記事に渡して、記事自身に状態を戻させます。<br>
 この「ある時点の状態をまとめたオブジェクト」を、Memento（メメント：英語で「記念品」「形見」の意味）と呼びます。
 
+ただし、編集画面が Memento の中身を取り出したり、自分で作ったりできてしまうと、好ましくない実装と同じ問題が残ります。そこで本実装では、記事と Memento を `example.article` パッケージに移し、編集画面とは別のパッケージに分けます。こうすることで、記事からは Memento の中身を使えるようにしたまま、編集画面からは隠せるようになります（詳しい仕組みは後述します）。
+
 では、実装を見ていきましょう。<br>
 ※本記事では下記のクラス構成としています。
 
 > ```
 > example.article パッケージ
->   ├── Article.java          お知らせ記事（既存の仕様から本実装に合わせて修正）
+>   ├── Article.java          お知らせ記事（example パッケージから移動し、本実装に合わせて修正）
 >   └── ArticleMemento.java   ある時点の記事の状態をまとめたクラス
 >
 > example パッケージ
@@ -450,27 +484,29 @@ public class ArticleMemento {
 package example.article;
 
 public class Article {
-    private String body;
+    private String body = "";
     private List<String> targetDepartments = new ArrayList<>();
-
-    public Article(String body, String targetDepartment) {
-        this.body = body;
-        targetDepartments.add(targetDepartment);
-    }
 
     public void changeBody(String body) {
         this.body = body;
     }
 
     public void addTargetDepartment(String department) {
+        if (targetDepartments.contains(department)) {
+            throw new IllegalArgumentException("すでに公開先に追加されている部署です");
+        }
+
         targetDepartments.add(department);
     }
 
     public void removeTargetDepartment(String department) {
-        if (targetDepartments.size() == 1) {
-            throw new IllegalStateException("公開先の部署を空にすることはできません");
-        }
         targetDepartments.remove(department);
+    }
+
+    public void validate() {
+        if (body.isBlank() || targetDepartments.isEmpty()) {
+            throw new IllegalStateException("本文と公開先の部署をどちらも入力してから、下書き保存してください");
+        }
     }
 
     public String getSummary() {
@@ -497,7 +533,7 @@ public class Article {
     - 公開先のリストは、ここでもコピーしてから保持している。これは、同じ下書きの Memento を使って 2 回以上戻す場合に備えるためである。Memento のリストをそのまま保持すると、戻した後の編集で Memento のリストまで書き換わり、2 回目に戻したときには下書き時点の状態に戻らなくなってしまう。
 
 状態を取り出したり書き戻したりする処理はすべて `Article` クラスの中に収まっているため、好ましくない実装のような getter・setter を追加する必要はありません。<br>
-また、`ArticleMemento` クラスのインスタンスは `example.article` パッケージの外では作れず、実際に作っているのは `Article` クラスの `createMemento` メソッドだけです。そのため、`restoreMemento` メソッドで、公開先が空のような、チェックを経由していない状態に戻されることもありません。
+また、`ArticleMemento` クラスのインスタンスは `example.article` パッケージの外では作れず、実際に作っているのは `Article` クラスの `createMemento` メソッドだけです。そのため、`restoreMemento` メソッドで、同じ部署が重複しているような、チェックを経由していない状態に戻されることもありません。
 
 次に、Memento を預かる側の `ArticleEditor` クラスを見ていきましょう。
 
@@ -528,6 +564,7 @@ public class ArticleEditor {
         history.push(article.createMemento());
         /* ここを追加（ここまで） */
         article.changeBody(body);
+
         System.out.println("[本文を変更] " + article.getSummary());
     }
 
@@ -536,6 +573,7 @@ public class ArticleEditor {
         history.push(article.createMemento());
         /* ここを追加（ここまで） */
         article.addTargetDepartment(department);
+
         System.out.println("[公開先を追加] " + article.getSummary());
     }
 
@@ -544,13 +582,16 @@ public class ArticleEditor {
         history.push(article.createMemento());
         /* ここを追加（ここまで） */
         article.removeTargetDepartment(department);
+
         System.out.println("[公開先を削除] " + article.getSummary());
     }
 
     public void saveDraft() {
+        article.validate();
         /* ここを追加（ここから） */
         draft = article.createMemento();
         /* ここを追加（ここまで） */
+
         System.out.println("[下書き保存] " + article.getSummary());
     }
 
@@ -561,12 +602,14 @@ public class ArticleEditor {
             return;
         }
         article.restoreMemento(history.pop());
+
         System.out.println("[元に戻す] " + article.getSummary());
     }
 
     public void revertToDraft() {
         article.restoreMemento(draft);
         history.clear();
+
         System.out.println("[下書きに戻す] " + article.getSummary());
     }
     /* ここを追加（ここまで） */
@@ -595,14 +638,24 @@ import example.article.Article;
 
 public class Main {
     public static void main(String[] args) {
-        Article article = new Article("新しい評価制度の検討を始めます。", "人事部");
-        ArticleEditor editor = new ArticleEditor(article);
+        ArticleEditor editor = new ArticleEditor(new Article());
+
+        editor.changeBody("新しい評価制度の検討を始めます。");
+        editor.addTargetDepartment("人事部");
+        editor.saveDraft();
+
+        System.out.println();
 
         editor.changeBody("来月から新しい評価制度の検討を始めます。");
         editor.addTargetDepartment("総務部");
+        editor.removeTargetDepartment("総務部");
+        // 誤って削除してしまったため、手動で追加し直している
+        editor.addTargetDepartment("総務部");
         editor.saveDraft();
-
         /* ここを追加（ここから） */
+
+        System.out.println();
+
         editor.changeBody("来月から全社で新しい評価制度を導入します。");
         editor.addTargetDepartment("営業部");
         editor.undo();
@@ -612,27 +665,34 @@ public class Main {
 }
 ```
 
-`Main` クラスは、好ましくない実装と同じです。
+`Main` クラスは、`Article` クラスを `example.article` パッケージに移動したことによる import 文の追加以外は、好ましくない実装と同じです。
 
 **実行結果**
 
 ```
+[本文を変更] 本文：新しい評価制度の検討を始めます。／公開先：[]
+[公開先を追加] 本文：新しい評価制度の検討を始めます。／公開先：[人事部]
+[下書き保存] 本文：新しい評価制度の検討を始めます。／公開先：[人事部]
+
 [本文を変更] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部]
 [公開先を追加] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
+[公開先を削除] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部]
+[公開先を追加] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
 [下書き保存] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
+
 [本文を変更] 本文：来月から全社で新しい評価制度を導入します。／公開先：[人事部, 総務部]
 [公開先を追加] 本文：来月から全社で新しい評価制度を導入します。／公開先：[人事部, 総務部, 営業部]
 [元に戻す] 本文：来月から全社で新しい評価制度を導入します。／公開先：[人事部, 総務部]
 [下書きに戻す] 本文：来月から新しい評価制度の検討を始めます。／公開先：[人事部, 総務部]
 ```
 
-実行結果の 6 行目では、「1 つ前に戻す」によって、誤って追加した営業部が公開先から外れています。また 7 行目では、本文・公開先ともに、下書き保存した時点の状態に戻っています。
+実行結果の 13 行目では、「1 つ前に戻す」によって、誤って追加した営業部が公開先から外れています。また 14 行目では、本文・公開先ともに、下書き保存した時点の状態に戻っています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
 - 状態を退避・復元する処理が `Article` クラスの中にまとまっているため、`ArticleEditor` クラスは `Article` クラスの内部の作りを知らなくても、記事を正しく元に戻せる。
     - リストのコピーのように、内部の作りを知っていなければ書けない処理は、`Article`・`ArticleMemento` クラスだけが受け持っている。
-- 退避と書き戻しのための getter・setter を追加する必要がないため、`removeTargetDepartment` メソッドのチェックを経由せずに公開先を空にする、といった書き換えはできない。
+- 退避と書き戻しのための getter・setter を追加する必要がないため、`addTargetDepartment` メソッドのチェックを経由せずに同じ部署を重複して登録する、といった書き換えはできない。
     - `ArticleMemento` クラスの中身も、`example.article` パッケージの外からは取り出すことも作ることもできない。
 - `Article` クラスにフィールド（例えば「公開日」）を追加しても、修正するのは同じパッケージにある `Article`・`ArticleMemento` クラスだけで、`ArticleEditor` クラスには一切手を加える必要がない。
 
@@ -662,7 +722,7 @@ public class Main {
 package example.article;
 
 public class Article {
-    private String body;
+    private String body = "";
     private List<String> targetDepartments = new ArrayList<>();
 
     public Memento createMemento() {
@@ -686,7 +746,7 @@ public class Article {
 }
 ```
 
-※コンストラクタと既存のメソッド（`changeBody` メソッドなど）は省略しています。
+※既存のメソッド（`changeBody` メソッドなど）は省略しています。
 
 ネストクラスの `Memento` クラスは、コンストラクタもフィールドも `private` です。しかし Java では、外側のクラスから、ネストクラスの `private` なメンバーにアクセスできます。そのため、`Article` クラスの `restoreMemento` メソッドでは `memento.body` のようにフィールドを直接読み出せる一方、`Article` クラスの外からは、同じパッケージのクラスであっても、中身を取り出すことも新たに作ることもできません。<br>
 また、`static` を付けたネストクラスは、外側のクラスのインスタンスとは結びつかない、独立したクラスとして扱われます。`ArticleEditor` クラスからは `Article.Memento` という型名で参照でき、`Deque<Article.Memento>` のように、正しい実装と同じ形で Memento を預かれます。
