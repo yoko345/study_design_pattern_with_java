@@ -64,6 +64,8 @@ JDK ソースコードを引用する場合は原文のまま掲載し、上記�
 
 拡張for文のコロンは、前に空白を入れず後ろにのみ半角空白を1つ入れる（例: `for (Task task: tasks) {`）。このルールは記事内の Java コードブロックにのみ適用し、`src/chapterXX/*.java` のソースコードでは指摘・修正しない。
 
+`final` は、定数（例: `private static final int MAX_HISTORY = 50;`）や `serialVersionUID` のように付けることが必須のものを除き、付けない。値やイベントを保持するだけのクラスのフィールドでも、付けるかどうかが任意であれば付けない。Template Method パターンのテンプレートメソッドのように、`final` そのものが記事の説明対象になっている場合は付ける。このルールは記事内の Java コードブロックにのみ適用し、`src/chapterXX/*.java` のソースコードでは指摘・修正しない。
+
 ## 記事の執筆・校正ルール
 
 `学習内容/chapterXX_パターン名.md` の執筆・校正・編集には `write-article` skill（`.claude/skills/write-article/SKILL.md`）を使う。
