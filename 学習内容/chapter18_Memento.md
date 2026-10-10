@@ -274,6 +274,7 @@ public class ArticleEditor {
     public ArticleEditor(Article article) {
         this.article = article;
         /* ここを追加（ここから） */
+
         draftBody = article.getBody();
         draftTargetDepartments = new ArrayList<>(article.getTargetDepartments());
         /* ここを追加（ここまで） */
@@ -559,6 +560,7 @@ public class ArticleEditor {
     public ArticleEditor(Article article) {
         this.article = article;
         /* ここを追加（ここから） */
+
         draft = article.createMemento();
         /* ここを追加（ここまで） */
     }
@@ -730,9 +732,11 @@ public class Main {
 
 好ましくない実装の `ArticleEditor` クラスでは、公開先の部署を退避するときに、`getTargetDepartments` メソッドが返したリストをそのまま退避せず、`new ArrayList<>(...)` で同じ部署が入った新しいリスト（コピー）を作って退避していました。
 
-では、コピーを作らずに退避すると、どうなるのでしょうか？
+ここでは、もしコピーを作らずに退避するとどうなるのかを確認していきましょう。
 
-好ましくない実装の `ArticleEditor` クラスを、コピーを作らないように変えて試してみます。
+好ましくない実装の `ArticleEditor` クラスを、コピーを作らないように変更したのが次となります。
+
+※好ましくない実装の `Article` クラスに変更はありません。
 
 **`ArticleEditor.java`（一部抜粋）**
 
@@ -748,6 +752,7 @@ public class ArticleEditor {
 
     public ArticleEditor(Article article) {
         this.article = article;
+
         draftBody = article.getBody();
         draftTargetDepartments = article.getTargetDepartments();
     }
@@ -778,7 +783,42 @@ public class ArticleEditor {
 }
 ```
 
-※変更のないメソッド（`changeBody` メソッドなど）は省略しています。また、`Article`・`Main` クラスは好ましくない実装から変更ありません。
+※`changeBody`・`addTargetDepartment`・`removeTargetDepartment`・`undo` メソッドは変更がないため省略しています。
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        ArticleEditor editor = new ArticleEditor(new Article());
+
+        editor.changeBody("評価制度の見直しを検討しています。");
+        editor.addTargetDepartment("人事部");
+        editor.saveDraft();
+
+        System.out.println();
+
+        editor.changeBody("新しい評価制度の説明会を開催します。");
+        editor.addTargetDepartment("総務部");
+        editor.removeTargetDepartment("総務部");
+        // 誤って削除してしまったため、手動で追加し直している
+        editor.addTargetDepartment("総務部");
+        editor.saveDraft();
+
+        System.out.println();
+
+        editor.changeBody("営業部の今期の売上目標を更新しました。");
+        editor.addTargetDepartment("営業部");
+        editor.addTargetDepartment("経理部");
+        // 経理部を誤って追加してしまったため、1 つ前に戻している
+        editor.undo();
+        // 別の記事を編集していたことに気づいたため、下書きに戻している
+        editor.revertToDraft();
+    }
+}
+```
 
 **実行結果**
 
@@ -801,18 +841,18 @@ public class ArticleEditor {
 ```
 
 実行結果を振り返ると、`[1つ前に戻す]` の行では、1 つ前に戻したにもかかわらず、誤って追加した経理部が公開先に残ったままになっています。<br>
-また `[下書きに戻す]` の行では、本文は下書き保存した時点に戻っているのに、公開先には営業部と経理部が残っています。<br>
+また、`[下書きに戻す]` の行では、本文は下書き保存した時点に戻っているのに、公開先には営業部と経理部が残っています。<br>
 これでは、シナリオのヒヤリハットと同じく、公開する予定のない営業部や経理部にも公開される設定のままになってしまいます。
 
 この原因は、`getTargetDepartments` メソッドが、`Article` クラスが保持しているリストそのもの（参照）を返していることにあります。`ArticleEditor` クラスが履歴や下書きに退避していたのは、その時点の公開先の部署ではなく、`Article` クラスと同じリストへの参照でした。そのため、営業部や経理部を追加すると、退避しておいたはずのリストにも同じ部署が追加され、1 つ前に戻しても、下書きに戻しても、追加した部署が公開先に残ったままになるわけです。<br>
-一方、本文は `String` 型です。退避した時点では、公開先の部署と同じく、`draftBody` フィールドも `Article` クラスの本文と同じ文字列を参照しています。しかし、`String` クラスは中身を書き換えられない（不変な）クラスのため、`changeBody` メソッドにより、`Article` クラスの本文は別の文字列に差し替えられます。その結果、`Article` クラスの本文と `draftBody` フィールドは別々の文字列を参照することになり、`[下書きに戻す]` の行のように正しく元に戻すことができます。
+一方、本文は `String` 型です。退避した時点では、公開先の部署と同じく、`draftBody` フィールドも `Article` クラスの本文と同じ文字列を参照しています。しかし、`String` クラスは中身を書き換えられない（不変な）クラスのため、`changeBody` メソッドは文字列の中身を書き換えるのではなく、`Article` クラスの本文を別の文字列に差し替えます。その結果、`Article` クラスの本文と `draftBody` フィールドは別々の文字列を参照することになり、`[下書きに戻す]` の行のように正しく元に戻すことができます。
 
-そのため、好ましくない実装では、退避するときにリストのコピーを作り、`Article` クラスとは別のリストを退避しています。<br>
-また、下書きから書き戻すとき（`revertToDraft` メソッド）にもコピーを渡しているのは、`Article` クラスと下書きが同じリストを参照しないようにするためです。同じリストを参照したままだと、下書きに戻した後の編集で下書きのリストまで書き換わり、もう一度下書きに戻したときに、下書き保存した時点の状態に戻らなくなってしまいます。<br>
-正しい実装の `ArticleMemento` クラスのコンストラクタと、`Article` クラスの `restoreMemento` メソッドでリストをコピーしているのも、同じ理由です。
+公開先の部署のリストの共有は、退避するときだけでなく、下書きから書き戻すときにも起きています。`revertToDraft` メソッドが `Article` クラスに渡していたのも、下書きのリストのコピーではなく、下書きのリストへの参照です。そのため、下書きに戻した後に公開先の部署を追加すると、下書きのリストにも同じ部署が追加されます。今回の実行結果には現れていませんが、もう一度下書きに戻しても、下書き保存した時点の状態には戻らなくなってしまいます。
 
-なお、好ましくない実装では、リストを受け取る `ArticleEditor` クラスの側でコピーを作っていますが、実務では、リストを保持するクラス自身が、受け取るときや渡すときにコピーを作るのが一般的です（防御的コピーと呼ばれます）。リストを使う側でコピーする方法では、好ましくない実装の問題点で挙げたように、使う側が内部の作りを知っていなければならず、呼び出す箇所が増えるほどコピーし忘れるおそれも高まるためです。<br>
-正しい実装で、リストを保持する `ArticleMemento` クラスがコンストラクタで、`Article` クラスが `restoreMemento` メソッドで、受け取ったリストのコピーを作っているのも、この考え方に沿ったものです。
+以上から、好ましくない実装では、退避するときと下書きから書き戻すときにリストのコピーを作り、`Article` クラスと履歴・下書きが別々のリストを参照するようにしています。
+
+なお、好ましくない実装では、リストを使う `ArticleEditor` クラスの側でコピーを作っていますが、実務では、リストを保持するクラス自身が、受け取るときや渡すときにコピーを作るのが一般的です（防御的コピーと呼ばれます）。リストを使う側でコピーする方法では、好ましくない実装の問題点で挙げたように、使う側が内部の作りを知っていなければならず、呼び出す箇所が増えるほどコピーし忘れるおそれが高まるためです。<br>
+正しい実装では、この考え方に沿って、リストを保持するクラス自身がコピーを作っています。具体的には、`ArticleMemento` クラスのコンストラクタと、`Article` クラスの `restoreMemento` メソッドで、受け取ったリストのコピーを作っています。
 
 <a id="深堀り2"></a>
 
