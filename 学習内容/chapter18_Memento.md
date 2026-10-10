@@ -14,7 +14,7 @@
 - [好ましくない実装](#好ましくない実装)
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
-- [【深堀り①】リストをコピーして退避する理由](#深堀り1)
+- [【深堀り①】新しいリストを作って退避する理由](#深堀り1)
 - [【深堀り②】Memento の中身を隠すもう 1 つの方法（ネストクラス）](#深堀り2)
 - [【深堀り③】Undo の 2 つの実現方法（Memento と Command）](#深堀り3)
 - [【深堀り④】履歴の上限とメモリ](#深堀り4)
@@ -282,8 +282,8 @@ public class ArticleEditor {
     public void changeBody(String body) {
         /* ここを追加（ここから） */
         saveHistory();
-        /* ここを追加（ここまで） */
 
+        /* ここを追加（ここまで） */
         article.changeBody(body);
 
         System.out.println("[本文を変更] " + article.getSummary());
@@ -292,8 +292,8 @@ public class ArticleEditor {
     public void addTargetDepartment(String department) {
         /* ここを追加（ここから） */
         saveHistory();
-        /* ここを追加（ここまで） */
 
+        /* ここを追加（ここまで） */
         article.addTargetDepartment(department);
 
         System.out.println("[公開先を追加] " + article.getSummary());
@@ -302,8 +302,8 @@ public class ArticleEditor {
     public void removeTargetDepartment(String department) {
         /* ここを追加（ここから） */
         saveHistory();
-        /* ここを追加（ここまで） */
 
+        /* ここを追加（ここまで） */
         article.removeTargetDepartment(department);
 
         System.out.println("[公開先を削除] " + article.getSummary());
@@ -352,11 +352,11 @@ public class ArticleEditor {
 }
 ```
 
-※追加した `ArticleEditor` クラスについて、次の 4 点を補足します。
+※`ArticleEditor` クラスに追加した処理について、次の 4 点を補足します。
 
 > - 1 つ前に戻すための履歴のフィールド（`bodyHistory`・`targetDepartmentsHistory`）には、各編集操作の直前の値を積んでいます。どちらも `Deque` インターフェースをスタック（後から入れたものを先に取り出す入れ物）として使っており、`push` メソッドで積んだ値を、`pop` メソッドで新しいものから順に取り出します。
 > - 下書き用のフィールド（`draftBody`・`draftTargetDepartments`）には、編集画面を開いた時点（コンストラクタ）の値を退避しておき、下書き保存するたび（`saveDraft` メソッド）に、その時点の値で上書きしています。
-> - 公開先の部署は、履歴や下書きに退避するときと、下書きから書き戻すときに、`new ArrayList<>(...)` で同じ部署が入った新しいリストを作っています。取り出したリストをそのまま退避すると、1 つ前に戻しても、下書きに戻しても、誤って追加した部署が公開先に残ったままになってしまいます。その原因と、本文はそのまま退避しても正しく戻せる理由は、深堀りで紹介します（→ [【深堀り①】リストをコピーして退避する理由](#深堀り1)）。
+> - 公開先の部署は、履歴や下書きに退避するときと、下書きから書き戻すときに、`new ArrayList<>(...)` で同じ部署が入った新しいリストを作っています。取り出したリストをそのまま退避すると、1 つ前に戻しても、下書きに戻しても、誤って追加した部署が公開先に残ったままになってしまいます。その原因と、本文はそのまま退避しても正しく戻せる理由は、深堀りで紹介します（→ [【深堀り①】新しいリストを作って退避する理由](#深堀り1)）。
 > - `revertToDraft` メソッドは編集を破棄する操作のため、下書き保存した時点に戻した後に履歴を空にしています。
 
 **`Main.java`**
@@ -420,8 +420,8 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- `ArticleEditor` クラスは、公開先の部署を `new ArrayList<>(...)` でコピーしてから退避している。これは、`Article` クラスが公開先の部署をリストで保持し、そのリストをそのまま返しているためである。つまり、`ArticleEditor` クラスが `Article` クラスの内部の作りまで知っていなければならない状態（密結合）になっている。
-    - もしコピーを忘れて履歴や下書き（`targetDepartmentsHistory`・`draftTargetDepartments`）に退避すると、コンパイルエラーも例外も発生しないまま、公開先の部署だけが元に戻らない不具合が生まれてしまう（→ [【深堀り①】リストをコピーして退避する理由](#深堀り1)）。
+- `ArticleEditor` クラスは、公開先の部署を `new ArrayList<>(...)` で新しいリストに作り直してから退避している。これは、`Article` クラスが公開先の部署をリストで保持し、そのリストをそのまま返しているためである。つまり、`ArticleEditor` クラスが `Article` クラスの内部の作りまで知っていなければならない状態（密結合）になっている。
+    - もし新しいリストを作り忘れて履歴や下書き（`targetDepartmentsHistory`・`draftTargetDepartments`）に退避すると、コンパイルエラーも例外も発生しないまま、公開先の部署だけが元に戻らない不具合が生まれてしまう（→ [【深堀り①】新しいリストを作って退避する理由](#深堀り1)）。
 - 退避と書き戻しのために追加した `getTargetDepartments`・`setTargetDepartments` メソッドは `public` のため、`ArticleEditor` クラス以外のどこからでも呼び出せてしまう。
     - 例えば、`setTargetDepartments` メソッドに同じ部署が重複したリストを渡したり、`getTargetDepartments` メソッドで取り出したリストに直接部署を追加したりすれば、`addTargetDepartment` メソッドのチェックを経由せずに、同じ部署を重複して登録できてしまう。
     - なお、同じく追加した `getBody` メソッドが返す `String` クラスのオブジェクトは中身を書き換えられない（不変な）ため、取り出した本文から記事を書き換えることはできない。また、本文の書き戻しには既存の `changeBody` メソッドを使っており、書き換えるためのメソッドを新たに追加していないため、本文ではこの問題は起きない。
@@ -433,25 +433,24 @@ public class Main {
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
 これらの問題を解決するのが **Memento パターン**です。<br>
-編集画面が記事の値を 1 つずつ取り出して退避するのをやめ、記事自身に「ある時点の自分の状態」を 1 つのオブジェクトにまとめて作らせます。編集画面はそのオブジェクトを中身を見ないまま預かっておき、元に戻すときは、そのオブジェクトを記事に渡して、記事自身に状態を戻させます。<br>
-この「ある時点の状態をまとめたオブジェクト」を、Memento（メメント：英語で「記念品」「形見」の意味）と呼びます。
-
-ただし、編集画面が Memento の中身を取り出したり、自分で作ったりできてしまうと、好ましくない実装と同じ問題が残ります。そこで本実装では、記事と Memento を `example.article` パッケージに移し、編集画面とは別のパッケージに分けます。こうすることで、記事からは Memento の中身を使えるようにしたまま、編集画面からは隠せるようになります（詳しい仕組みは後述します）。
+Memento パターンは、オブジェクト（`Article` クラスに該当）自身が、現在の状態を保存するために Memento（「記念品」「形見」という意味の英単語）を作り、復元するときはその Memento から状態を戻すパターンです。Memento を預かる側（`ArticleEditor` クラスに該当）は、中身を見ずに保持するだけになります。
 
 では、実装を見ていきましょう。<br>
 ※本記事では下記のクラス構成としています。
 
 > ```
-> example.article パッケージ
->   ├── Article.java          お知らせ記事（example パッケージから移動し、本実装に合わせて修正）
->   └── ArticleMemento.java   ある時点の記事の状態をまとめたクラス
+> example.article パッケージ（Memento を作る側と Memento）
+>   ├── Article.java          お知らせ記事（example パッケージから移動）
+>   └── ArticleMemento.java   記事の状態を保存するための Memento
 >
-> example パッケージ
->   ├── ArticleEditor.java    お知らせ記事の編集画面（既存の仕様から本実装に合わせて修正）
->   └── Main.java             実行クラス（既存の仕様から本実装に合わせて修正）
+> example パッケージ（Memento を預かる側と実行クラス）
+>   ├── ArticleEditor.java    お知らせ記事の編集画面
+>   └── Main.java             実行クラス
 > ```
 
-まず、ある時点の記事の状態をまとめるクラスから見ていきましょう。
+**example.article パッケージ**
+
+まず、記事の状態を保存するための Memento の実装から見ていきましょう。
 
 **`ArticleMemento.java`**
 
@@ -459,8 +458,8 @@ public class Main {
 package example.article;
 
 public class ArticleMemento {
-    private final String body;
-    private final List<String> targetDepartments;
+    private String body;
+    private List<String> targetDepartments;
 
     ArticleMemento(String body, List<String> targetDepartments) {
         this.body = body;
@@ -477,15 +476,10 @@ public class ArticleMemento {
 }
 ```
 
-`ArticleMemento` は新たに追加したクラスで、ある時点の記事の本文と公開先の部署を保持します。ポイントは次の 2 点です。
+`ArticleMemento` は新たに追加したクラスで、ある時点の記事の本文と公開先の部署を保持するためのフィールドを持っています。コンストラクタと 2 つの getter メソッド（`getBody`・`getTargetDepartments`）には、アクセス修飾子が付いていません。そのため、同じパッケージ（`example.article`）にある `Article` クラスからは呼び出せる一方、`example` パッケージにある `ArticleEditor` クラスは、`ArticleMemento` クラスのインスタンスを新たに作ることも、中身を取り出すこともできません。`ArticleEditor` クラスにできるのは、`Article` クラスが作ったインスタンスを受け取って保持しておき、元に戻すときに `Article` クラスへ渡すことだけです。<br>
+また、コンストラクタで `targetDepartments` フィールドに値をセットする行では、受け取った公開先の部署のリストをそのまま保持せず、同じ部署が入った新しいリストを作って保持しています。これは、`Article` クラスとリストを共有して、Memento を作った後の編集で Memento のリストまで書き換わってしまうことを防ぐためです（→ [【深堀り①】新しいリストを作って退避する理由](#深堀り1)）。
 
-- コンストラクタと `getBody`・`getTargetDepartments` メソッドには、`public` などのアクセス修飾子を付けていない。
-    - アクセス修飾子を付けないコンストラクタやメソッドは、同じパッケージ（`example.article`）のクラスからしか呼び出せない（パッケージ・プライベート）。そのため、`Article` クラスからは呼び出せる一方、`example` パッケージにある `ArticleEditor` クラスは、`ArticleMemento` クラスのインスタンスを変数に入れたり引数に渡したりすることはできても、中身を取り出すことも、新たに作ることもできない。
-- コンストラクタで、受け取った公開先の部署のリストをコピーしている。
-    - 受け取ったリストをそのまま保持すると、`Article` クラスとリストを共有してしまうため（→ [【深堀り①】リストをコピーして退避する理由](#深堀り1)）、コピーした新しいリストを保持している。
-    - また、フィールドには `final` を付け、インスタンスを作った後でフィールドが別の値に差し替えられないようにしている。
-
-次に、Memento を作る側であり、Memento を受け取って状態を戻す側でもある `Article` クラスを見ていきましょう。
+次に、現在の状態を保存するために Memento を作り、復元するときはその Memento から状態を戻す `Article` クラスを見ていきましょう。
 
 **`Article.java`**
 
@@ -535,14 +529,15 @@ public class Article {
 }
 ```
 
-`Article` クラスを振り返ると、既存の仕様から次の 2 つのメソッドが追加されています。
+`Article` クラスを振り返ると、既存の仕様から `createMemento`・`restoreMemento` メソッドを追加しています。<br>
+`createMemento` メソッドにより、現在の本文と公開先の部署を保存しています。保存する際は、本文と公開先の部署の保持を `ArticleMemento` クラスに委譲しています。また、作った `ArticleMemento` クラスのインスタンスを返すことで、`ArticleEditor` クラスに預けておき、後から元に戻すときに使えるようにしています。<br>
+`restoreMemento` メソッドにより、受け取った Memento を作った時点の状態に戻しています。戻す際は、`ArticleMemento` クラスのインスタンスから本文と公開先の部署を取り出し、自身のフィールドに書き戻しています。
 
-- `createMemento` メソッドは、現在の本文と公開先の部署から `ArticleMemento` クラスのインスタンスを作って返す。
-- `restoreMemento` メソッドは、受け取った `ArticleMemento` クラスのインスタンスから本文と公開先の部署を取り出し、自身の状態を元に戻す。
-    - 公開先の部署のリストは、ここでもコピーしてから保持している。これは、同じ下書きの Memento を使って 2 回以上戻す場合に備えるためである。Memento のリストをそのまま保持すると、戻した後の編集で Memento のリストまで書き換わり、2 回目に戻したときには下書き保存した時点の状態に戻らなくなってしまう。
+公開先の部署のリストに注目すると、`restoreMemento` メソッドでも `ArticleMemento` クラスのコンストラクタと同じく、Memento から取り出したリストをそのまま保持せず、新しいリストを作って保持しています。これは、戻した後の編集で Memento のリストまで書き換わらないようにするためです（→ [【深堀り①】新しいリストを作って退避する理由](#深堀り1)）。
 
-状態を取り出したり書き戻したりする処理はすべて `Article` クラスの中に収まっているため、好ましくない実装のような getter・setter を追加する必要はありません。<br>
-また、`ArticleMemento` クラスのインスタンスは `example.article` パッケージの外では作れず、実際に作っているのは `Article` クラスの `createMemento` メソッドだけです。そのため、`restoreMemento` メソッドで、同じ部署が重複しているような、チェックを経由していない状態に戻されることもありません。
+パッケージの構成に注目すると、`example.article` パッケージに `Article`・`ArticleMemento` クラスを置き、`ArticleEditor`・`Main` クラスは別の `example` パッケージに置いています。これは、`ArticleMemento` クラスのインスタンスを作れるのを `Article` クラスの `createMemento` メソッドだけに、中身を取り出せるのを `restoreMemento` メソッドだけに限るためです。これにより、`restoreMemento` メソッドで戻せるのは、`addTargetDepartment` メソッドのチェックを経た状態から作られ、その後も書き換えられていない Memento だけになり、元に戻した後も公開先の部署が重複することはありません。
+
+**example パッケージ**
 
 次に、Memento を預かる側の `ArticleEditor` クラスを見ていきましょう。
 
@@ -570,7 +565,8 @@ public class ArticleEditor {
 
     public void changeBody(String body) {
         /* ここを追加（ここから） */
-        history.push(article.createMemento());
+        saveHistory();
+
         /* ここを追加（ここまで） */
         article.changeBody(body);
 
@@ -579,7 +575,8 @@ public class ArticleEditor {
 
     public void addTargetDepartment(String department) {
         /* ここを追加（ここから） */
-        history.push(article.createMemento());
+        saveHistory();
+
         /* ここを追加（ここまで） */
         article.addTargetDepartment(department);
 
@@ -588,7 +585,8 @@ public class ArticleEditor {
 
     public void removeTargetDepartment(String department) {
         /* ここを追加（ここから） */
-        history.push(article.createMemento());
+        saveHistory();
+
         /* ここを追加（ここまで） */
         article.removeTargetDepartment(department);
 
@@ -598,6 +596,7 @@ public class ArticleEditor {
     public void saveDraft() {
         article.validate();
         /* ここを追加（ここから） */
+
         draft = article.createMemento();
         /* ここを追加（ここまで） */
 
@@ -608,8 +607,10 @@ public class ArticleEditor {
     public void undo() {
         if (history.isEmpty()) {
             System.out.println("[1つ前に戻す] 戻せる操作がありません");
+
             return;
         }
+
         article.restoreMemento(history.pop());
 
         System.out.println("[1つ前に戻す] " + article.getSummary());
@@ -617,24 +618,26 @@ public class ArticleEditor {
 
     public void revertToDraft() {
         article.restoreMemento(draft);
+
         history.clear();
 
         System.out.println("[下書きに戻す] " + article.getSummary());
+    }
+
+    private void saveHistory() {
+        history.push(article.createMemento());
     }
     /* ここを追加（ここまで） */
 }
 ```
 
-`ArticleEditor` クラスを振り返ると、既存の仕様から次の点が変わっています。
+`ArticleEditor` クラスを振り返ると、既存の仕様から `history`・`draft` フィールドと、`undo`・`revertToDraft`・`saveHistory` メソッドを追加しています。<br>
+`history` フィールドにより、1 つ前に戻すための Memento を積み重ねて保持できるようにしています。積む際は、各編集操作の直前に `saveHistory` メソッドを呼び出し、その時点の状態から Memento を作っています。<br>
+`draft` フィールドにより、下書き保存した時点に戻すための Memento を保持できるようにしています。保持する際は、編集画面を開いた時点（コンストラクタ）で Memento を作り、下書き保存するたび（`saveDraft` メソッド）に新しく作った Memento で上書きしています。<br>
+`undo` メソッドにより、1 つ前の状態に戻しています。戻す際は、`history` フィールドから最後に積んだ Memento を取り出し、`restoreMemento` メソッドに渡しています。<br>
+`revertToDraft` メソッドにより、下書き保存した時点の状態に戻しています。戻す際は、`draft` フィールドで保持している Memento を `restoreMemento` メソッドに渡しています。
 
-- 1 つ前に戻すための履歴として、`ArticleMemento` クラスを積むスタックである `history` フィールドを追加している。
-    - 各編集操作の直前に、`createMemento` メソッドで作った Memento を `history` フィールドに積んでいる。
-- 下書き保存した時点に戻すための Memento として、`draft` フィールドを追加している。
-    - 編集画面を開いた時点（コンストラクタ）で `createMemento` メソッドを呼び出して Memento を作り、下書き保存するたび（`saveDraft` メソッド）に、新しく作った Memento で上書きしている。
-- 1 つ前に戻す `undo` メソッドと、下書きに戻す `revertToDraft` メソッドを追加している。
-    - どちらも、預かっていた Memento を `restoreMemento` メソッドに渡すだけで、記事の状態を戻している。
-
-好ましくない実装と比べると、本文用・公開先の部署用に分かれていた履歴と下書きのフィールドが、それぞれ `ArticleMemento` クラスの 1 つのフィールドにまとまっています。また、`ArticleEditor` クラスは Memento の中身（本文や公開先の部署）に一切触れず、履歴と下書きという 2 つの用途で Memento を預かり、必要なときに `Article` クラスへ渡しているだけです。
+Memento の扱いに注目すると、`ArticleEditor` クラスは Memento に何が保存されているか（本文や公開先の部署）を知る必要がありません。Memento を預かっておき、必要なときに `Article` クラスへ渡すだけです。`Article` クラス自身ではなく `ArticleEditor` クラスが Memento を預かるのは、どの時点の状態をいくつ残しておくかが、記事そのものではなく編集画面の都合だからです。例えば、1 つ前に戻すための履歴は編集画面を開いている間だけ必要なもので、記事と一緒にデータベースへ保存するものではありません。もし Memento を `Article` クラスに持たせると、お知らせ記事を表すクラスに編集画面の都合が入り込み、履歴の上限のような、状態の残し方に関する機能を追加するたびに、`Article` クラスを修正することになってしまいます（→ [【深堀り④】履歴の上限とメモリ](#深堀り4)）。
 
 最後に、実行クラスを見ていきましょう。
 
@@ -677,8 +680,6 @@ public class Main {
 }
 ```
 
-`Main` クラスは、`Article` クラスを `example.article` パッケージに移動したことによる import 文の追加以外は、好ましくない実装と同じです。
-
 **実行結果**
 
 ```
@@ -699,20 +700,22 @@ public class Main {
 [下書きに戻す] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 ```
 
-実行結果の `[1つ前に戻す]` の行では、誤って追加した経理部が公開先から外れています。また `[下書きに戻す]` の行では、本文・公開先ともに、下書き保存した時点の状態に戻っています。
+`Main` クラスを振り返ると、`Article` クラスを `example.article` パッケージに移したため、import 文を追加しています。それ以外は好ましくない実装と同じです。
+
+実行結果は、好ましくない実装とまったく同じになっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 状態を退避・復元する処理が `Article` クラスの中にまとまっているため、`ArticleEditor` クラスは `Article` クラスの内部の作りを知らなくても、記事を正しく元に戻せる。
-    - リストのコピーのように、内部の作りを知っていなければ書けない処理は、`Article`・`ArticleMemento` クラスだけが受け持っている。
-- 退避と書き戻しのための getter・setter を追加する必要がないため、`addTargetDepartment` メソッドのチェックを経由せずに同じ部署を重複して登録する、といった書き換えはできない。
-    - `ArticleMemento` クラスの中身も、`example.article` パッケージの外からは取り出すことも作ることもできない。
-- `Article` クラスにフィールド（例えば「公開日」）を追加しても、修正するのは同じパッケージにある `Article`・`ArticleMemento` クラスだけで、`ArticleEditor` クラスには一切手を加える必要がない。
-    - 退避と書き戻しの処理が、フィールドを追加する `Article` クラスの `createMemento`・`restoreMemento` メソッドにあるため、別のクラスにある処理の修正を忘れる、ということが起きにくい。
+- 新しいリストを作る処理を含め、退避と書き戻しの処理を `Article`・`ArticleMemento` クラスだけが受け持っているため、`ArticleEditor` クラスが `Article` クラスの内部の作りを知らなくてよい状態（疎結合）になっている。
+    - その結果、新しいリストを作り忘れて公開先の部署だけが元に戻らない、ということが起きにくい。
+- `Article` クラスが退避と書き戻しを行っているため、自身のフィールドを直接読み書きでき、公開先の部署を外から書き換えられる getter・setter を追加する必要がなくなっている。また、`ArticleMemento` クラスのコンストラクタと getter メソッドにはアクセス修飾子が付いていないため、`example.article` パッケージの外から Memento を作ることも、Memento が保持する公開先の部署を書き換えることもできない。
+    - その結果、`addTargetDepartment` メソッドのチェックを経由せずに、同じ部署が重複して登録されることがない。
+- 退避と書き戻しの処理が `Article` クラスの `createMemento`・`restoreMemento` メソッドにあるため、`Article` クラスにフィールド（例えば「公開日」）を追加しても、修正するのは同じパッケージにある `Article`・`ArticleMemento` クラスだけで、`ArticleEditor` クラスには一切手を加える必要がない。
+    - その結果、公開日を追加する `Article` クラスの中で退避と書き戻しの処理も修正することになり、修正を忘れて公開日だけが元に戻らない、ということが起きにくい。
 
 ## まとめ
 
-正しい実装を振り返ると、`ArticleEditor` クラスは記事の状態の中身を一切知らないまま、`Article` クラスが作った Memento を預かり、必要なときに `Article` クラスへ渡して元に戻させるだけでよくなっています。<br>
+正しい実装を振り返ると、`ArticleEditor` クラスは、その時点の記事の状態を保存した Memento を `Article` クラスから受け取り、中身を一切知らないまま預かっておき、必要なときに `Article` クラスへ渡して元に戻させるだけでよくなっています。<br>
 このように Memento パターンは、状態の保存と復元をオブジェクト自身に任せ、保存した状態を中身の見えないオブジェクトとして外部に預けることで、カプセル化を壊さずにオブジェクトを以前の状態に戻せるようにする設計パターンです。
 
 本記事の内容はここまでとなります。
@@ -723,7 +726,7 @@ public class Main {
 
 <a id="深堀り1"></a>
 
-## 【深堀り①】リストをコピーして退避する理由
+## 【深堀り①】新しいリストを作って退避する理由
 
 好ましくない実装の `ArticleEditor` クラスでは、公開先の部署を退避するときに、`getTargetDepartments` メソッドが返したリストをそのまま退避せず、`new ArrayList<>(...)` で同じ部署が入った新しいリスト（コピー）を作って退避していました。
 
@@ -808,15 +811,15 @@ public class ArticleEditor {
 また、下書きから書き戻すとき（`revertToDraft` メソッド）にもコピーを渡しているのは、`Article` クラスと下書きが同じリストを参照しないようにするためです。同じリストを参照したままだと、下書きに戻した後の編集で下書きのリストまで書き換わり、もう一度下書きに戻したときに、下書き保存した時点の状態に戻らなくなってしまいます。<br>
 正しい実装の `ArticleMemento` クラスのコンストラクタと、`Article` クラスの `restoreMemento` メソッドでリストをコピーしているのも、同じ理由です。
 
-なお、好ましくない実装では、リストを受け取る `ArticleEditor` クラスの側でコピーを作っていますが、実務では、リストを持つクラス自身がコピーを作って渡すのが一般的です（防御的コピーと呼ばれます）。受け取る側でコピーする方法では、好ましくない実装の問題点で挙げたように、受け取る側が内部の作りを知っていなければならず、呼び出す箇所が増えるほどコピーし忘れるおそれも高まるためです。<br>
-正しい実装で、リストを持つ `Article`・`ArticleMemento` クラス自身がコピーを作っているのも、この考え方に沿ったものです。
+なお、好ましくない実装では、リストを受け取る `ArticleEditor` クラスの側でコピーを作っていますが、実務では、リストを保持するクラス自身が、受け取るときや渡すときにコピーを作るのが一般的です（防御的コピーと呼ばれます）。リストを使う側でコピーする方法では、好ましくない実装の問題点で挙げたように、使う側が内部の作りを知っていなければならず、呼び出す箇所が増えるほどコピーし忘れるおそれも高まるためです。<br>
+正しい実装で、リストを保持する `ArticleMemento` クラスがコンストラクタで、`Article` クラスが `restoreMemento` メソッドで、受け取ったリストのコピーを作っているのも、この考え方に沿ったものです。
 
 <a id="深堀り2"></a>
 
 ## 【深堀り②】Memento の中身を隠すもう 1 つの方法（ネストクラス）
 
-正しい実装では、`ArticleMemento` クラスのコンストラクタと getter をパッケージ・プライベートにすることで、`example` パッケージにある `ArticleEditor` クラスから中身を隠しました。<br>
-ただし、パッケージ・プライベートは、同じパッケージのクラスすべてに公開されます。そのため、例えば今後 `example.article` パッケージに記事を検索するクラスを追加すると、そのクラスからも `ArticleMemento` クラスの中身を取り出せてしまいます。
+正しい実装では、`ArticleMemento` クラスのコンストラクタと getter メソッドをパッケージ・プライベートにすることで、`example` パッケージにある `ArticleEditor` クラスが、コンストラクタで Memento を作ることも、getter メソッドで中身を取り出すこともできないようにしました。<br>
+ただし、パッケージ・プライベートは、同じパッケージのクラスすべてに公開されます。そのため、例えば今後 `example.article` パッケージに記事を検索するクラスを追加すると、そのクラスからも、`ArticleMemento` クラスのコンストラクタで Memento を作ったり、getter メソッドで中身を取り出したりできてしまいます。
 
 中身を見られるクラスを `Article` クラスだけに絞りたい場合は、Memento を `Article` クラスの中に、ネストクラス（クラスの中で宣言したクラス）として定義する方法があります。
 
@@ -839,8 +842,8 @@ public class Article {
     }
 
     public static class Memento {
-        private final String body;
-        private final List<String> targetDepartments;
+        private String body;
+        private List<String> targetDepartments;
 
         private Memento(String body, List<String> targetDepartments) {
             this.body = body;
@@ -921,7 +924,7 @@ public class AddTargetDepartmentCommand implements EditCommand {
 
 ## 【深堀り④】履歴の上限とメモリ
 
-正しい実装の `ArticleEditor` クラスは、編集操作のたびに `ArticleMemento` クラスのインスタンスを 1 つ作り、`history` フィールドに積んでいます。`revertToDraft` メソッドを呼び出さない限り履歴は空にならないため、編集を続けるほど、`history` フィールドが保持する Memento は増え続けます。
+正しい実装の `ArticleEditor` クラスは、編集操作のたびに `ArticleMemento` クラスのインスタンスを 1 つ作り、`history` フィールドに積んでいます。1 つ前に戻すか下書きに戻さない限り履歴は減らないため、編集を続けるほど、`history` フィールドが保持する Memento は増え続けます。
 
 なお、本文の `String` クラスは不変なため、本文を変更していない Memento どうしは同じ文字列を共有しており、本文がその都度複製されるわけではありません。一方、公開先の部署のリストは Memento を作るたびにコピーされます。保存する状態が大きいほど（例えば、大きな表や画像のデータなど）、Memento 1 つあたりのメモリも大きくなります。
 
@@ -946,9 +949,9 @@ public class ArticleEditor {
 
 ※ `MAX_HISTORY` の 50 は説明のための値です。実際には、保存する状態の大きさや、何回まで戻せれば十分かに応じて決めます。
 
-`push` メソッドで積んだ Memento は履歴の先頭に入るため、最も古い Memento は末尾にあります。上限（`MAX_HISTORY`）を超えたら `removeLast` メソッドで末尾の 1 つを捨てることで、履歴は常に新しいものから 50 件までに保たれます。各編集操作では、`history.push(article.createMemento())` の代わりに `saveHistory` メソッドを呼び出すようにします。
+`push` メソッドで積んだ Memento は履歴の先頭に入るため、最も古い Memento は末尾にあります。上限（`MAX_HISTORY`）を超えたら `removeLast` メソッドで末尾の 1 つを捨てることで、履歴は常に新しいものから 50 件までに保たれます。履歴に積む処理を `saveHistory` メソッドにまとめているため、上限を設ける修正はこのメソッドだけで済みます。
 
-それでもメモリが足りない場合は、状態を丸ごと保存するのではなく、Command の方式（→ [【深堀り③】Undo の 2 つの実現方法（Memento と Command）](#深堀り3)）のように、操作の内容だけを記録する方法を検討します。
+それでもメモリが足りない場合は、状態を丸ごと保存するのではなく、Command の方式のように、操作の内容だけを記録する方法を検討します（→ [【深堀り③】Undo の 2 つの実現方法（Memento と Command）](#深堀り3)）。
 
 <a id="深堀り5"></a>
 
@@ -967,8 +970,8 @@ public class ArticleMemento implements Serializable {
     /* ここを追加（ここから） */
     private static final long serialVersionUID = 1L;
     /* ここを追加（ここまで） */
-    private final String body;
-    private final List<String> targetDepartments;
+    private String body;
+    private List<String> targetDepartments;
 
     ArticleMemento(String body, List<String> targetDepartments) {
         this.body = body;
