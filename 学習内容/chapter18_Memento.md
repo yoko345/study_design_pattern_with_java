@@ -16,10 +16,9 @@
 - [まとめ](#まとめ)
 - [【深堀り①】新しいリストを作って退避する理由](#深堀り1)
 - [【深堀り②】Memento の中身を見られるクラスをさらに絞る方法（ネストクラス）](#深堀り2)
-- [【深堀り③】Undo の 2 つの実現方法（Memento と Command）](#深堀り3)
-- [【深堀り④】履歴の上限とメモリ](#深堀り4)
-- [【深堀り⑤】Memento をファイルに保存する](#深堀り5)
-- [【深堀り⑥】GoF デザインパターンとの位置づけ](#深堀り6)
+- [【深堀り③】履歴の上限とメモリ](#深堀り3)
+- [【深堀り④】Memento をファイルに保存する](#深堀り4)
+- [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
 
@@ -639,7 +638,7 @@ public class ArticleEditor {
 `undo` メソッドにより、1 つ前の状態に戻しています。戻す際は、`history` フィールドから最後に積んだ Memento を取り出し、`restoreMemento` メソッドに渡しています。<br>
 `revertToDraft` メソッドにより、下書き保存した時点の状態に戻しています。戻す際は、`draft` フィールドで保持している Memento を `restoreMemento` メソッドに渡しています。
 
-Memento の扱いに注目すると、`ArticleEditor` クラスは Memento に何が保存されているか（本文や公開先の部署）を知る必要がありません。Memento を預かっておき、必要なときに `Article` クラスへ渡すだけです。`Article` クラス自身ではなく `ArticleEditor` クラスが Memento を預かるのは、どの時点の状態をいくつ残しておくかが、記事そのものではなく編集画面の都合だからです。例えば、1 つ前に戻すための履歴は編集画面を開いている間だけ必要なもので、記事と一緒にデータベースへ保存するものではありません。もし Memento を `Article` クラスに持たせると、お知らせ記事を表すクラスに編集画面の都合が入り込み、履歴の上限のような、状態の残し方に関する機能を追加するたびに、`Article` クラスを修正することになってしまいます（→ [【深堀り④】履歴の上限とメモリ](#深堀り4)）。
+Memento の扱いに注目すると、`ArticleEditor` クラスは Memento に何が保存されているか（本文や公開先の部署）を知る必要がありません。Memento を預かっておき、必要なときに `Article` クラスへ渡すだけです。`Article` クラス自身ではなく `ArticleEditor` クラスが Memento を預かるのは、どの時点の状態をいくつ残しておくかが、記事そのものではなく編集画面の都合だからです。例えば、1 つ前に戻すための履歴は編集画面を開いている間だけ必要なもので、記事と一緒にデータベースへ保存するものではありません。もし Memento を `Article` クラスに持たせると、お知らせ記事を表すクラスに編集画面の都合が入り込み、履歴の上限のような、状態の残し方に関する機能を追加するたびに、`Article` クラスを修正することになってしまいます（→ [【深堀り③】履歴の上限とメモリ](#深堀り3)）。
 
 最後に、実行クラスを見ていきましょう。
 
@@ -955,66 +954,7 @@ public class ArticleEditor {
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】Undo の 2 つの実現方法（Memento と Command）
-
-本記事では、各操作の直前に記事の状態を丸ごと Memento として保存し、それを使って元に戻しました。<br>
-Undo を実現する方法には、もう 1 つ、「行った操作」と「その操作を取り消す処理」を組にして記録する方法があります。操作そのものをオブジェクトとして扱うこの方法は、GoF の Command パターンにあたります。
-
-本記事のコードを例にすると、次のようになります。
-
-**`EditCommand.java`**
-
-```java
-package example;
-
-public interface EditCommand {
-    void execute();
-
-    void undo();
-}
-```
-
-**`AddTargetDepartmentCommand.java`**
-
-```java
-package example;
-
-import example.article.Article;
-
-public class AddTargetDepartmentCommand implements EditCommand {
-    private Article article;
-    private String department;
-
-    public AddTargetDepartmentCommand(Article article, String department) {
-        this.article = article;
-        this.department = department;
-    }
-
-    @Override
-    public void execute() {
-        article.addTargetDepartment(department);
-    }
-
-    @Override
-    public void undo() {
-        article.removeTargetDepartment(department);
-    }
-}
-```
-
-`AddTargetDepartmentCommand` クラスは「公開先に部署を追加する」という操作を表すクラスで、`execute` メソッドで部署を追加し、`undo` メソッドで追加した部署を削除して取り消します。編集画面は、実行した操作を履歴に積んでおき、1 つ前に戻すときは、履歴から取り出した操作の `undo` メソッドを呼び出します。
-
-2 つの方法には、それぞれ次のような特徴があります。
-
-- Memento の方式は、操作の種類に関係なく状態を丸ごと保存して戻すため、操作ごとに取り消し方を考える必要がない。一方、保存する状態が大きいほど、操作のたびに多くのメモリを使う（→ [【深堀り④】履歴の上限とメモリ](#深堀り4)）。
-- Command の方式は、「どの部署を追加したか」のような操作の内容だけを記録するため、保存する量が少なくて済む。一方、操作の種類ごとに取り消す処理を書く必要があり、その処理を誤ると正しく元に戻らない。
-
-実務では、両者を組み合わせることもあります。例えば、状態がどう変わるかが複雑で、取り消す処理を書きにくい操作では、Command に操作前の状態の Memento を持たせておき、`undo` メソッドでその Memento を使って戻す、という形です。<br>
-詳しくは「Command パターン」で検索してみてください。
-
-<a id="深堀り4"></a>
-
-## 【深堀り④】履歴の上限とメモリ
+## 【深堀り③】履歴の上限とメモリ
 
 正しい実装の `ArticleEditor` クラスは、編集操作のたびに `ArticleMemento` クラスのインスタンスを 1 つ作り、`history` フィールドに積んでいます。1 つ前に戻すか下書きに戻さない限り履歴は減らないため、編集を続けるほど、`history` フィールドが保持する Memento は増え続けます。
 
@@ -1043,11 +983,9 @@ public class ArticleEditor {
 
 `push` メソッドで積んだ Memento は履歴の先頭に入るため、最も古い Memento は末尾にあります。上限（`MAX_HISTORY`）を超えたら `removeLast` メソッドで末尾の 1 つを捨てることで、履歴は常に新しいものから 50 件までに保たれます。履歴に積む処理を `saveHistory` メソッドにまとめているため、上限を設ける修正はこのメソッドだけで済みます。
 
-それでもメモリが足りない場合は、状態を丸ごと保存するのではなく、Command の方式のように、操作の内容だけを記録する方法を検討します（→ [【深堀り③】Undo の 2 つの実現方法（Memento と Command）](#深堀り3)）。
+<a id="深堀り4"></a>
 
-<a id="深堀り5"></a>
-
-## 【深堀り⑤】Memento をファイルに保存する
+## 【深堀り④】Memento をファイルに保存する
 
 正しい実装の Memento はメモリ上にしかないため、アプリを終了すると消えてしまいます。Memento をファイルに保存しておけば、アプリを再起動した後でも、保存した時点の状態に戻せます。
 
@@ -1116,9 +1054,9 @@ public class ArticleEditor {
 実務で Memento をファイルなどに保存する場合は、JSON などの形式を使うことも検討するとよいでしょう。その場合も、JSON への変換は `ArticleMemento` クラスなど `example.article` パッケージの側に持たせ、`ArticleEditor` クラスが中身を知らずに済む形にするのがポイントです。<br>
 詳しくは「Java シリアライズ 脆弱性」で検索してみてください。
 
-<a id="深堀り6"></a>
+<a id="深堀り5"></a>
 
-## 【深堀り⑥】GoF デザインパターンとの位置づけ
+## 【深堀り⑤】GoF デザインパターンとの位置づけ
 
 今回使った Memento パターンは、GoF（Gang of Four）の 23 のデザインパターンのうち「振る舞いパターン」に分類されます。<br>
 詳しくは「GoF」で検索してみてください。
