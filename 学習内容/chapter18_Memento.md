@@ -15,7 +15,7 @@
 - [正しい実装](#正しい実装)
 - [まとめ](#まとめ)
 - [【深堀り①】新しいリストを作って退避する理由](#深堀り1)
-- [【深堀り②】Memento の中身を隠すもう 1 つの方法（ネストクラス）](#深堀り2)
+- [【深堀り②】Memento の中身を見られるクラスをさらに絞る方法（ネストクラス）](#深堀り2)
 - [【深堀り③】Undo の 2 つの実現方法（Memento と Command）](#深堀り3)
 - [【深堀り④】履歴の上限とメモリ](#深堀り4)
 - [【深堀り⑤】Memento をファイルに保存する](#深堀り5)
@@ -856,22 +856,51 @@ public class Main {
 
 <a id="深堀り2"></a>
 
-## 【深堀り②】Memento の中身を隠すもう 1 つの方法（ネストクラス）
+## 【深堀り②】Memento の中身を見られるクラスをさらに絞る方法（ネストクラス）
 
-正しい実装では、`ArticleMemento` クラスのコンストラクタと getter メソッドをパッケージ・プライベートにすることで、`example` パッケージにある `ArticleEditor` クラスが、コンストラクタで Memento を作ることも、getter メソッドで中身を取り出すこともできないようにしました。<br>
-ただし、パッケージ・プライベートは、同じパッケージのクラスすべてに公開されます。そのため、例えば今後 `example.article` パッケージに記事を検索するクラスを追加すると、そのクラスからも、`ArticleMemento` クラスのコンストラクタで Memento を作ったり、getter メソッドで中身を取り出したりできてしまいます。
+正しい実装では、`ArticleMemento` クラスのコンストラクタと getter メソッドをパッケージプライベート（アクセス修飾子を付けない状態）にすることで、`example` パッケージにある `ArticleEditor` クラスが、コンストラクタで Memento を作ることも、getter メソッドで中身を取り出すこともできないようにしました。<br>
+ただし、パッケージプライベートは、同じパッケージのクラスすべてに公開されます。そのため、例えば今後 `example.article` パッケージに記事を検索するクラスを追加すると、そのクラスからも、`ArticleMemento` クラスのコンストラクタで Memento を作ったり、getter メソッドで中身を取り出したりできてしまいます。
 
 中身を見られるクラスを `Article` クラスだけに絞りたい場合は、Memento を `Article` クラスの中に、ネストクラス（クラスの中で宣言したクラス）として定義する方法があります。
 
-**`Article.java`（一部抜粋）**
+正しい実装の `Article` クラスを修正したのが次となります。
+
+**`Article.java`**
 
 ```java
-package example.article;
+package example; // ←ここを修正
 
 public class Article {
     private String body = "";
     private List<String> targetDepartments = new ArrayList<>();
 
+    public void changeBody(String body) {
+        this.body = body;
+    }
+
+    public void addTargetDepartment(String department) {
+        if (targetDepartments.contains(department)) {
+            throw new IllegalArgumentException("すでに公開先に追加されている部署です");
+        }
+
+        targetDepartments.add(department);
+    }
+
+    public void removeTargetDepartment(String department) {
+        targetDepartments.remove(department);
+    }
+
+    public void validate() {
+        if (body.isBlank() || targetDepartments.isEmpty()) {
+            throw new IllegalStateException("本文と公開先の部署をどちらも入力してから、下書き保存してください");
+        }
+    }
+
+    public String getSummary() {
+        return "本文：" + body + "／公開先：" + targetDepartments;
+    }
+
+    /* ここを修正（ここから） */
     public Memento createMemento() {
         return new Memento(body, targetDepartments);
     }
@@ -880,7 +909,9 @@ public class Article {
         body = memento.body;
         targetDepartments = new ArrayList<>(memento.targetDepartments);
     }
+    /* ここを修正（ここまで） */
 
+    /* ここを追加（ここから） */
     public static class Memento {
         private String body;
         private List<String> targetDepartments;
@@ -890,16 +921,37 @@ public class Article {
             this.targetDepartments = new ArrayList<>(targetDepartments);
         }
     }
+    /* ここを追加（ここまで） */
 }
 ```
 
-※既存のメソッド（`changeBody` メソッドなど）は省略しています。
+ネストクラスの `Memento` クラスでは、コンストラクタとフィールドが `private` になっています。ただし Java では、ネストクラスの `private` なメンバーであっても、そのネストクラスを定義しているクラス（ここでは `Article` クラス）からはアクセスできます。そのため、`Article` クラスの `restoreMemento` メソッドでは `memento.body` のようにフィールドを直接読み出せる一方、`Article` クラスの外からは、同じパッケージのクラスであっても、中身を取り出したり新たに作ったりすることはできません。<br>
+また、`Memento` クラスには `static` を付けています。`static` を付けないネストクラスは、自分を作った `Article` クラスのインスタンスへの参照を内部に持ちます。Memento に必要なのは保存した状態だけなので、`static` を付けて、`Article` クラスのインスタンスとは結びつかない独立したクラスにしています。
 
-ネストクラスの `Memento` クラスは、コンストラクタもフィールドも `private` です。しかし Java では、外側のクラスから、ネストクラスの `private` なメンバーにアクセスできます。そのため、`Article` クラスの `restoreMemento` メソッドでは `memento.body` のようにフィールドを直接読み出せる一方、`Article` クラスの外からは、同じパッケージのクラスであっても、中身を取り出すことも新たに作ることもできません。<br>
-また、`static` を付けたネストクラスは、外側のクラスのインスタンスとは結びつかない、独立したクラスとして扱われます。`ArticleEditor` クラスからは `Article.Memento` という型名で参照でき、`Deque<Article.Memento>` のように、正しい実装と同じ形で Memento を預かれます。
+このように、ネストクラスであれば、同じパッケージのクラスからも Memento の中身を隠せるため、パッケージを分ける必要がありません。そこで、`Article` クラスは好ましくない実装と同じ `example` パッケージに戻しています。また、Memento を `Article` クラスの中で定義したため、`ArticleMemento` クラスは削除しています。
 
-なお、GoF の原典（C++ で書かれています）では、`friend` という仕組みを使い、Memento の中身を Originator（本記事の `Article` クラスにあたる、Memento を作って状態を戻す側のクラス）にだけ公開しています。Java には `friend` にあたる仕組みがないため、パッケージ・プライベートかネストクラスで代用します。<br>
-パッケージ・プライベートは、Memento を独立したファイルのクラスとして扱える一方、同じパッケージのクラスには中身が見えてしまいます。ネストクラスは、中身を見られるクラスを `Article` クラスだけに絞れる一方、`Article` クラスのファイルに Memento の定義まで含まれるため、保存する状態が増えるほどファイルが長くなります。どこまで厳密に中身を隠したいかに応じて使い分けるとよいでしょう。
+`Article` クラスの修正に合わせて、`ArticleEditor` クラスを修正したのが次となります。
+
+※ `ArticleEditor` クラスは、import 文とフィールド以外に変更はありません。`Main` クラスは import 文を削除し、好ましくない実装と同じになります。実行結果に変更はありません。
+
+**`ArticleEditor.java`（一部抜粋）**
+
+```java
+package example;
+
+public class ArticleEditor {
+    private Article article;
+    private Deque<Article.Memento> history = new ArrayDeque<>(); // ←ここを修正
+    private Article.Memento draft; // ←ここを修正
+}
+```
+
+`Article` クラスと同じパッケージになり、`ArticleMemento` クラスも削除したため、import 文は 2 つとも削除しています。また、`history`・`draft` フィールドでは、`ArticleMemento` クラスの代わりに、`Article.Memento` という型名で Memento を預かるように修正しています。<br>
+`ArticleEditor` クラスは、Memento の中身を取り出すことも新たに作ることもできませんが、型名で参照することはできるため、正しい実装と同じ形で Memento を預かれます。
+
+なお、GoF の原典（C++ で書かれています）では、`friend` という仕組みを使い、Memento の中身を Originator（Memento を作って状態を戻す側のクラス）にだけ公開しています。Java には `friend` にあたる仕組みがないため、パッケージプライベートかネストクラスで代用します。
+
+2 つの方法を比べると、パッケージプライベートは、Memento を独立したファイルのクラスとして扱える一方、同じパッケージのクラスには中身が見えてしまいます。ネストクラスは、パッケージを分けなくても、中身を見られるクラスを `Article` クラスだけに絞れる一方、`Article` クラスのファイルに Memento の定義まで含まれるため、保存する状態が増えるほどファイルが長くなります。どこまで厳密に中身を隠したいかに応じて使い分けるとよいでしょう。
 
 <a id="深堀り3"></a>
 
