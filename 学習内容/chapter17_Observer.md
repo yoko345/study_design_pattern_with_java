@@ -773,7 +773,7 @@ public class PropertyChangeSupport implements Serializable {
 
 `PropertyChangeListener` インターフェースは、値の変化を通知されたときに呼び出される抽象メソッド `propertyChange` を 1 つだけ持ちます。これは、本記事の `TransferObserver` インターフェースと抽象メソッド `onTransferred` にあたります。なお、Java では、通知を受け取る側のオブジェクトを一般に「リスナー」と呼びます。
 
-`PropertyChangeSupport` クラスの `addPropertyChangeListener` メソッドは、リスナーを `map` フィールド（プロパティ名ごとにリスナーを管理する内部クラス `PropertyChangeListenerMap` のインスタンス）に登録します。`PropertyChangeListenerProxy` クラスの分岐は特定のプロパティだけを監視するリスナー向けの処理で、それ以外のリスナーは `null` をキーとして「すべてのプロパティの変化を受け取るリスナー」として登録されます。これは、本記事の `addObserver` メソッドにあたります。
+`PropertyChangeSupport` クラスの `addPropertyChangeListener` メソッドは、リスナーを `map` フィールド（プロパティ名ごとにリスナーを管理するネストクラス `PropertyChangeListenerMap` のインスタンス）に登録します。`PropertyChangeListenerProxy` クラスの分岐は特定のプロパティだけを監視するリスナー向けの処理で、それ以外のリスナーは `null` をキーとして「すべてのプロパティの変化を受け取るリスナー」として登録されます。これは、本記事の `addObserver` メソッドにあたります。
 
 `firePropertyChange` メソッドは、変化したプロパティ名と変化前後の値をまとめた `PropertyChangeEvent`（イベントオブジェクト）を受け取り、`fire` メソッドで登録済みのリスナーの `propertyChange` メソッドを順番に呼び出しています。これは、本記事の `notifyObservers` メソッドにあたります。<br>
 値の変化 1 回ごとに、その変化の内容を持つ `PropertyChangeEvent` クラスのインスタンスが 1 つ通知されるため、「状態の変化と通知が 1 対 1 に対応していない」という `Observable` クラスの弱点が解消されています。また、変化前後の値が等しい場合は、実際には変化していないものとして通知しない判定も組み込まれています。さらに、イベントオブジェクトがプロパティ名と変化前後の値を持ち、特定のプロパティだけを監視するリスナーも登録できるため、「サポートしているイベントモデルが限定的」という弱点も改善されています。<br>
