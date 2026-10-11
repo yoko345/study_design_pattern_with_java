@@ -515,7 +515,7 @@ public class MailingListService implements TransferObserver {
 }
 ```
 
-※ `AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
+※`AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
 
 pull 型では、受け取る側が情報を取りに行けるように、通知の際に通知する側のオブジェクト自身を渡します。<br>
 これにより、`TransferObserver` インターフェースの抽象メソッド `onTransferred` の引数は `TransferService` クラスだけになり、各連携先は getter メソッド（`getTransferredEmployee`・`getOldDepartment`）を通じて自分が使う情報だけを取得できるようになります。実際、`AccountPermissionService` クラスは異動前の部署を取得していません。<br>
@@ -629,7 +629,7 @@ public class MailingListService implements TransferObserver {
 }
 ```
 
-※ `AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
+※`AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
 
 抽象メソッド `onTransferred` の引数を `TransferEvent` クラス 1 つにしておけば、後から「異動日」などの情報が必要になっても、抽象メソッドのシグネチャ（メソッド名と引数の型の組み合わせ）は変わりません。`TransferEvent` クラスにフィールドと getter メソッドを追加し、`TransferService` クラスの `registerTransfer` メソッドでその値を渡すといった修正は必要になりますが、異動日を使わない連携先のクラスは修正する必要がありません。<br>
 また、各連携先のクラスは `TransferEvent` クラスから必要な情報だけを取り出せばよく、pull 型のように `TransferService` クラスを知る必要もありません。そのため、連携先のクラスの動作を確認する際も、`TransferEvent` クラスのインスタンスを生成して渡すだけで済みます。<br>
