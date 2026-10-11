@@ -16,8 +16,14 @@
 - [まとめ](#まとめ)
 - [【深堀り①】新しいリストを作って退避する理由](#深堀り1)
 - [【深堀り②】Memento の中身を見られるクラスをさらに絞る方法（ネストクラス）](#深堀り2)
-- [【深堀り③】履歴の上限とメモリ](#深堀り3)
-- [【深堀り④】Memento をファイルに保存する](#深堀り4)
+- [【深堀り③】履歴が増え続けたときのメモリ対策](#深堀り3)
+    - [履歴に上限を設ける](#履歴に上限を設ける)
+    - [差分だけを保存する](#差分だけを保存する)
+    - [データを圧縮する](#データを圧縮する)
+    - [ファイルや DB に保存する](#ファイルや-db-に保存する)
+- [【深堀り④】Memento をファイルや DB に保存する](#深堀り4)
+    - [`Serializable` インターフェースを使わない理由](#serializable-インターフェースを使わない理由)
+    - [Memento の賞味期限](#memento-の賞味期限)
 - [【深堀り⑤】GoF デザインパターンとの位置づけ](#深堀り5)
 
 ---
@@ -638,7 +644,7 @@ public class ArticleEditor {
 `undo` メソッドにより、1 つ前の状態に戻しています。戻す際は、`history` フィールドから最後に積んだ Memento を取り出し、`restoreMemento` メソッドに渡しています。<br>
 `revertToDraft` メソッドにより、下書き保存した時点の状態に戻しています。戻す際は、`draft` フィールドで保持している Memento を `restoreMemento` メソッドに渡しています。
 
-Memento の扱いに注目すると、`ArticleEditor` クラスは Memento に何が保存されているか（本文や公開先の部署）を知る必要がありません。Memento を預かっておき、必要なときに `Article` クラスへ渡すだけです。`Article` クラス自身ではなく `ArticleEditor` クラスが Memento を預かるのは、どの時点の状態をいくつ残しておくかが、記事そのものではなく編集画面の都合だからです。例えば、1 つ前に戻すための履歴は編集画面を開いている間だけ必要なもので、記事と一緒にデータベースへ保存するものではありません。もし Memento を `Article` クラスに持たせると、お知らせ記事を表すクラスに編集画面の都合が入り込み、履歴の上限のような、状態の残し方に関する機能を追加するたびに、`Article` クラスを修正することになってしまいます（→ [【深堀り③】履歴の上限とメモリ](#深堀り3)）。
+Memento の扱いに注目すると、`ArticleEditor` クラスは Memento に何が保存されているか（本文や公開先の部署）を知る必要がありません。Memento を預かっておき、必要なときに `Article` クラスへ渡すだけです。`Article` クラス自身ではなく `ArticleEditor` クラスが Memento を預かるのは、どの時点の状態をいくつ残しておくかが、記事そのものではなく編集画面の都合だからです。例えば、1 つ前に戻すための履歴は編集画面を開いている間だけ必要なもので、記事と一緒にデータベースへ保存するものではありません。もし Memento を `Article` クラスに持たせると、お知らせ記事を表すクラスに編集画面の都合が入り込み、履歴の上限のような、状態の残し方に関する機能を追加するたびに、`Article` クラスを修正することになってしまいます（→ [履歴に上限を設ける](#履歴に上限を設ける)）。
 
 最後に、実行クラスを見ていきましょう。
 
@@ -954,52 +960,91 @@ public class ArticleEditor {
 
 <a id="深堀り3"></a>
 
-## 【深堀り③】履歴の上限とメモリ
+## 【深堀り③】履歴が増え続けたときのメモリ対策
 
-正しい実装の `ArticleEditor` クラスは、編集操作のたびに `ArticleMemento` クラスのインスタンスを 1 つ作り、`history` フィールドに積んでいます。1 つ前に戻すか下書きに戻さない限り履歴は減らないため、編集を続けるほど、`history` フィールドが保持する Memento は増え続けます。
+Memento は、作るたびにその時点の状態を保持するため、メモリを消費します。<br>
+正しい実装の `ArticleEditor` クラスを振り返ると、編集操作のたびに `ArticleMemento` クラスのインスタンスを 1 つ作り、`history` フィールドに積んでいます。1 つ前に戻すか、下書きに戻すかしない限り履歴は減らないため、編集を続けるほどメモリの消費は増え続けます。また、保存する状態が大きいほど（本文が長い場合や、今後の機能追加で表や画像のデータなどを保持するようになった場合など）、Memento 1 つあたりのメモリも大きくなります。
 
-なお、本文の `String` クラスは不変なため、本文を変更していない Memento どうしは同じ文字列を共有しており、本文がその都度複製されるわけではありません。一方、公開先の部署のリストは Memento を作るたびにコピーされます。保存する状態が大きいほど（例えば、大きな表や画像のデータなど）、Memento 1 つあたりのメモリも大きくなります。
+そこで実務では、次のような対策をとります。どの対策にもトレードオフがあるため、保存する状態の大きさや、どこまで戻せる必要があるかに応じて、選んだり組み合わせたりします。
 
-そこで実務では、履歴に上限を設け、上限を超えたら古いものから捨てるのが一般的です。
+### 履歴に上限を設ける
+
+履歴に上限を設け、上限を超えたら古いものから捨てる方法です。
 
 **`ArticleEditor.java`（一部抜粋）**
 
 ```java
 package example;
 
+import example.article.Article;
+import example.article.ArticleMemento;
+
 public class ArticleEditor {
-    private static final int MAX_HISTORY = 50;
+    private static final int MAX_HISTORY = 50; // ←ここを追加
+    private Article article;
+    private Deque<ArticleMemento> history = new ArrayDeque<>();
 
     private void saveHistory() {
         history.push(article.createMemento());
+
+        /* ここを追加（ここから） */
         if (history.size() > MAX_HISTORY) {
             history.removeLast();
         }
+        /* ここを追加（ここまで） */
     }
 }
 ```
 
+※正しい実装から追加した `MAX_HISTORY` 定数と、修正した `saveHistory` メソッド、それが使う `article`・`history` フィールドのみを記載し、他のフィールド・メソッドは省略しています。
+
 ※ `MAX_HISTORY` の 50 は説明のための値です。実際には、保存する状態の大きさや、何回まで戻せれば十分かに応じて決めます。
 
-`push` メソッドで積んだ Memento は履歴の先頭に入るため、最も古い Memento は末尾にあります。上限（`MAX_HISTORY`）を超えたら `removeLast` メソッドで末尾の 1 つを捨てることで、履歴は常に新しいものから 50 件までに保たれます。履歴に積む処理を `saveHistory` メソッドにまとめているため、上限を設ける修正はこのメソッドだけで済みます。
+`Deque` インターフェースの `push` メソッドで積んだ Memento は履歴の先頭に入るため、最も古い Memento は末尾にあります。そのため、上限（`MAX_HISTORY`）を超えたら `Deque` インターフェースの `removeLast` メソッドで末尾の 1 つを捨てることにより、履歴は常に新しいものから 50 件までに保たれるようになります。<br>
+履歴を残す処理を `ArticleEditor` クラスに持たせ、積む処理を `saveHistory` メソッドにまとめているため、上限を設ける修正は `ArticleEditor` クラスの中だけで済み、`Article`・`ArticleMemento` クラスには手を加える必要がありません。<br>
+デメリットとして、上限を超えて捨てた古い状態には戻せなくなることが挙げられます。
+
+### 差分だけを保存する
+
+状態を丸ごと保存するのではなく、1 つ前の状態から変わった部分だけを保存する方法です。<br>
+例えば、長い本文の一部だけを書き換えた場合は、本文全体ではなく、書き換えた箇所だけを保存します。本文のどこが変わったかを求める処理（差分の計算）は、それだけでコードが長くなるため、ここではコード例を省略します。実務では、差分の計算にライブラリを使うのが一般的です。<br>
+差分の計算と、差分から状態を組み立て直す処理は、記事の中身に触れるため、`Article`・`ArticleMemento` クラスなど `example.article` パッケージの側に持たせます。<br>
+デメリットとして、次の 2 点が挙げられます。
+
+- ある時点の状態に戻すには、差分を順にたどって状態を組み立て直す必要があるため、戻す処理が複雑になる。
+- 途中の差分が 1 つでも欠けると、それより前の状態には正しく戻せなくなる。
+
+### データを圧縮する
+
+Memento に保存するデータを圧縮して、Memento 1 つあたりのメモリを小さくする方法です。<br>
+例えば、本文では同じ語句の繰り返しが多くなるほど小さく圧縮することができます。<br>
+圧縮の処理は Java の標準ライブラリ（`java.util.zip` パッケージ）で行え、その処理自体は Memento パターンとは直接関係しないため、ここではコード例を省略します。Memento パターンの観点で大切なのは、圧縮と展開をどのクラスで行うかです。`ArticleMemento` クラスの中で行えば、`ArticleEditor` クラスは中身を知らないまま、これまでどおり Memento を預かれます。<br>
+デメリットとして、Memento を作るたびに圧縮し、戻すたびに展開するため、処理時間がかかることが挙げられます。
+
+### ファイルや DB に保存する
+
+Memento をメモリ上に持ち続けるのではなく、ファイルや DB に書き出し、戻すときはファイルや DB から読み込む方法です。また、メモリ上には直近の Memento だけを残し、古いものからファイルや DB に書き出すという組み合わせ方をすることもできます。<br>
+ファイルに保存するコード例は、深堀り④で紹介します（→ [【深堀り④】Memento をファイルや DB に保存する](#深堀り4)）。<br>
+デメリットとして、次の 2 点が挙げられます。
+
+- ファイルや DB の読み書きは、メモリ上の読み書きより時間がかかる。
+- アプリを終了してもファイルや DB に Memento が残り続けるため、メモリ上だけで扱っていたときにはなかった注意点が生まれる（→ [Memento の賞味期限](#memento-の賞味期限)）。
 
 <a id="深堀り4"></a>
 
-## 【深堀り④】Memento をファイルに保存する
+## 【深堀り④】Memento をファイルや DB に保存する
 
-正しい実装の Memento はメモリ上にしかないため、アプリを終了すると消えてしまいます。Memento をファイルに保存しておけば、アプリを再起動した後でも、保存した時点の状態に戻せます。
+Memento をファイルや DB に保存すると、メモリを空けられるだけでなく、アプリを終了しても Memento が消えなくなります。<br>
+例えば、下書きの Memento をファイルに保存しておけば、アプリを再起動した後でも、下書き保存した時点の状態に戻せます。
 
-Java では、クラスに `Serializable` インターフェースを実装すると、そのインスタンスをバイト列に変換（シリアライズ）してファイルに書き出したり、ファイルから読み込んでインスタンスに戻したり（デシリアライズ）できます。`Serializable` インターフェースは抽象メソッドを 1 つも持たず、実装したクラスが「シリアライズしてよいクラス」であることを示す目印の役割だけを持ちます。
+ここでは、下書きの Memento をファイルに保存し、アプリの再起動後に読み込んで戻す例を見ていきます。履歴の Memento を古いものから書き出してメモリを空ける場合も、ファイルへの保存と読み込みの仕組みは同じです。なお、DB を使うにはドライバーの導入やテーブルの作成などの準備が必要になるため、本記事ではファイルに保存する例のみとします。
 
 **`ArticleMemento.java`**
 
 ```java
 package example.article;
 
-public class ArticleMemento implements Serializable {
-    /* ここを追加（ここから） */
-    private static final long serialVersionUID = 1L;
-    /* ここを追加（ここまで） */
+public class ArticleMemento {
     private String body;
     private List<String> targetDepartments;
 
@@ -1015,11 +1060,30 @@ public class ArticleMemento implements Serializable {
     List<String> getTargetDepartments() {
         return targetDepartments;
     }
+
+    /* ここを追加（ここから） */
+    public void saveToFile(Path path) throws IOException {
+        Files.writeString(path, String.join("\n", targetDepartments) + "\n\n" + body);
+    }
+
+    public static ArticleMemento loadFromFile(Path path) throws IOException {
+        String text = Files.readString(path);
+        int separator = text.indexOf("\n\n");
+        List<String> targetDepartments = text.substring(0, separator).lines().toList();
+        String body = text.substring(separator + 2);
+
+        return new ArticleMemento(body, targetDepartments);
+    }
+    /* ここを追加（ここまで） */
 }
 ```
 
-`ArticleMemento` クラスを振り返ると、正しい実装からクラス宣言に `implements Serializable` を追加し、`serialVersionUID` という定数を宣言しています。<br>
-`serialVersionUID` は、シリアライズしたときのクラスと、読み込むときのクラスが同じものかを確かめるための番号です。宣言しない場合は、クラスの内容から自動的に計算されるため、フィールドを追加するなどクラスを修正しただけで番号が変わり、修正前に保存したファイルを読み込めなくなる（`InvalidClassException` が発生する）ことがあります。
+`ArticleMemento` クラスを振り返ると、正しい実装から `saveToFile`・`loadFromFile` メソッドを追加しています。<br>
+`saveToFile` メソッドにより、Memento の中身をテキストにしてファイルに書き出しています。書き出す際は、先頭から公開先の部署を 1 行に 1 つずつ書き、空行を 1 行挟んで本文を書いています。本文は改行を含むことがあるため、最後に置くことで、空行より後ろをすべて本文として読み込めるようにしています。<br>
+`loadFromFile` メソッドにより、ファイルを読み込み、最初の空行より前を公開先の部署、後ろを本文として、Memento を作り直しています。
+
+追加した 2 つのメソッドは、`ArticleEditor` クラスから呼び出せるように `public` にしています。公開しているのはファイルとのやり取りだけのため、`ArticleEditor` クラスが Memento オブジェクトの中身を直接取り出したり、書き換えたりできないことに変わりはありません。<br>
+ただし、`loadFromFile` メソッドは `Article` クラスの `createMemento` メソッド以外で Memento を作れる入り口になり、元になるファイルの中身は外から書き換えられるため、作った Memento が `addTargetDepartment` メソッドのチェックを経た状態とは限りません。実務では、読み込んだ内容が正しいか（本記事では公開先の部署が重複していないか）を確かめてから戻す必要があります。
 
 **`ArticleEditor.java`（一部抜粋）**
 
@@ -1032,27 +1096,62 @@ public class ArticleEditor {
     private ArticleMemento draft;
 
     public void saveDraftToFile(Path path) throws IOException {
-        try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(path))) {
-            out.writeObject(draft);
-        }
+        draft.saveToFile(path);
     }
 
-    public void loadDraftFromFile(Path path) throws IOException, ClassNotFoundException {
-        try (ObjectInputStream in = new ObjectInputStream(Files.newInputStream(path))) {
-            draft = (ArticleMemento) in.readObject();
-        }
+    public void loadDraftFromFile(Path path) throws IOException {
+        draft = ArticleMemento.loadFromFile(path);
     }
 }
 ```
 
-`saveDraftToFile` メソッドは、下書きの Memento を `ObjectOutputStream` クラスでファイルに書き出し、`loadDraftFromFile` メソッドは、ファイルから読み込んだ Memento を `draft` フィールドに戻します。`try (...)` の形（try-with-resources 文）で書くと、処理が終わったときにファイルが自動的に閉じられます。<br>
-例えば、アプリを終了する前に `saveDraftToFile` メソッドを呼び出しておけば、再起動後に `loadDraftFromFile` メソッドと `revertToDraft` メソッドを順に呼び出すことで、下書き保存した時点の記事に戻せます。
+※正しい実装から追加した `saveDraftToFile`・`loadDraftFromFile` メソッドと、それらで使う `draft` フィールドのみを記載し、他のフィールド・メソッドは省略しています。
 
-ここで注目したいのは、`ArticleEditor` クラスが Memento の中身を知らないまま、ファイルへの保存と読み込みを行えている点です。Memento を中身の見えないオブジェクトとして預かるという関係は、保存先がメモリからファイルに変わっても崩れていません。
+`ArticleEditor` クラスを振り返ると、正しい実装から `saveDraftToFile`・`loadDraftFromFile` メソッドを追加しています。<br>
+`saveDraftToFile` メソッドにより、下書きの Memento をファイルに書き出しています。書き出す際は、`ArticleMemento` クラスの `saveToFile` メソッドに処理を任せています。<br>
+`loadDraftFromFile` メソッドにより、ファイルから読み込んだ Memento を `draft` フィールドに戻しています。読み込む際は、`ArticleMemento` クラスの `loadFromFile` メソッドに処理を任せています。<br>
+2 つのメソッドは、アプリの終了前と再起動後に呼び出して使います。アプリを終了する前に `saveDraftToFile` メソッドを呼び出しておけば、再起動後に `loadDraftFromFile` メソッドで Memento を `draft` フィールドに戻し、`revertToDraft` メソッドで記事に反映することで、下書き保存した時点の状態に戻せます。
 
-ただし、Java のシリアライズには注意点もあります。信頼できないデータをデシリアライズすると、細工されたデータによって意図しない処理を実行されるおそれがあり、書籍『Effective Java』でも、Java のシリアライズより JSON などの代替手段を優先するよう勧めています。<br>
-実務で Memento をファイルなどに保存する場合は、JSON などの形式を使うことも検討するとよいでしょう。その場合も、JSON への変換は `ArticleMemento` クラスなど `example.article` パッケージの側に持たせ、`ArticleEditor` クラスが中身を知らずに済む形にするのがポイントです。<br>
-詳しくは「Java シリアライズ 脆弱性」で検索してみてください。
+ここで注目したいのは、`ArticleEditor` クラスが Memento の中身を知らないまま、ファイルへの保存と読み込みを行えている点です。テキストへの変換と、テキストから Memento を作り直す処理を `ArticleMemento` クラスに持たせているため、Memento を中身の見えないオブジェクトとして預かるという関係は、保存先がメモリからファイルに変わっても崩れていません。<br>
+なお、変換を `Article` クラスではなく `ArticleMemento` クラスに持たせているのは、ファイルに保存したいのが今の記事の状態ではなく、Memento に保存した過去の時点の状態だからです。また、過去の時点の状態をどこに残しておくかは記事そのものではなく編集画面の都合のため、`Article` クラスに持たせると、お知らせ記事を表すクラスに編集画面の都合が入り込んでしまいます。
+
+DB に保存する場合も同じく、DB とのやり取りを `example.article` パッケージの側に持たせれば、`ArticleEditor` クラスは中身を知らないまま Memento を預かれます。
+
+### `Serializable` インターフェースを使わない理由
+
+Java には、クラスに `Serializable` インターフェースを実装するだけで、そのインスタンスをバイト列に変換（シリアライズ）してファイルに書き出したり、ファイルから読み込んでインスタンスに戻したり（デシリアライズ）できる仕組みもあります。<br>
+しかし、本記事では次の理由から使っていません。
+
+- 信頼できないデータをデシリアライズすると、細工されたデータによって意図しない処理を実行されるおそれがある。
+    - 書籍『Effective Java』でも、Java のシリアライズより JSON などの代替手段を優先するよう勧めている。
+- 保存されるのは Java でしか読み込めないバイト列のため、人が中身を確かめたり、Java 以外のシステムから読み込んだりできない。
+
+詳しくは「安全でないデシリアライゼーション」や「Java デシリアライズ 脆弱性」で検索してみてください。
+
+実務では、JSON 形式で保存するのが一般的です。JSON は多くのプログラミング言語やシステムで扱える形式で、Java では Jackson や Gson などのライブラリを使って、オブジェクトと JSON を相互に変換できます。Java の標準ライブラリには JSON を扱う機能がないため、本記事では標準ライブラリだけで書けるテキスト形式で保存しました。<br>
+JSON 形式で保存する場合も、JSON への変換は `ArticleMemento` クラスなど `example.article` パッケージの側に持たせ、`ArticleEditor` クラスが中身を知らずに済む形にするのがポイントです。
+
+### Memento の賞味期限
+
+メモリ上の Memento は、アプリを終了すると消えるため、作られてから使われるまでの期間が短く、その間に `Article` クラスの作りや社内の状況が変わることは考えにくいです。<br>
+一方、ファイルや DB に保存した Memento は、数か月後や数年後に読み込まれることもあります。その間に状況が変わると、保存した時点では正しかった Memento が、戻す時点では正しく使えなくなります。つまり、ファイルや DB に保存した Memento には、正しく使える期間（賞味期限）があります。
+
+賞味期限が切れる原因として、次の 2 つが挙げられます。
+
+- クラスの変更
+- 社内の状況の変化
+
+クラスの変更による例として、記事に「公開日」を持たせるため、`Article`・`ArticleMemento` クラスにフィールドを追加し、`saveToFile` メソッドでファイルの先頭に公開日を書き出すように修正したとします。修正前に保存したファイルには公開日の行がないため、修正後の `loadFromFile` メソッドで読み込むと、先頭にある公開先の部署を公開日として読み取ろうとして、読み込みに失敗してしまいます。
+
+社内の状況の変化による例として、公開先に「総務部」を設定した下書きを保存した後、組織変更で総務部が廃止されたとします。Memento は保存した時点の状態をそのまま戻すため、この下書きに戻すと、すでに存在しない総務部が公開先に戻ってしまいます。
+
+こうした問題を防ぐため、実務では次のような対策をとります。
+
+- Memento に、保存したときのクラスの版（バージョン）を持たせておき、読み込んだ Memento の版が古ければ、新しい形に変換するか、戻せないことを利用者に伝える。
+- 戻す前に、Memento の状態が現在も正しいか（公開先の部署が存在するか、など）を確かめる。
+- 保存期間を決めておき、期間を過ぎた Memento は捨てる。
+
+これらの対策も、Memento パターンの役割分担に沿って置き場所を決めます。版の確認や、戻す前の中身の確認は、Memento の中身に触れる処理のため、`Article`・`ArticleMemento` クラスなど `example.article` パッケージの側で行います。一方、保存期間を過ぎたかどうかはファイルの更新日時などから判断でき、Memento の中身を知らなくても行えるため、Memento を預かる `ArticleEditor` クラスなど `example` パッケージの側で行えます。
 
 <a id="深堀り5"></a>
 
