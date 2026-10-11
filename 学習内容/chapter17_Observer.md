@@ -197,7 +197,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-まず思いつくのは、勤怠システムの承認者を更新するクラスを作成し、異動を登録するクラス（`TransferService`）の `registerTransfer` メソッドから、既存の連携先と同じように直接呼び出す、という実装ではないでしょうか？
+真っ先に思いつくのは、勤怠システムの承認者を更新するクラスを作成し、異動を登録するクラス（`TransferService`）の `registerTransfer` メソッドから、既存の連携先と同じように直接呼び出す、という実装ではないでしょうか？
 
 **`AttendanceApprovalService.java`**
 
