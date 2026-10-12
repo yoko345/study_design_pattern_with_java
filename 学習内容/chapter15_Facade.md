@@ -73,7 +73,7 @@ public class InventoryService {
 }
 ```
 
-※ `MAX_RESERVABLE_QUANTITY` の `10` は、1 回の注文で確保できる最大数量を表す想定値です。
+※`MAX_RESERVABLE_QUANTITY` の `10` は、1 回の注文で確保できる最大数量を表す想定値です。
 
 <br>
 
@@ -107,7 +107,7 @@ public class PaymentService {
 }
 ```
 
-※ `CREDIT_LIMIT` の `1_000_000` は、1 回の決済で許容する利用限度額を表す想定値です。
+※`CREDIT_LIMIT` の `1_000_000` は、1 回の決済で許容する利用限度額を表す想定値です。
 
 <br>
 

@@ -197,7 +197,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-まず思いつくのは、勤怠システムの承認者を更新するクラスを作成し、異動を登録するクラス（`TransferService`）の `registerTransfer` メソッドから、既存の連携先と同じように直接呼び出す、という実装ではないでしょうか？
+真っ先に思いつくのは、勤怠システムの承認者を更新するクラスを作成し、異動を登録するクラス（`TransferService`）の `registerTransfer` メソッドから、既存の連携先と同じように直接呼び出す、という実装ではないでしょうか？
 
 **`AttendanceApprovalService.java`**
 
@@ -515,7 +515,7 @@ public class MailingListService implements TransferObserver {
 }
 ```
 
-※ `AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
+※`AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
 
 pull 型では、受け取る側が情報を取りに行けるように、通知の際に通知する側のオブジェクト自身を渡します。<br>
 これにより、`TransferObserver` インターフェースの抽象メソッド `onTransferred` の引数は `TransferService` クラスだけになり、各連携先は getter メソッド（`getTransferredEmployee`・`getOldDepartment`）を通じて自分が使う情報だけを取得できるようになります。実際、`AccountPermissionService` クラスは異動前の部署を取得していません。<br>
@@ -629,7 +629,7 @@ public class MailingListService implements TransferObserver {
 }
 ```
 
-※ `AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
+※`AttendanceApprovalService` クラスも `AccountPermissionService` クラスと同じように修正します。`Main` クラスと実行結果に変更はありません。
 
 抽象メソッド `onTransferred` の引数を `TransferEvent` クラス 1 つにしておけば、後から「異動日」などの情報が必要になっても、抽象メソッドのシグネチャ（メソッド名と引数の型の組み合わせ）は変わりません。`TransferEvent` クラスにフィールドと getter メソッドを追加し、`TransferService` クラスの `registerTransfer` メソッドでその値を渡すといった修正は必要になりますが、異動日を使わない連携先のクラスは修正する必要がありません。<br>
 また、各連携先のクラスは `TransferEvent` クラスから必要な情報だけを取り出せばよく、pull 型のように `TransferService` クラスを知る必要もありません。そのため、連携先のクラスの動作を確認する際も、`TransferEvent` クラスのインスタンスを生成して渡すだけで済みます。<br>
@@ -773,7 +773,7 @@ public class PropertyChangeSupport implements Serializable {
 
 `PropertyChangeListener` インターフェースは、値の変化を通知されたときに呼び出される抽象メソッド `propertyChange` を 1 つだけ持ちます。これは、本記事の `TransferObserver` インターフェースと抽象メソッド `onTransferred` にあたります。なお、Java では、通知を受け取る側のオブジェクトを一般に「リスナー」と呼びます。
 
-`PropertyChangeSupport` クラスの `addPropertyChangeListener` メソッドは、リスナーを `map` フィールド（プロパティ名ごとにリスナーを管理する内部クラス `PropertyChangeListenerMap` のインスタンス）に登録します。`PropertyChangeListenerProxy` クラスの分岐は特定のプロパティだけを監視するリスナー向けの処理で、それ以外のリスナーは `null` をキーとして「すべてのプロパティの変化を受け取るリスナー」として登録されます。これは、本記事の `addObserver` メソッドにあたります。
+`PropertyChangeSupport` クラスの `addPropertyChangeListener` メソッドは、リスナーを `map` フィールド（プロパティ名ごとにリスナーを管理するネストクラス `PropertyChangeListenerMap` のインスタンス）に登録します。`PropertyChangeListenerProxy` クラスの分岐は特定のプロパティだけを監視するリスナー向けの処理で、それ以外のリスナーは `null` をキーとして「すべてのプロパティの変化を受け取るリスナー」として登録されます。これは、本記事の `addObserver` メソッドにあたります。
 
 `firePropertyChange` メソッドは、変化したプロパティ名と変化前後の値をまとめた `PropertyChangeEvent`（イベントオブジェクト）を受け取り、`fire` メソッドで登録済みのリスナーの `propertyChange` メソッドを順番に呼び出しています。これは、本記事の `notifyObservers` メソッドにあたります。<br>
 値の変化 1 回ごとに、その変化の内容を持つ `PropertyChangeEvent` クラスのインスタンスが 1 つ通知されるため、「状態の変化と通知が 1 対 1 に対応していない」という `Observable` クラスの弱点が解消されています。また、変化前後の値が等しい場合は、実際には変化していないものとして通知しない判定も組み込まれています。さらに、イベントオブジェクトがプロパティ名と変化前後の値を持ち、特定のプロパティだけを監視するリスナーも登録できるため、「サポートしているイベントモデルが限定的」という弱点も改善されています。<br>
