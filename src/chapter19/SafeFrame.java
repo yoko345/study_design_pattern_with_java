@@ -37,10 +37,15 @@ public class SafeFrame extends Frame implements ActionListener, Context {
         pack();
         setVisible(true);
         // リスナーの設定
-        buttonUse.addActionListener(this);
-        buttonAlarm.addActionListener(this);
-        buttonPhone.addActionListener(this);
-        buttonExit.addActionListener(this);
+        // 練習問題19-1
+        // buttonUse.addActionListener(this);
+        // buttonAlarm.addActionListener(this);
+        // buttonPhone.addActionListener(this);
+        // buttonExit.addActionListener(this);
+        buttonUse.addActionListener(e -> state.doUse(this));
+        buttonAlarm.addActionListener(e -> state.doAlarm(this));
+        buttonPhone.addActionListener(e -> state.doPhone(this));
+        buttonExit.addActionListener(e -> System.exit(0));
     }
 
     // ボタン押下後
@@ -48,17 +53,18 @@ public class SafeFrame extends Frame implements ActionListener, Context {
     public void actionPerformed(ActionEvent e) {
         System.out.println(e.toString());
 
-        if (e.getSource() == buttonUse) {
-            state.doUse(this);
-        } else if (e.getSource() == buttonAlarm) {
-            state.doAlarm(this);
-        } else if (e.getSource() == buttonPhone) {
-            state.doPhone(this);
-        } else if (e.getSource() == buttonExit) {
-            System.exit(0);
-        } else {
-            System.out.println("不明");
-        }
+        // 練習問題19-1
+        // if (e.getSource() == buttonUse) {
+        //     state.doUse(this);
+        // } else if (e.getSource() == buttonAlarm) {
+        //     state.doAlarm(this);
+        // } else if (e.getSource() == buttonPhone) {
+        //     state.doPhone(this);
+        // } else if (e.getSource() == buttonExit) {
+        //     System.exit(0);
+        // } else {
+        //     System.out.println("不明");
+        // }
     }
 
     // 時刻の設定
