@@ -14,7 +14,15 @@ public class NightState implements State {
     public void doClock(Context context, int hour) {
         // 練習問題19-2
         // if (hour >= 9 && hour < 17) {
-        if (hour >= 8 && hour < 21) {
+        // 練習問題19-3
+        // 【補足】時計は1時間ずつ連続して進むとは限らない（起動時刻・時刻変更などで飛ぶことがある）。
+        // 夜間から12時台へ飛んだときに DayState を経由させる前提にすると、
+        // その回の doClock では昼間の状態になってしまう。
+        // そのため、夜間からも昼食時へ直接遷移できるようにする。
+        // if (hour >= 8 && hour < 21) {
+        if (hour >= 12 && hour < 13) {
+            context.changeState(LunchState.getInstance());
+        } else if (hour >= 8 && hour < 21) {
             context.changeState(DayState.getInstance());
         }
     }
