@@ -7,10 +7,13 @@ import java.awt.Frame;
 import java.awt.Panel;
 import java.awt.TextArea;
 import java.awt.TextField;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+// 練習問題19-1（模範解答）
+// import java.awt.event.ActionEvent;
+// import java.awt.event.ActionListener;
 
-public class SafeFrame extends Frame implements ActionListener, Context {
+// 練習問題19-1（模範解答）
+// public class SafeFrame extends Frame implements ActionListener, Context {
+public class SafeFrame extends Frame implements Context {
     private TextField textClock = new TextField();
     private TextArea textScreen = new TextArea(10, 60);
     private Button buttonUse = new Button("金庫使用");
@@ -49,23 +52,24 @@ public class SafeFrame extends Frame implements ActionListener, Context {
     }
 
     // ボタン押下後
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        System.out.println(e.toString());
+    // 練習問題19-1（模範解答）
+    // @Override
+    // public void actionPerformed(ActionEvent e) {
+    //     System.out.println(e.toString());
 
-        // 練習問題19-1
-        // if (e.getSource() == buttonUse) {
-        //     state.doUse(this);
-        // } else if (e.getSource() == buttonAlarm) {
-        //     state.doAlarm(this);
-        // } else if (e.getSource() == buttonPhone) {
-        //     state.doPhone(this);
-        // } else if (e.getSource() == buttonExit) {
-        //     System.exit(0);
-        // } else {
-        //     System.out.println("不明");
-        // }
-    }
+    //     // 練習問題19-1
+    //     if (e.getSource() == buttonUse) {
+    //         state.doUse(this);
+    //     } else if (e.getSource() == buttonAlarm) {
+    //         state.doAlarm(this);
+    //     } else if (e.getSource() == buttonPhone) {
+    //         state.doPhone(this);
+    //     } else if (e.getSource() == buttonExit) {
+    //         System.exit(0);
+    //     } else {
+    //         System.out.println("不明");
+    //     }
+    // }
 
     // 時刻の設定
     @Override
