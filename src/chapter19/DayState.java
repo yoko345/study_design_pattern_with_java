@@ -29,6 +29,8 @@ public class DayState implements State {
     @Override
     public void doAlarm(Context context) {
         context.callSecurityCenter("非常ベル(昼間)");
+        // 練習問題19-4
+        context.changeState(EmergencyState.getInstance());
     }
 
     @Override
