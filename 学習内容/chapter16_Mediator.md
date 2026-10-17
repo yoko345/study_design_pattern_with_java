@@ -143,9 +143,7 @@ package example;
 public class TransportRobot {
     private String name;
     private int currentLane;
-    /* ここを追加（ここから） */
-    private List<TransportRobot> otherRobots = new ArrayList<>();
-    /* ここを追加（ここまで） */
+    private List<TransportRobot> otherRobots = new ArrayList<>(); // ←ここを追加
 
     public TransportRobot(String name, int currentLane) {
         this.name = name;

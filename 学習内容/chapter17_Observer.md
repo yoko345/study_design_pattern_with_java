@@ -219,9 +219,7 @@ package example;
 public class TransferService {
     private AccountPermissionService accountPermissionService = new AccountPermissionService();
     private MailingListService mailingListService = new MailingListService();
-    /* ここを追加（ここから） */
-    private AttendanceApprovalService attendanceApprovalService = new AttendanceApprovalService();
-    /* ここを追加（ここまで） */
+    private AttendanceApprovalService attendanceApprovalService = new AttendanceApprovalService(); // ←ここを追加
 
     public void registerTransfer(Employee employee, String newDepartment) {
         String oldDepartment = employee.getDepartment();
@@ -231,9 +229,7 @@ public class TransferService {
         System.out.println("[異動登録] " + employee.getName() + "さんを" + oldDepartment + "から" + newDepartment + "へ異動しました");
         accountPermissionService.updatePermission(employee);
         mailingListService.moveMember(employee, oldDepartment);
-        /* ここを追加（ここから） */
-        attendanceApprovalService.changeApprover(employee);
-        /* ここを追加（ここまで） */
+        attendanceApprovalService.changeApprover(employee); // ←ここを追加
     }
 }
 ```

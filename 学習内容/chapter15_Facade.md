@@ -452,15 +452,11 @@ public class OrderFacade {
 package example;
 
 public class OrderProcessor {
-    /* ここを追加（ここから） */
-    private OrderFacade orderFacade = new OrderFacade();
-    /* ここを追加（ここまで） */
+    private OrderFacade orderFacade = new OrderFacade(); // ←ここを追加
 
     public void processOrder(String customerName, String productName, int quantity, int amount) {
         System.out.println(customerName + "様の注文を受け付けました。");
-        /* ここを追加（ここから） */
-        orderFacade.placeOrder(customerName, productName, quantity, amount);
-        /* ここを追加（ここまで） */
+        orderFacade.placeOrder(customerName, productName, quantity, amount); // ←ここを追加
     }
 }
 ```

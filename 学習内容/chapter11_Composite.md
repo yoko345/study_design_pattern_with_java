@@ -220,9 +220,7 @@ package example;
 
 public class TaskManager {
     private List<Task> taskList = new ArrayList<>();
-    /* ここを追加（ここから） */
-    private List<TaskGroup> taskGroupList = new ArrayList<>();
-    /* ここを追加（ここまで） */
+    private List<TaskGroup> taskGroupList = new ArrayList<>(); // ←ここを追加
 
     public void addTask(Task task) {
         taskList.add(task);
