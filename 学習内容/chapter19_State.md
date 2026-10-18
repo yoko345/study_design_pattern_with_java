@@ -41,11 +41,11 @@
 経費申請の状態を表す列挙型です。<br>
 状態ごとに、コンソールに出力する表示名を保持します。
 
-| 定数        | 表示名     |
-| ----------- | ---------- |
-| `DRAFT`     | `下書き`   |
-| `SUBMITTED` | `申請中`   |
-| `APPROVED`  | `承認済み` |
+| 定数             | 表示名     |
+| ---------------- | ---------- |
+| `DRAFT`          | `下書き`   |
+| `MANAGER_REVIEW` | `申請中`   |
+| `APPROVED`       | `承認済み` |
 
 | メソッド   | 引数 | 戻り値の型 | 説明             |
 | ---------- | ---- | ---------- | ---------------- |
@@ -58,7 +58,7 @@ package example;
 
 public enum ReportStatus {
     DRAFT("下書き"),
-    SUBMITTED("申請中"),
+    MANAGER_REVIEW("申請中"),
     APPROVED("承認済み");
 
     private String label;
@@ -80,7 +80,7 @@ public enum ReportStatus {
 - `ExpenseReport`（既存クラス）
 
 経費申請 1 件を表すクラスです。<br>
-申請・承認・差し戻しの各操作で、現在の状態に応じて状態を切り替えるか、操作を受け付けられない旨を出力します。
+申請・承認・差し戻しの各操作で、現在の状態に応じて状態を切り替えるか、操作を受け付けられない理由を出力します。
 
 | フィールド | 型             | 説明                         |
 | ---------- | -------------- | ---------------------------- |
@@ -110,10 +110,10 @@ public class ExpenseReport {
     public void submit() {
         switch (status) {
             case DRAFT -> {
-                status = ReportStatus.SUBMITTED;
+                status = ReportStatus.MANAGER_REVIEW;
                 print("申請しました");
             }
-            case SUBMITTED -> print("すでに申請中です");
+            case MANAGER_REVIEW -> print("すでに申請中です");
             case APPROVED -> print("承認済みのため申請できません");
         }
     }
@@ -121,7 +121,7 @@ public class ExpenseReport {
     public void approve() {
         switch (status) {
             case DRAFT -> print("申請されていないため承認できません");
-            case SUBMITTED -> {
+            case MANAGER_REVIEW -> {
                 status = ReportStatus.APPROVED;
                 print("承認しました");
             }
@@ -132,7 +132,7 @@ public class ExpenseReport {
     public void sendBack() {
         switch (status) {
             case DRAFT -> print("申請されていないため差し戻せません");
-            case SUBMITTED -> {
+            case MANAGER_REVIEW -> {
                 status = ReportStatus.DRAFT;
                 print("差し戻しました");
             }
@@ -160,6 +160,7 @@ public class Main {
         ExpenseReport report = new ExpenseReport("大阪出張の交通費");
         // 申請される前の経費申請を、上長が誤って承認しようとしている
         report.approve();
+        // 申請者が申請している
         report.submit();
         // 上長が内容に不備を見つけたため、差し戻している
         report.sendBack();
@@ -199,7 +200,7 @@ package example;
 
 public enum ReportStatus {
     DRAFT("下書き"),
-    SUBMITTED("申請中"),
+    MANAGER_REVIEW("申請中"),
     ACCOUNTING_REVIEW("経理確認中"), // ←ここを追加
     APPROVED("承認済み");
 
@@ -231,10 +232,10 @@ public class ExpenseReport {
     public void submit() {
         switch (status) {
             case DRAFT -> {
-                status = ReportStatus.SUBMITTED;
+                status = ReportStatus.MANAGER_REVIEW;
                 print("申請しました");
             }
-            case SUBMITTED -> print("すでに申請中です");
+            case MANAGER_REVIEW -> print("すでに申請中です");
             case ACCOUNTING_REVIEW -> print("経理確認中のため申請できません"); // ←ここを追加
             case APPROVED -> print("承認済みのため申請できません");
         }
@@ -243,7 +244,7 @@ public class ExpenseReport {
     public void approve() {
         switch (status) {
             case DRAFT -> print("申請されていないため承認できません");
-            case SUBMITTED -> {
+            case MANAGER_REVIEW -> {
                 status = ReportStatus.ACCOUNTING_REVIEW; // ←ここを修正
                 print("承認しました");
             }
@@ -260,7 +261,7 @@ public class ExpenseReport {
     public void sendBack() {
         switch (status) {
             case DRAFT -> print("申請されていないため差し戻せません");
-            case SUBMITTED -> {
+            case MANAGER_REVIEW -> {
                 status = ReportStatus.DRAFT;
                 print("差し戻しました");
             }
@@ -290,6 +291,7 @@ public class Main {
         ExpenseReport report = new ExpenseReport("大阪出張の交通費");
         // 申請される前の経費申請を、上長が誤って承認しようとしている
         report.approve();
+        // 申請者が申請している
         report.submit();
         // 上長が内容に不備を見つけたため、差し戻している
         report.sendBack();
@@ -336,25 +338,18 @@ public class Main {
 しかし、この実装には以下の問題点があります。
 
 - 状態を 1 つ追加するたびに、`ExpenseReport` クラスの `submit`・`approve`・`sendBack` メソッドすべての `switch` 文に分岐を追加する必要がある。
-    - しかも、どれか 1 つのメソッドで分岐を追加し忘れると、コンパイルエラーも例外も発生しないまま、その状態のときだけ何も出力されずに処理が終わる不具合が生まれてしまう。
-- 経理確認中の状態を追加するために、`submit`・`approve`・`sendBack` メソッドの中で、下書き・申請中・承認済みの分岐のすぐ隣で修正作業をする必要がある。特に、`approve` メソッドでは申請中の分岐の切り替え先まで書き換えている。そのため、既存の状態の分岐を誤って書き換えてしまうリスクがあり、すでにテストが完了している既存の状態の振る舞いまで再テストが必要になってしまう。
+    - もし、どれか 1 つのメソッドで分岐を追加し忘れると、コンパイルエラーも例外も発生しないまま、その状態のときだけ何も出力されずに処理が終わる不具合が生まれてしまう。
+- 経理確認中の状態を追加するために、`submit`・`approve`・`sendBack` メソッドの中で、下書き・申請中・承認済みの分岐のすぐ隣で修正作業をする必要がある。特に、`approve` メソッドでは申請中の分岐の切り替え先まで修正している。
+    - その結果、既存の状態の分岐を誤って書き換えてしまうリスクがあり、すでにテストが完了している既存の状態の振る舞いまで再テストが必要になってしまう。
 
 ## 正しい実装
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
 これらの問題を解決するのが **State パターン**です。<br>
-State パターンでは、「状態」そのものを 1 つのクラスとして表し、その状態のときに各操作で何をするかを、状態ごとのクラスに書きます。状態を持つ側のクラスは、現在の状態を表すオブジェクトを 1 つ保持し、操作を受けたらその状態オブジェクトに処理を任せるだけにします。状態が変わるときは、保持している状態オブジェクトを別の状態クラスのインスタンスに差し替えます。
+State パターンは、オブジェクトの「状態」そのものを 1 つのクラスとして表し、状態ごとの振る舞いをそれぞれのクラスに分けるパターンです。本記事では、下書き・申請中・経理確認中・承認済みの 4 つの状態を、それぞれ 1 つのクラスとして表します。
 
-これにより、操作ごとに状態を条件分岐で判定する必要がなくなります。また、すべての状態クラスに共通のインターフェースを実装させることで、状態クラスを追加する際に、どれかの操作の実装を忘れるとコンパイルエラーで気づけるようになります。
-
-今回の実装は、次のクラスで構成します。
-
-- 状態クラスに共通する操作を定義するインターフェース（`ReportState`）
-- 状態ごとのクラス（`DraftState`・`SubmittedState`・`AccountingReviewState`・`ApprovedState`）
-- 現在の状態オブジェクトを保持し、操作を任せるクラス（`ExpenseReport`）
-
-まず、状態クラスに共通する振る舞いを定義するインターフェースから見ていきましょう。
+まず、状態クラスに共通する操作を定義するインターフェースから見ていきましょう。
 
 **`ReportState.java`**
 
@@ -372,8 +367,7 @@ public interface ReportState {
 }
 ```
 
-`ReportState` は新たに追加したインターフェースで、申請・承認・差し戻しの各操作に対応する抽象メソッド `submit`・`approve`・`sendBack` と、状態の表示名を返す抽象メソッド `getLabel` を持ちます。<br>
-各操作の抽象メソッドの引数で `ExpenseReport` クラスのインスタンスを受け取ることにより、状態クラス側から状態の切り替えや結果の出力を依頼できるようにしています。
+`ReportState` は新たに追加したインターフェースで、申請・承認・差し戻しの各操作に対応する抽象メソッド `submit`・`approve`・`sendBack` と、状態の表示名を返す抽象メソッド `getLabel` を持ちます。
 
 次に、`ReportState` インターフェースを実装した状態ごとのクラスを見ていきましょう。
 
@@ -385,7 +379,7 @@ package example;
 public class DraftState implements ReportState {
     @Override
     public void submit(ExpenseReport report) {
-        report.changeState(new SubmittedState());
+        report.changeState(new ManagerReviewState());
         report.print("申請しました");
     }
 
@@ -406,12 +400,12 @@ public class DraftState implements ReportState {
 }
 ```
 
-**`SubmittedState.java`**
+**`ManagerReviewState.java`**
 
 ```java
 package example;
 
-public class SubmittedState implements ReportState {
+public class ManagerReviewState implements ReportState {
     @Override
     public void submit(ExpenseReport report) {
         report.print("すでに申請中です");
@@ -494,13 +488,16 @@ public class ApprovedState implements ReportState {
 }
 ```
 
-4 つの状態クラスは、既存の `ExpenseReport` クラスの `switch` 文に書かれていた分岐を、状態ごとに 1 つのクラスへまとめ直したものです。<br>
-状態を切り替える操作では、`ExpenseReport` クラスの `changeState` メソッドに次の状態クラスのインスタンスを渡すことにより、状態の切り替えを依頼しています。操作を受け付けられない場合は、状態を切り替えずに `print` メソッドで理由を出力しています。
+`DraftState`・`ManagerReviewState`・`ApprovedState` の 3 つの状態クラスは、既存の `switch` 文で分岐の条件になっていた下書き・申請中・承認済みの状態を表すクラスです。<br>
+一方、`AccountingReviewState` クラスは、既存の `switch` 文の分岐にはなく、今回の要件で追加した経理確認中の状態を表すクラスです。
 
-このうち `AccountingReviewState` は、今回の要件のために新たに追加したクラスです。経理確認中のときに受け付ける操作と、次に切り替える状態が、このクラス 1 つにまとまっています。<br>
-また、`SubmittedState` クラスの `approve` メソッドでは、上長の承認後の切り替え先を `AccountingReviewState` クラスにしています。
+状態クラスでは、既存の `ExpenseReport` クラスの各メソッド（`submit`・`approve`・`sendBack`）の `switch` 文で分岐の中に書かれていた処理内容を、状態ごとに 1 つのクラスへまとめ直しています。経理確認中のときの処理内容も、`AccountingReviewState` クラス 1 つにまとまっています。<br>
+そのため、状態クラスの各メソッドの処理内容も既存の `switch` 文の分岐の中身と同じく、操作を受け付けて状態を切り替えるか、操作を受け付けずに理由を出力するかのどちらかになっています。<br>
+例えば `DraftState` クラスの `submit` メソッドでは、引数で受け取った `ExpenseReport` クラスの `changeState` メソッドに `ManagerReviewState` クラスのインスタンスを渡すことにより、経費申請の状態を下書きから次の申請中へ切り替えています（→ [【深堀り②】状態クラスを Singleton パターンで使い回す](#深堀り2)）。一方、`approve`・`sendBack` メソッドでは、下書きの状態では操作を受け付けられないため、状態を切り替えずに `print` メソッドで理由を出力しています。
 
-次に、状態オブジェクトを保持するクラスを見ていきましょう。
+なお、`ManagerReviewState` クラスの `approve` メソッドでは、経理確認中の状態を追加したことに伴い、上長の承認後の切り替え先を承認済みから経理確認中（`AccountingReviewState` クラス）に変えています。
+
+次に、状態クラスのインスタンス（以降、状態オブジェクト）を保持するクラスを見ていきましょう。
 
 **`ExpenseReport.java`**
 
@@ -537,12 +534,9 @@ public class ExpenseReport {
 }
 ```
 
-`ExpenseReport` クラスを振り返ると、既存の仕様から次の点が変わっています。
-
-- `ReportStatus` 型の `status` フィールドがなくなり、代わりに `ReportState` インターフェース型の `state` フィールドで現在の状態オブジェクトを保持している。
-- `submit`・`approve`・`sendBack` メソッドから `switch` 文がなくなり、`state` フィールドの同名のメソッドに自分自身（`this`）を渡して呼び出すことにより、処理を現在の状態オブジェクトに任せている。
-- 状態クラスから状態の切り替えを依頼するための `changeState` メソッドが新たに追加されている。
-- 状態クラスから結果の出力を依頼できるよう、`print` メソッドを `public` にしている。
+`ExpenseReport` クラスを振り返ると、既存の仕様にあった `ReportStatus` 型の `status` フィールドが、`ReportState` インターフェース型の `state` フィールドに置き換わり、現在の状態オブジェクトを保持しています。<br>
+これにより、`submit`・`approve`・`sendBack` メソッドから `switch` 文がなくなり、`state` フィールドの状態オブジェクトの同名のメソッドを呼び出して、処理を任せています。その際に引数として渡している `this` は、メソッドを呼び出された `ExpenseReport` クラスのインスタンス、つまり操作の対象となっている経費申請そのものです。<br>
+また、状態クラスが引数で受け取ったこの経費申請に対して、状態の切り替えと結果の出力を依頼できるよう、`changeState` メソッドを追加し、`print` メソッドを `public` にしています（→ [【深堀り①】状態の切り替えを誰が決めるか](#深堀り1)）。
 
 なお、状態を表す列挙型 `ReportStatus` は、状態クラスに置き換わったため不要になります。
 
@@ -558,6 +552,7 @@ public class Main {
         ExpenseReport report = new ExpenseReport("大阪出張の交通費");
         // 申請される前の経費申請を、上長が誤って承認しようとしている
         report.approve();
+        // 申請者が申請している
         report.submit();
         // 上長が内容に不備を見つけたため、差し戻している
         report.sendBack();
@@ -565,6 +560,7 @@ public class Main {
         report.submit();
         // 上長が承認している
         report.approve();
+        /* ここを追加（ここから） */
         // 経理確認中の経費申請を、申請者が誤って再度申請しようとしている
         report.submit();
         // 経理部が領収書の金額との相違を見つけたため、差し戻している
@@ -575,6 +571,7 @@ public class Main {
         report.approve();
         // 経理部が領収書の金額と照合したうえで承認している
         report.approve();
+        /* ここを追加（ここまで） */
         // 承認済みの経費申請を、上長が誤って差し戻そうとしている
         report.sendBack();
     }
@@ -597,19 +594,22 @@ public class Main {
 [経費申請] 大阪出張の交通費：承認済みのため差し戻せません（状態：承認済み）
 ```
 
-`Main` クラスは好ましくない実装から変更がなく、実行結果も好ましくない実装とまったく同じになっています。
+`Main` クラスは好ましくない実装と同じです。
+
+実行結果は、好ましくない実装とまったく同じになっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 状態を追加する場合、新しい状態の振る舞いは、`ReportState` インターフェースを実装した状態クラス 1 つにまとめて書けばよい。
-    - しかも、新しい状態クラスで `submit`・`approve`・`sendBack` メソッドのどれかを実装し忘れると、コンパイルエラーになる。その結果、特定の状態のときだけ何も出力されないまま処理が終わる不具合を、実行する前に防げる。
-- 経理確認中の状態を追加しても、`DraftState`・`ApprovedState` クラスには手が入らず、`SubmittedState` クラスも `approve` メソッドの切り替え先を変更するだけで済む。
-    - その結果、既存の状態の振る舞いを誤って書き換えてしまうリスクが減り、再テストの範囲も、切り替え先を変更した `SubmittedState` クラスの `approve` メソッドに絞り込める。
+- `ExpenseReport` クラスは状態を `ReportState` インターフェース型のフィールドで保持しているため、新しい状態クラスも必ずこのインターフェースを実装することになる。このインターフェースは、状態ごとに実装すべき操作を抽象メソッド `submit`・`approve`・`sendBack` として定義しているので、新しい状態クラスではこれらのメソッドの実装が強制され、実装し忘れるとコンパイルエラーになる。
+    - その結果、特定の状態のときだけ何も出力されないまま処理が終わる不具合を、実行する前に防げる。
+- 下書き・申請中・経理確認中・承認済みの振る舞いが、それぞれ `DraftState`・`ManagerReviewState`・`AccountingReviewState`・`ApprovedState` クラスに分かれているため、状態を追加しても、既存の状態クラスでは切り替え先を変える以外に手を入れずに済む。
+    - 例えば、上長の承認後に「部長確認中」の状態を追加する場合、`ReportState` インターフェースを実装した新しい状態クラスを作成したうえで、既存の `ManagerReviewState` クラスの `approve` メソッドの切り替え先をその状態クラスに変えるだけで済む。
+    - その結果、既存の状態の振る舞いを誤って書き換えてしまうリスクが減り、テストの範囲も、新しく作成した状態クラスと、切り替え先を変えた `ManagerReviewState` クラスの `approve` メソッドに絞り込める。
 
 ## まとめ
 
-正しい実装を振り返ると、`ExpenseReport` クラスは現在の状態を条件分岐で判定せず、保持している状態オブジェクトに処理を任せるだけでよくなっています。<br>
-このように State パターンは、状態ごとの振る舞いをそれぞれのクラスに分け、状態オブジェクトを差し替えることで、同じ操作でも状態に応じて振る舞いを切り替えられるようにする設計パターンです。
+正しい実装を振り返ると、各状態のときに `submit`・`approve`・`sendBack` メソッドで何をするかは、状態ごとのクラスに書かれています。`ExpenseReport` クラスは現在の状態を条件分岐で判定せず、保持している状態オブジェクトに処理を任せ、状態が変わるときは状態クラスからの依頼を受けて、別の状態オブジェクトに差し替えるだけでよくなっています。<br>
+このように State パターンは、「状態」そのものを 1 つのクラスとして表し、状態オブジェクトを差し替えることで、同じ操作でも状態に応じて振る舞いを切り替えられるようにする設計パターンです。
 
 本記事の内容はここまでとなります。
 
@@ -621,9 +621,9 @@ public class Main {
 
 ## 【深堀り①】状態の切り替えを誰が決めるか
 
-正しい実装では、状態クラス自身が `changeState` メソッドを呼び出し、次の状態を決めています。例えば `SubmittedState` クラスは、承認されたら `AccountingReviewState` クラスに切り替えることを知っています。
+正しい実装では、状態クラス自身が `changeState` メソッドを呼び出し、次の状態を決めています。例えば `ManagerReviewState` クラスは、承認されたら `AccountingReviewState` クラスに切り替えることを知っています。
 
-この方式は、ある状態から次にどの状態へ進むかが、その状態クラスを読めば分かるという利点があります。一方で、状態クラス同士が互いのクラス名を知っているため、今回の `SubmittedState` クラスのように、状態の追加に伴って切り替え元の状態クラスを修正する必要が出てきます。
+この方式は、ある状態から次にどの状態へ進むかが、その状態クラスを読めば分かるという利点があります。一方で、状態クラス同士が互いのクラス名を知っているため、状態を追加するたびに、その状態へ切り替える元の状態クラスも修正する必要が出てきます。
 
 また、状態クラスから切り替えを依頼できるよう `changeState` メソッドを `public` にしているため、`Main` クラスなどの外部のコードからも呼び出せます。その結果、`report.changeState(new ApprovedState())` のように、`submit`・`approve`・`sendBack` メソッドを経由せずに、経理確認を飛ばして承認済みに切り替えられてしまうリスクがあります。
 
@@ -679,12 +679,12 @@ public class DraftState implements ReportState {
 }
 ```
 
-**`SubmittedState.java`**
+**`ManagerReviewState.java`**
 
 ```java
 package example;
 
-public class SubmittedState implements ReportState {
+public class ManagerReviewState implements ReportState {
     @Override
     public boolean submit(ExpenseReport report) {
         report.print("すでに申請中です");
@@ -787,7 +787,7 @@ public class ExpenseReport {
         if (!state.submit(this)) {
             return;
         }
-        state = new SubmittedState();
+        state = new ManagerReviewState();
         print("申請しました");
     }
 
@@ -795,7 +795,7 @@ public class ExpenseReport {
         if (!state.approve(this)) {
             return;
         }
-        if (state instanceof SubmittedState) {
+        if (state instanceof ManagerReviewState) {
             state = new AccountingReviewState();
         } else if (state instanceof AccountingReviewState) {
             state = new ApprovedState();
@@ -830,19 +830,19 @@ public class ExpenseReport {
 
 ## 【深堀り②】状態クラスを Singleton パターンで使い回す
 
-正しい実装では、状態を切り替えるたびに `new SubmittedState()` のように新しいインスタンスを生成しています。<br>
+正しい実装では、状態を切り替えるたびに `new ManagerReviewState()` のように新しいインスタンスを生成しています。<br>
 しかし、今回の状態クラスはフィールドを持たず、どのインスタンスでも振る舞いが同じです。そのため、State パターンは Singleton パターンと組み合わせ、状態ごとにインスタンスを 1 つだけ用意して使い回す形で実装されることもよくあります。
 
-**`SubmittedState.java`（一部抜粋）**
+**`ManagerReviewState.java`（一部抜粋）**
 
 ```java
-public class SubmittedState implements ReportState {
-    private static SubmittedState instance = new SubmittedState();
+public class ManagerReviewState implements ReportState {
+    private static ManagerReviewState instance = new ManagerReviewState();
 
-    private SubmittedState() {
+    private ManagerReviewState() {
     }
 
-    public static SubmittedState getInstance() {
+    public static ManagerReviewState getInstance() {
         return instance;
     }
 
@@ -884,7 +884,7 @@ State パターンのクラス構成は、「共通のインターフェース�
 | 差し替えるのは誰か   | 状態クラス自身（または状態を保持するクラス） | 利用する側（`Main` クラスなど）      |
 | 実装クラス同士の関係 | 次の状態を知っていることが多い               | 互いを知らない                       |
 
-今回の `ExpenseReport` クラスでも、`Main` クラスは `submit`・`approve`・`sendBack` メソッドを呼び出すだけで、どの状態クラスのインスタンスが使われているかを一切指定していません。状態オブジェクトの差し替えは、操作の結果として状態クラスの中で行われています。
+今回の `ExpenseReport` クラスでも、`Main` クラスは `submit`・`approve`・`sendBack` メソッドを呼び出すだけで、どの状態オブジェクトが使われているかを一切指定していません。状態オブジェクトの差し替えは、操作の結果として状態クラスの中で行われています。
 
 <a id="深堀り5"></a>
 
