@@ -838,13 +838,46 @@ public class ExpenseReport {
 
 ## 【深堀り②】状態クラスを Singleton パターンで使い回す
 
-正しい実装では、状態を切り替えるたびに `new ManagerReviewState()` のように新しいインスタンスを生成しています。<br>
-しかし、今回の状態クラスはフィールドを持たず、どのインスタンスでも振る舞いが同じです。そのため、State パターンは Singleton パターンと組み合わせ、状態ごとにインスタンスを 1 つだけ用意して使い回す形で実装されることもよくあります。
+正しい実装の `DraftState`・`ManagerReviewState`・`AccountingReviewState` クラスを振り返ると、状態を切り替えるたびに新しいインスタンスを生成しています。<br>
+例えば `DraftState` クラスの `submit` メソッドでは、`report.changeState(new ManagerReviewState());` のように `ManagerReviewState` クラスのインスタンスを生成しています。<br>
+しかし、今回の状態クラスはフィールドを持たず、どのインスタンスでも振る舞いが同じなので、切り替えのたびに新しいインスタンスを生成するのは無駄です。そのため実務では、State パターンを Singleton パターンと組み合わせて実装することがよくあります。
+
+では、正しい実装に Singleton パターンを適用した場合の実装を見ていきましょう。
+
+**`DraftState.java`（一部抜粋）**
+
+```java
+package example;
+
+public class DraftState implements ReportState {
+    /* ここを追加（ここから） */
+    private static DraftState instance = new DraftState();
+
+    private DraftState() {
+    }
+
+    public static DraftState getInstance() {
+        return instance;
+    }
+    /* ここを追加（ここまで） */
+
+    @Override
+    public void submit(ExpenseReport report) {
+        report.changeState(ManagerReviewState.getInstance()); // ←ここを修正
+        report.print("申請しました");
+    }
+}
+```
+
+※`approve`・`sendBack`・`getLabel` メソッドは変更がないため省略しています。
 
 **`ManagerReviewState.java`（一部抜粋）**
 
 ```java
+package example;
+
 public class ManagerReviewState implements ReportState {
+    /* ここを追加（ここから） */
     private static ManagerReviewState instance = new ManagerReviewState();
 
     private ManagerReviewState() {
@@ -853,18 +886,112 @@ public class ManagerReviewState implements ReportState {
     public static ManagerReviewState getInstance() {
         return instance;
     }
+    /* ここを追加（ここまで） */
+
+    @Override
+    public void approve(ExpenseReport report) {
+        report.changeState(AccountingReviewState.getInstance()); // ←ここを修正
+        report.print("承認しました");
+    }
 
     @Override
     public void sendBack(ExpenseReport report) {
-        report.changeState(DraftState.getInstance());
+        report.changeState(DraftState.getInstance()); // ←ここを修正
         report.print("差し戻しました");
     }
 }
 ```
 
-コンストラクターを `private` にして外部からの生成を禁止し、`getInstance` メソッドを通して唯一のインスタンスを使わせることで、Singleton パターンを適用しています。経費申請が何万件あっても状態クラスのインスタンスは状態の数だけで済むため、無駄なインスタンスの生成を避けられます。
+※`submit`・`getLabel` メソッドは変更がないため省略しています。
 
-ただし、状態クラスに経費申請ごとの値（例えば、差し戻した理由）をフィールドとして持たせる場合は、インスタンスを使い回すと別の経費申請と値を共有してしまいます。その場合は、正しい実装のように切り替えのたびに新しいインスタンスを生成します。
+**`AccountingReviewState.java`（一部抜粋）**
+
+```java
+package example;
+
+public class AccountingReviewState implements ReportState {
+    /* ここを追加（ここから） */
+    private static AccountingReviewState instance = new AccountingReviewState();
+
+    private AccountingReviewState() {
+    }
+
+    public static AccountingReviewState getInstance() {
+        return instance;
+    }
+    /* ここを追加（ここまで） */
+
+    @Override
+    public void approve(ExpenseReport report) {
+        report.changeState(ApprovedState.getInstance()); // ←ここを修正
+        report.print("承認しました");
+    }
+
+    @Override
+    public void sendBack(ExpenseReport report) {
+        report.changeState(DraftState.getInstance()); // ←ここを修正
+        report.print("差し戻しました");
+    }
+}
+```
+
+※`submit`・`getLabel` メソッドは変更がないため省略しています。
+
+**`ApprovedState.java`（一部抜粋）**
+
+```java
+package example;
+
+public class ApprovedState implements ReportState {
+    /* ここを追加（ここから） */
+    private static ApprovedState instance = new ApprovedState();
+
+    private ApprovedState() {
+    }
+
+    public static ApprovedState getInstance() {
+        return instance;
+    }
+    /* ここを追加（ここまで） */
+}
+```
+
+※`submit`・`approve`・`sendBack`・`getLabel` メソッドは変更がないため省略しています。
+
+`DraftState`・`ManagerReviewState`・`AccountingReviewState`・`ApprovedState` クラスを振り返ると、正しい実装から、自分のクラスのインスタンスを代入した `static` な `instance` フィールドと、アクセス修飾子を `private` にしたコンストラクター、`static` な `getInstance` メソッドを追加しています。<br>
+また、状態を切り替えるメソッドでは、`new` で次の状態オブジェクトを生成する代わりに、次の状態クラスの `getInstance` メソッドが返すインスタンスを `changeState` メソッドに渡しています。例えば `DraftState` クラスの `submit` メソッドでは、`new ManagerReviewState()` の代わりに `ManagerReviewState.getInstance()` を渡しています。
+
+追加したコンストラクター・フィールド・メソッドに `private`・`static` を付けているのには、それぞれ理由があります。<br>
+コンストラクターを `private` にしているのは、インスタンスを 2 つ以上生成させないためです。これにより、クラスの外から `new` でインスタンスを生成できなくなり、インスタンスは `getInstance` メソッドを通してのみ取得できるようになります。<br>
+また、`instance` フィールドを `static` にしているのは、インスタンスごとではなくクラスに 1 つだけ持たせ、クラスが初めて使われたときに 1 回だけインスタンスを生成するためです。<br>
+さらに、`getInstance` メソッドを `static` にしているのは、クラスの外ではインスタンスを生成できないため、インスタンスがなくても `DraftState.getInstance()` のようにクラス名から呼び出せるようにするためです。<br>
+このように、そのクラスのインスタンスが 1 つしか存在しないことを保証する設計を Singleton パターンといいます。
+
+**`ExpenseReport.java`（一部抜粋）**
+
+```java
+package example;
+
+public class ExpenseReport {
+    private String title;
+    private ReportState state = DraftState.getInstance(); // ←ここを修正
+}
+```
+
+※コンストラクターと各メソッドは変更がないため省略しています。
+
+`ExpenseReport` クラスを振り返ると、`DraftState` クラスのコンストラクターを `private` にしたため、`state` フィールドの初期値を `new DraftState()` から `DraftState.getInstance()` に変えています。
+
+`Main` クラスに変更はなく、実行結果も正しい実装とまったく同じになります。
+
+この実装方法には、経費申請が何万件あっても、状態クラスのインスタンスは状態クラスの数だけで済むため、無駄なインスタンスの生成を避けられるというメリットがあります。<br>
+一方で、1 つのインスタンスをすべての経費申請で共有するため、状態クラスに経費申請ごとの値（例えば、差し戻した理由）をフィールドとして持たせることができないというデメリットがあります。
+
+例として、差し戻した理由を `DraftState` クラスの通常のフィールド（`static` を付けないフィールド）に持たせた場合を考えてみましょう。<br>
+この場合でも、`DraftState` クラスのインスタンスは 1 つしかないため、下書きの状態にあるすべての経費申請が、そのフィールドを共有することになります。<br>
+「大阪出張の交通費」を「領収書が添付されていない」という理由で差し戻した後に、「名古屋出張の宿泊費」を「金額が間違っている」という理由で差し戻したとします。このとき、「大阪出張の交通費」の差し戻した理由まで「金額が間違っている」に上書きされてしまうリスクがあります。
+
+そのため、経費申請ごとの値を状態クラスに持たせる場合は、正しい実装のように、切り替えのたびに新しいインスタンスを生成する実装にするとよいでしょう。
 
 <a id="深堀り3"></a>
 
