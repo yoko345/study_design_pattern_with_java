@@ -554,8 +554,10 @@ public class Article {
 ```java
 package example;
 
-import example.article.Article; // ←ここを追加
-import example.article.ArticleMemento; // ←ここを追加
+/* ここを追加（ここから） */
+import example.article.Article;
+import example.article.ArticleMemento;
+/* ここを追加（ここまで） */
 
 public class ArticleEditor {
     private Article article;
@@ -1006,8 +1008,10 @@ package example;
 
 public class ArticleEditor {
     private Article article;
-    private Deque<Article.Memento> history = new ArrayDeque<>(); // ←ここを修正
-    private Article.Memento draft; // ←ここを修正
+    /* ここを修正（ここから） */
+    private Deque<Article.Memento> history = new ArrayDeque<>();
+    private Article.Memento draft;
+    /* ここを修正（ここまで） */
 }
 ```
 

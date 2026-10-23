@@ -6,20 +6,27 @@ import re
 JP_CHAR = r"[぀-ゟァ-ヺー一-鿿]"
 EXCLUDE_BEFORE = "。、・「（："
 EXCLUDE_AFTER = "」）』（"
-CODE_SPAN = r"`[^`\n]+`"
+CODE_SPAN = re.compile(r"(`[^`\n]+`)")
 
-INSERT_BEFORE = re.compile(f"({JP_CHAR})({CODE_SPAN})")
-INSERT_AFTER = re.compile(f"({CODE_SPAN})({JP_CHAR})")
-REMOVE_BEFORE = re.compile(f"([{re.escape(EXCLUDE_BEFORE)}])\\s+({CODE_SPAN})")
-REMOVE_AFTER = re.compile(f"({CODE_SPAN})\\s+([{re.escape(EXCLUDE_AFTER)}])")
+JP_AT_END = re.compile(f"{JP_CHAR}$")
+JP_AT_START = re.compile(f"^{JP_CHAR}")
+EXCLUDED_THEN_SPACES_AT_END = re.compile(f"([{re.escape(EXCLUDE_BEFORE)}])\\s+$")
+SPACES_THEN_EXCLUDED_AT_START = re.compile(f"^\\s+([{re.escape(EXCLUDE_AFTER)}])")
 
 
 def process_line(line):
-    line = REMOVE_BEFORE.sub(r"\1\2", line)
-    line = REMOVE_AFTER.sub(r"\1\2", line)
-    line = INSERT_BEFORE.sub(r"\1 \2", line)
-    line = INSERT_AFTER.sub(r"\1 \2", line)
-    return line
+    # インラインコードを行頭から順に対応付けて切り出す。正規表現で行全体を置換すると、
+    # あるインラインコードの閉じ記号と次のインラインコードの開き記号の間（` と ` など）を
+    # インラインコードと誤認して、インラインコードの内側に空白を挿入してしまうため
+    parts = CODE_SPAN.split(line)
+    for i in range(1, len(parts), 2):
+        parts[i - 1] = EXCLUDED_THEN_SPACES_AT_END.sub(r"\1", parts[i - 1])
+        parts[i + 1] = SPACES_THEN_EXCLUDED_AT_START.sub(r"\1", parts[i + 1])
+        if JP_AT_END.search(parts[i - 1]):
+            parts[i - 1] += " "
+        if JP_AT_START.search(parts[i + 1]):
+            parts[i + 1] = " " + parts[i + 1]
+    return "".join(parts)
 
 
 def main():
