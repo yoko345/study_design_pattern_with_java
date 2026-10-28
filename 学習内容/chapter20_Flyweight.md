@@ -2,9 +2,9 @@
 
 次のような経験をしたことはありませんか？
 
-> 同じ内容のデータを持つオブジェクトを、処理のたびに作っていた。1 件ずつ作ってすぐに使い終わるうちは問題なかったが、大量のオブジェクトをまとめて持っておく必要が出てきた途端、中身がまったく同じデータがオブジェクトの数だけメモリに積み上がり、メモリ不足でプログラムが止まりかけてしまった。
+> 同じ内容のデータを持つオブジェクトを、使うたびに作っては捨てていた。ところが、それを大量にまとめて持つ必要が出てきた途端、同じデータがオブジェクトの数だけメモリに積み上がり、プログラムが止まりかけてしまった。
 
-この記事では、倉庫システムで出荷ラベルを配送エリアの順にまとめて印刷するシナリオを通して、Flyweight パターンがこの問題をどのように解決するかを紹介します。
+この記事では、倉庫システムで出荷ラベルを一括印刷するシナリオを通して、Flyweight パターンがこの問題をどのように解決するかを紹介します。
 
 ## 目次
 
@@ -29,16 +29,100 @@
 ### シナリオ
 
 > あなたは通販会社の倉庫システムの開発チームに所属しています。<br>
-> 現状の倉庫システムでは、受注が入るたびに出荷ラベルを 1 枚作成し、その場で印刷しています。出荷ラベルには、届け先の住所・氏名、配送エリアの番号、配送会社（サンプルA運輸・サンプルB運輸・サンプルC運輸の 3 社）のロゴ画像が載っています。倉庫の作業者は、印刷された出荷ラベルを 1 枚ずつ見ながら商品を集めて梱包し、出荷ラベルを貼り付けます。<br>
-> ある日、出荷場の担当者から「出荷ラベルが受注の入った順に印刷されるので、梱包が終わった荷物の配送エリアがばらばらになる。トラックに積み込む前に、荷物を配送エリアごとに手作業で並べ替えていて手間がかかる」と相談がありました。<br>
-> そこであなたは、受注が入った時点では出荷ラベルを作成して保持しておくだけにし、出荷作業の開始時刻に、その日の出荷ラベルをまとめて配送エリアの順に並べ替えてから印刷する機能を追加することになりました。出荷ラベルの順に梱包すれば、荷物は最初から配送エリアの順に並びます。<br>
-> なお、1 日の出荷件数はおよそ 1 万件です。
+> 現状の倉庫システムでは、受注が入るたびに、届け先や配送会社などの出荷データをデータベース（DB）に保存し、出荷ラベルを 1 枚作成した後すぐに印刷しています。出荷ラベルには、届け先の住所・氏名、配送エリア（同じトラックで配送する地域のまとまり）の番号、配送会社（サンプルA運輸・サンプルB運輸・サンプルC運輸の 3 社）のロゴ画像が載っています。倉庫は梱包する区域と出荷する区域が分かれています。毎朝、梱包を担当する作業者は、前日に印刷された約 1 万枚の出荷ラベルを、印刷された順に 1 枚ずつ取り、その注文の商品をまとめて箱に詰めて出荷ラベルを貼り付けます。梱包が終わった荷物から順に出荷する区域に運ばれます。<br>
+> ある日、出荷する区域の担当者から「配送エリアの違う荷物が混ざって届くので、トラックに積み込む前に手作業で配送エリアごとに分けていて手間がかかる」という相談がありました。調べてみると、受注の入った順に出荷ラベルが印刷されるため、荷物も受注の入った順に梱包されて運ばれていることが原因であるとわかりました。<br>
+> そこであなたは、受注が入った時点では印刷せず、梱包を始める前に、DB に保存された前日分の出荷データから出荷ラベルを作成し、配送エリアの順に並べ替えてまとめて印刷する機能を追加することになりました。ただし、ラベルプリンターは送信を受けるたびに印刷の準備を行うため、1 枚ずつ送ると梱包を始めるまでに時間がかかってしまいます。そこで、並べ替えた出荷ラベルを 1 回でまとめて送信します。
 
-※実際の出荷ラベルの印刷では、ロゴ画像をファイルから読み込んだり、ラベルプリンターへ印刷データを送信したりする実装が必要ですが、本記事では Flyweight パターンの解説に集中するため、コンソールへの文字列出力のみとします。
+※実際の出荷ラベルの印刷では、DB から出荷データを読み込んだり、ファイルからロゴ画像を読み込んだり、ラベルプリンターへ印刷データを送信したりする実装が必要ですが、本記事では Flyweight パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
 ### 既存コードの仕様
 
-※実務では、次の `ShippingLabel` のようなエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
+※実務では、次の `Shipment` のようなエンティティクラスは `entity` パッケージなど専用のディレクトリに切り出すのが一般的です。しかし、本記事ではパッケージ構成を主題としないため `example` パッケージ直下にまとめています。
+
+- `Shipment`（既存クラス）
+
+出荷データ 1 件を表すクラスです。
+
+| フィールド      | 型       | 説明             |
+| --------------- | -------- | ---------------- |
+| `address`       | `String` | 届け先の住所     |
+| `recipientName` | `String` | 届け先の氏名     |
+| `areaCode`      | `int`    | 配送エリアの番号 |
+| `carrierName`   | `String` | 配送会社名       |
+
+| メソッド           | 引数 | 戻り値の型 | 説明                       |
+| ------------------ | ---- | ---------- | -------------------------- |
+| `getAddress`       | なし | `String`   | 届け先の住所を取得する     |
+| `getRecipientName` | なし | `String`   | 届け先の氏名を取得する     |
+| `getAreaCode`      | なし | `int`      | 配送エリアの番号を取得する |
+| `getCarrierName`   | なし | `String`   | 配送会社名を取得する       |
+
+**`Shipment.java`**
+
+```java
+package example;
+
+public class Shipment {
+    private String address;
+    private String recipientName;
+    private int areaCode;
+    private String carrierName;
+
+    public Shipment(String address, String recipientName, int areaCode, String carrierName) {
+        this.address = address;
+        this.recipientName = recipientName;
+        this.areaCode = areaCode;
+        this.carrierName = carrierName;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public String getRecipientName() {
+        return recipientName;
+    }
+
+    public int getAreaCode() {
+        return areaCode;
+    }
+
+    public String getCarrierName() {
+        return carrierName;
+    }
+}
+```
+
+<br>
+
+- `ShipmentRepository`（既存クラス）
+
+出荷データを DB に保存するクラスです。<br>
+※DB への保存は、`List` への追加で代用しています。
+
+| フィールド  | 型               | 説明                       |
+| ----------- | ---------------- | -------------------------- |
+| `shipments` | `List<Shipment>` | 保存された出荷データの一覧 |
+
+| メソッド | 引数                | 戻り値の型 | 説明                 |
+| -------- | ------------------- | ---------- | -------------------- |
+| `save`   | `Shipment shipment` | `void`     | 出荷データを保存する |
+
+**`ShipmentRepository.java`**
+
+```java
+package example;
+
+public class ShipmentRepository {
+    private List<Shipment> shipments = new ArrayList<>();
+
+    public void save(Shipment shipment) {
+        shipments.add(shipment);
+    }
+}
+```
+
+<br>
 
 - `CarrierLogo`（既存クラス）
 
@@ -81,18 +165,18 @@ public class CarrierLogo {
 - `ShippingLabel`（既存クラス）
 
 出荷ラベル 1 枚を表すクラスです。<br>
-コンストラクターで、配送会社名に対応する `CarrierLogo` オブジェクトを作成して保持します。
+コンストラクターで、出荷データから届け先の住所・氏名と配送エリアの番号を取り出して保持します。また、出荷データの配送会社名に対応する `CarrierLogo` オブジェクトを作成して保持します。
 
-| フィールド      | 型            | 説明                                             |
-| --------------- | ------------- | ------------------------------------------------ |
-| `recipientName` | `String`      | 届け先の氏名                                     |
-| `address`       | `String`      | 届け先の住所                                     |
-| `areaCode`      | `int`         | 配送エリアの番号（トラックに積み込む順番を表す） |
-| `logo`          | `CarrierLogo` | 配送会社のロゴ画像                               |
+| フィールド      | 型            | 説明                                                           |
+| --------------- | ------------- | -------------------------------------------------------------- |
+| `address`       | `String`      | 届け先の住所                                                   |
+| `recipientName` | `String`      | 届け先の氏名                                                   |
+| `areaCode`      | `int`         | 配送エリアの番号（同じトラックで配送する地域のまとまりを表す） |
+| `logo`          | `CarrierLogo` | 配送会社のロゴ画像                                             |
 
-| メソッド | 引数 | 戻り値の型 | 説明                                                       |
-| -------- | ---- | ---------- | ---------------------------------------------------------- |
-| `print`  | なし | `void`     | ロゴ画像と、配送エリアの番号・届け先をコンソールに出力する |
+| メソッド | 引数 | 戻り値の型 | 説明                                                                   |
+| -------- | ---- | ---------- | ---------------------------------------------------------------------- |
+| `print`  | なし | `void`     | ロゴ画像と、配送エリアの番号・届け先の住所と氏名をコンソールに出力する |
 
 **`ShippingLabel.java`**
 
@@ -100,16 +184,16 @@ public class CarrierLogo {
 package example;
 
 public class ShippingLabel {
-    private String recipientName;
     private String address;
+    private String recipientName;
     private int areaCode;
     private CarrierLogo logo;
 
-    public ShippingLabel(String recipientName, String address, int areaCode, String carrierName) {
-        this.recipientName = recipientName;
-        this.address = address;
-        this.areaCode = areaCode;
-        this.logo = new CarrierLogo(carrierName);
+    public ShippingLabel(Shipment shipment) {
+        this.address = shipment.getAddress();
+        this.recipientName = shipment.getRecipientName();
+        this.areaCode = shipment.getAreaCode();
+        this.logo = new CarrierLogo(shipment.getCarrierName());
     }
 
     public void print() {
@@ -130,15 +214,26 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
-        // 受注が入るたびに、出荷ラベルを作成してその場で印刷している
-        ShippingLabel label1 = new ShippingLabel("山田 太郎", "東京都千代田区", 2, "サンプルA運輸");
-        label1.print();
-        ShippingLabel label2 = new ShippingLabel("鈴木 花子", "神奈川県横浜市", 1, "サンプルB運輸");
-        label2.print();
-        ShippingLabel label3 = new ShippingLabel("佐藤 次郎", "東京都新宿区", 2, "サンプルC運輸");
-        label3.print();
-        ShippingLabel label4 = new ShippingLabel("田中 美咲", "神奈川県川崎市", 1, "サンプルA運輸");
-        label4.print();
+        ShipmentRepository repository = new ShipmentRepository();
+        // 受注が入るたびに、その場で出荷ラベルを印刷している
+        Shipment shipment1 = new Shipment("東京都千代田区", "山田 太郎", 2, "サンプルA運輸");
+        repository.save(shipment1);
+        new ShippingLabel(shipment1).print();
+        Shipment shipment2 = new Shipment("神奈川県横浜市", "鈴木 花子", 1, "サンプルB運輸");
+        repository.save(shipment2);
+        new ShippingLabel(shipment2).print();
+        Shipment shipment3 = new Shipment("埼玉県さいたま市", "佐藤 次郎", 3, "サンプルC運輸");
+        repository.save(shipment3);
+        new ShippingLabel(shipment3).print();
+        Shipment shipment4 = new Shipment("東京都新宿区", "田中 美咲", 2, "サンプルA運輸");
+        repository.save(shipment4);
+        new ShippingLabel(shipment4).print();
+        Shipment shipment5 = new Shipment("千葉県千葉市", "高橋 健一", 4, "サンプルA運輸");
+        repository.save(shipment5);
+        new ShippingLabel(shipment5).print();
+        Shipment shipment6 = new Shipment("神奈川県川崎市", "伊藤 由美", 1, "サンプルB運輸");
+        repository.save(shipment6);
+        new ShippingLabel(shipment6).print();
     }
 }
 ```
@@ -151,12 +246,16 @@ public class Main {
 [サンプルB運輸のロゴ]
 エリア1：神奈川県横浜市 鈴木 花子 様
 [サンプルC運輸のロゴ]
-エリア2：東京都新宿区 佐藤 次郎 様
+エリア3：埼玉県さいたま市 佐藤 次郎 様
 [サンプルA運輸のロゴ]
-エリア1：神奈川県川崎市 田中 美咲 様
+エリア2：東京都新宿区 田中 美咲 様
+[サンプルA運輸のロゴ]
+エリア4：千葉県千葉市 高橋 健一 様
+[サンプルB運輸のロゴ]
+エリア1：神奈川県川崎市 伊藤 由美 様
 ```
 
-受注の入った順に印刷されるため、配送エリアの番号が「2・1・2・1」とばらばらに並んでいます。
+配送エリアの番号が「2・1・3・2・4・1」とばらばらに並んでいます。
 
 ※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
 
@@ -164,68 +263,31 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-真っ先に思いつくのは、出荷ラベルをまとめて保持する `ShippingLabelBatch` クラスを新しく作成し、受注が入るたびに作成した `ShippingLabel` オブジェクトを追加しておき、出荷作業の開始時刻に配送エリアの番号の順に並べ替えてから印刷する、という実装ではないでしょうか？
+真っ先に思いつくのは、DB から前日分の出荷データを配送エリアの番号の順に並べて取得し、そこから作成した出荷ラベルをリストに保持しておき、まとめて印刷する、という実装ではないでしょうか？
 
-まず、`ShippingLabel` クラスに、並べ替えに使う配送エリアの番号を取得するメソッドを追加します。
-
-**`ShippingLabel.java`**
+**`ShipmentRepository.java`**
 
 ```java
 package example;
 
-public class ShippingLabel {
-    private String recipientName;
-    private String address;
-    private int areaCode;
-    private CarrierLogo logo;
+public class ShipmentRepository {
+    private List<Shipment> shipments = new ArrayList<>();
 
-    public ShippingLabel(String recipientName, String address, int areaCode, String carrierName) {
-        this.recipientName = recipientName;
-        this.address = address;
-        this.areaCode = areaCode;
-        this.logo = new CarrierLogo(carrierName);
+    public void save(Shipment shipment) {
+        shipments.add(shipment);
     }
 
     /* ここを追加（ここから） */
-    public int getAreaCode() {
-        return areaCode;
+    public List<Shipment> findAllSortedByAreaCode() {
+        List<Shipment> sorted = new ArrayList<>(shipments);
+        sorted.sort(Comparator.comparingInt(Shipment::getAreaCode));
+        return sorted;
     }
     /* ここを追加（ここまで） */
-
-    public void print() {
-        logo.print();
-        System.out.println("エリア" + areaCode + "：" + address + " " + recipientName + " 様");
-    }
 }
 ```
 
-次に、出荷ラベルをまとめて保持し、一括で印刷する `ShippingLabelBatch` クラスを作成します。
-
-**`ShippingLabelBatch.java`**
-
-```java
-package example;
-
-public class ShippingLabelBatch {
-    private List<ShippingLabel> labels = new ArrayList<>();
-
-    public void add(ShippingLabel label) {
-        labels.add(label);
-    }
-
-    public void printAll() {
-        labels.sort(Comparator.comparingInt(ShippingLabel::getAreaCode));
-        for (ShippingLabel label: labels) {
-            label.print();
-        }
-    }
-}
-```
-
-`add` メソッドにより、受注が入るたびに作成された出荷ラベルを、出荷作業の開始時刻まで `labels` フィールドに保持しています。<br>
-`printAll` メソッドでは、保持している出荷ラベルを配送エリアの番号の順に並べ替えてから、1 枚ずつ印刷しています。
-
-最後に、`Main` クラスを、出荷ラベルをその場で印刷せずに `ShippingLabelBatch` オブジェクトに追加し、最後にまとめて印刷するように修正します。
+※DB での並べ替え（SQL の `ORDER BY` 句）は、`List` の並べ替えで代用しています。また、前日分への絞り込み（SQL の `WHERE` 句）は省略しています。
 
 **`Main.java`**
 
@@ -234,43 +296,60 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
+        ShipmentRepository repository = new ShipmentRepository();
         /* ここを修正（ここから） */
-        ShippingLabelBatch batch = new ShippingLabelBatch();
-        // 受注が入るたびに、出荷ラベルを作成して保持しておく
-        batch.add(new ShippingLabel("山田 太郎", "東京都千代田区", 2, "サンプルA運輸"));
-        batch.add(new ShippingLabel("鈴木 花子", "神奈川県横浜市", 1, "サンプルB運輸"));
-        batch.add(new ShippingLabel("佐藤 次郎", "東京都新宿区", 2, "サンプルC運輸"));
-        batch.add(new ShippingLabel("田中 美咲", "神奈川県川崎市", 1, "サンプルA運輸"));
-        // 出荷作業の開始時刻に、配送エリアの順に並べ替えてまとめて印刷する
-        batch.printAll();
+        // 受注が入ったときは、出荷データを DB に保存するだけにしておく
+        repository.save(new Shipment("東京都千代田区", "山田 太郎", 2, "サンプルA運輸"));
+        repository.save(new Shipment("神奈川県横浜市", "鈴木 花子", 1, "サンプルB運輸"));
+        repository.save(new Shipment("埼玉県さいたま市", "佐藤 次郎", 3, "サンプルC運輸"));
+        repository.save(new Shipment("東京都新宿区", "田中 美咲", 2, "サンプルA運輸"));
+        repository.save(new Shipment("千葉県千葉市", "高橋 健一", 4, "サンプルA運輸"));
+        repository.save(new Shipment("神奈川県川崎市", "伊藤 由美", 1, "サンプルB運輸"));
+
+        // 梱包を始める前に、配送エリアの順に並べた前日分の出荷データから前日分の出荷ラベルを作成し、まとめて送信するまで保持しておく
+        List<ShippingLabel> labels = new ArrayList<>();
+        for (Shipment shipment: repository.findAllSortedByAreaCode()) {
+            labels.add(new ShippingLabel(shipment));
+        }
+
+        // まとめて印刷する
+        for (ShippingLabel label: labels) {
+            label.print();
+        }
         /* ここを修正（ここまで） */
     }
 }
 ```
+
+※ラベルプリンターへのまとめての送信は、保持している出荷ラベルを順にコンソールへ出力することで代用しています。
 
 **実行結果**
 
 ```
 [サンプルB運輸のロゴ]
 エリア1：神奈川県横浜市 鈴木 花子 様
-[サンプルA運輸のロゴ]
-エリア1：神奈川県川崎市 田中 美咲 様
+[サンプルB運輸のロゴ]
+エリア1：神奈川県川崎市 伊藤 由美 様
 [サンプルA運輸のロゴ]
 エリア2：東京都千代田区 山田 太郎 様
+[サンプルA運輸のロゴ]
+エリア2：東京都新宿区 田中 美咲 様
 [サンプルC運輸のロゴ]
-エリア2：東京都新宿区 佐藤 次郎 様
+エリア3：埼玉県さいたま市 佐藤 次郎 様
+[サンプルA運輸のロゴ]
+エリア4：千葉県千葉市 高橋 健一 様
 ```
 
-配送エリアの番号が「1・1・2・2」の順に並び、同じ配送エリアの中では受注の入った順に印刷されています。
+配送エリアの番号が「1・1・2・2・3・4」の順に並び、同じ配送エリアの中では受注の入った順に印刷されています。
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
 
 しかし、この実装には以下の問題点があります。
 
-- 配送会社は 3 社しかないにもかかわらず、`ShippingLabel` オブジェクトを作成するたびに `CarrierLogo` オブジェクトも新しく作成しているため、中身がまったく同じロゴ画像のデータが、出荷ラベルの枚数分だけメモリに載る。既存コードでは出荷ラベルを 1 枚ずつ印刷して使い終わっていたが、今回は `ShippingLabelBatch` オブジェクトが出荷作業の開始時刻まで出荷ラベルを保持し続けるため、その間はロゴ画像のデータもすべてメモリに残り続ける。
+- 既存コードの 1 枚ずつ印刷する実装から、並べ替えた出荷ラベルを 1 回でまとめて送信する実装に修正したため、`labels` リストが前日分の出荷ラベルをすべて保持する必要がある。この `labels` リストに追加する `ShippingLabel` オブジェクトを作成するたびに、`CarrierLogo` オブジェクトも新しく作成しているため、配送会社は 3 社しかないにもかかわらず、中身がまったく同じロゴ画像のデータが、出荷ラベルの枚数分だけメモリに載るうえ、印刷するまですべて残り続ける。
     - その結果、使用メモリが出荷件数に比例して増え続け、セールなどで出荷件数が増えた日には、メモリ不足（`OutOfMemoryError`）で一括印刷そのものが止まってしまうリスクがある。
 
-1 日の出荷件数はおよそ 1 万件なので、出荷作業の開始時刻には、ロゴ画像のデータだけで 10KB × 1 万枚 ＝ 約 100MB がメモリに載ることになります（→ [【深堀り②】使用メモリを計測してみる](#深堀り2)）。
+ここで、1 日の出荷件数はおよそ 1 万件なので、まとめて印刷する時点では、ロゴ画像のデータだけで 10KB × 1 万枚 ＝ 約 100MB がメモリに載ることになります（→ [【深堀り②】使用メモリを計測してみる](#深堀り2)）。
 
 ## 正しい実装
 
@@ -320,20 +399,16 @@ public class CarrierLogoFactory {
 package example;
 
 public class ShippingLabel {
-    private String recipientName;
     private String address;
+    private String recipientName;
     private int areaCode;
     private CarrierLogo logo;
 
-    public ShippingLabel(String recipientName, String address, int areaCode, String carrierName) {
-        this.recipientName = recipientName;
-        this.address = address;
-        this.areaCode = areaCode;
-        this.logo = CarrierLogoFactory.getInstance().getLogo(carrierName); // ←ここを修正
-    }
-
-    public int getAreaCode() {
-        return areaCode;
+    public ShippingLabel(Shipment shipment) {
+        this.address = shipment.getAddress();
+        this.recipientName = shipment.getRecipientName();
+        this.areaCode = shipment.getAreaCode();
+        this.logo = CarrierLogoFactory.getInstance().getLogo(shipment.getCarrierName()); // ←ここを修正
     }
 
     public void print() {
@@ -343,14 +418,14 @@ public class ShippingLabel {
 }
 ```
 
-ここで、出荷ラベルの情報のうち、共有しているのはロゴ画像だけで、届け先の氏名・住所と配送エリアの番号は共有していません。<br>
-ロゴ画像は、同じ配送会社の出荷ラベルであれば、どの出荷ラベルから見ても同じ内容なので共有できます。一方、届け先の氏名・住所と配送エリアの番号は出荷ラベルごとに異なるため、これまでどおり `ShippingLabel` オブジェクトがそれぞれ保持しています。<br>
+ここで、出荷ラベルの情報のうち、共有しているのはロゴ画像だけで、届け先の住所・氏名と配送エリアの番号は共有していません。<br>
+ロゴ画像は、同じ配送会社の出荷ラベルであれば、どの出荷ラベルから見ても同じ内容なので共有できます。一方、届け先の住所・氏名と配送エリアの番号は出荷ラベルごとに異なるため、これまでどおり `ShippingLabel` オブジェクトがそれぞれ保持しています。<br>
 Flyweight パターンでは、このように共有できる情報と使う側ごとに異なる情報を分け、共有できる情報だけを 1 つのオブジェクトにまとめて共有します。
 
 ※GoF では、共有できる情報を「内部状態（intrinsic state）」、使う側ごとに異なる情報を「外部状態（extrinsic state）」と呼びます。
 
-`CarrierLogo`・`ShippingLabelBatch` クラスに変更はありません。<br>
-`Main` クラスにも変更はなく、好ましくない実装と同じく出荷ラベルを `ShippingLabelBatch` オブジェクトに追加し、最後にまとめて印刷しています。
+`Shipment`・`ShipmentRepository`・`CarrierLogo` クラスに変更はありません。<br>
+`Main` クラスにも変更はなく、好ましくない実装と同じく出荷ラベルを `labels` リストに保持し、最後にまとめて印刷しています。
 
 **`Main.java`**
 
@@ -359,14 +434,25 @@ package example;
 
 public class Main {
     public static void main(String[] args) {
-        ShippingLabelBatch batch = new ShippingLabelBatch();
-        // 受注が入るたびに、出荷ラベルを作成して保持しておく
-        batch.add(new ShippingLabel("山田 太郎", "東京都千代田区", 2, "サンプルA運輸"));
-        batch.add(new ShippingLabel("鈴木 花子", "神奈川県横浜市", 1, "サンプルB運輸"));
-        batch.add(new ShippingLabel("佐藤 次郎", "東京都新宿区", 2, "サンプルC運輸"));
-        batch.add(new ShippingLabel("田中 美咲", "神奈川県川崎市", 1, "サンプルA運輸"));
-        // 出荷作業の開始時刻に、配送エリアの順に並べ替えてまとめて印刷する
-        batch.printAll();
+        ShipmentRepository repository = new ShipmentRepository();
+        // 受注が入ったときは、出荷データを保存するだけにしておく
+        repository.save(new Shipment("東京都千代田区", "山田 太郎", 2, "サンプルA運輸"));
+        repository.save(new Shipment("神奈川県横浜市", "鈴木 花子", 1, "サンプルB運輸"));
+        repository.save(new Shipment("埼玉県さいたま市", "佐藤 次郎", 3, "サンプルC運輸"));
+        repository.save(new Shipment("東京都新宿区", "田中 美咲", 2, "サンプルA運輸"));
+        repository.save(new Shipment("千葉県千葉市", "高橋 健一", 4, "サンプルA運輸"));
+        repository.save(new Shipment("神奈川県川崎市", "伊藤 由美", 1, "サンプルB運輸"));
+
+        // 梱包を始める前に、前日分の出荷ラベルを作成し、まとめて送信するまで保持しておく
+        List<ShippingLabel> labels = new ArrayList<>();
+        for (Shipment shipment: repository.findAllSortedByAreaCode()) {
+            labels.add(new ShippingLabel(shipment));
+        }
+
+        // まとめて印刷する
+        for (ShippingLabel label: labels) {
+            label.print();
+        }
     }
 }
 ```
@@ -376,16 +462,20 @@ public class Main {
 ```
 [サンプルB運輸のロゴ]
 エリア1：神奈川県横浜市 鈴木 花子 様
-[サンプルA運輸のロゴ]
-エリア1：神奈川県川崎市 田中 美咲 様
+[サンプルB運輸のロゴ]
+エリア1：神奈川県川崎市 伊藤 由美 様
 [サンプルA運輸のロゴ]
 エリア2：東京都千代田区 山田 太郎 様
+[サンプルA運輸のロゴ]
+エリア2：東京都新宿区 田中 美咲 様
 [サンプルC運輸のロゴ]
-エリア2：東京都新宿区 佐藤 次郎 様
+エリア3：埼玉県さいたま市 佐藤 次郎 様
+[サンプルA運輸のロゴ]
+エリア4：千葉県千葉市 高橋 健一 様
 ```
 
 実行結果は、好ましくない実装とまったく同じになっています。<br>
-ただし、`getLogo` メソッドの動きは異なります。山田 太郎 様・鈴木 花子 様・佐藤 次郎 様の出荷ラベルを作成したときは、それぞれの配送会社のロゴ画像がまだ `pool` フィールドにないため、`CarrierLogo` オブジェクトが新しく作成されます。一方、4 枚目の田中 美咲 様の出荷ラベルを作成したときは、サンプルA運輸のロゴ画像がすでに `pool` フィールドにあるため、新しく作成されず、山田 太郎 様の出荷ラベルと同じ `CarrierLogo` オブジェクトが返されます。
+ただし、`getLogo` メソッドの動きは異なります。出荷ラベルは配送エリアの順に作成されるため、鈴木 花子 様・山田 太郎 様・佐藤 次郎 様の出荷ラベルを作成したときは、それぞれの配送会社のロゴ画像がまだ `pool` フィールドにないため、`CarrierLogo` オブジェクトが新しく作成されます。一方、伊藤 由美 様・田中 美咲 様・高橋 健一 様の出荷ラベルを作成したときは、配送会社のロゴ画像がすでに `pool` フィールドにあるため、新しく作成されません。伊藤 由美 様の出荷ラベルには鈴木 花子 様の出荷ラベルと同じ `CarrierLogo` オブジェクトが、田中 美咲 様と高橋 健一 様の出荷ラベルには山田 太郎 様の出荷ラベルと同じ `CarrierLogo` オブジェクトが返されます。高橋 健一 様の出荷ラベルは、山田 太郎 様の出荷ラベルと配送エリアが異なりますが、配送会社が同じなので、同じロゴ画像を共有します。
 
 出荷ラベルを 1 万枚保持しても、共有している `CarrierLogo` オブジェクトは 3 個だけなので、メモリに載るロゴ画像のデータは 10KB × 3 社分 ＝ 約 30KB で済みます。
 
@@ -396,7 +486,7 @@ public class Main {
 
 ## まとめ
 
-正しい実装を振り返ると、出荷ラベルごとに作成していた `CarrierLogo` オブジェクトは、`CarrierLogoFactory` クラスが配送会社ごとに 1 つだけ作成して管理するようになり、同じ配送会社の出荷ラベルはそのオブジェクトを共有しています。一方、出荷ラベルごとに異なる届け先の氏名・住所と配送エリアの番号は、これまでどおり `ShippingLabel` オブジェクトがそれぞれ保持しています。<br>
+正しい実装を振り返ると、出荷ラベルごとに作成していた `CarrierLogo` オブジェクトは、`CarrierLogoFactory` クラスが配送会社ごとに 1 つだけ作成して管理するようになり、同じ配送会社の出荷ラベルはそのオブジェクトを共有しています。一方、出荷ラベルごとに異なる届け先の住所・氏名と配送エリアの番号は、これまでどおり `ShippingLabel` オブジェクトがそれぞれ保持しています。<br>
 このように Flyweight パターンは、共有できる情報と使う側ごとに異なる情報を分け、共有できる情報を持つオブジェクトを 1 つだけ作って使い回すことで、大量のオブジェクトを同時に使う場面でもメモリの使用量を抑える設計パターンです。
 
 本記事の内容はここまでとなります。
@@ -438,9 +528,10 @@ package example;
 public class MemoryCheck {
     public static void main(String[] args) {
         String[] carrierNames = {"サンプルA運輸", "サンプルB運輸", "サンプルC運輸"};
-        ShippingLabelBatch batch = new ShippingLabelBatch();
+        List<ShippingLabel> labels = new ArrayList<>();
         for (int i = 0; i < 10000; i++) {
-            batch.add(new ShippingLabel("届け先" + i, "住所" + i, i % 10, carrierNames[i % 3]));
+            int areaCode = i % 10 + 1;
+            labels.add(new ShippingLabel(new Shipment("住所" + i, "氏名" + i, areaCode, carrierNames[areaCode % 3])));
         }
 
         Runtime runtime = Runtime.getRuntime();
@@ -451,10 +542,10 @@ public class MemoryCheck {
 }
 ```
 
-`for` 文により、3 社の配送会社を順番に割り当てた 1 万枚の出荷ラベルを、`ShippingLabelBatch` オブジェクトに保持しています。出荷作業の開始時刻を待っている状態を再現するため、出荷ラベルは保持したまま計測しています。<br>
+`for` 文により、1 万件の出荷データから出荷ラベルを作成し、`labels` リストに保持しています。配送エリアの番号は 1〜10 を順番に割り当て、配送会社は配送エリアごとに 1 社に決まるよう、配送エリアの番号から選んでいます。まとめて印刷する直前の状態を再現するため、出荷ラベルは保持したまま計測しています。<br>
 `for` 文の後では、ガベージコレクションを実行してから、使用メモリを計算しています。
 
-Java では、どこからも参照されなくなったオブジェクトを JVM が自動で回収し、メモリを空けます。この仕組みをガベージコレクション（GC）と呼びます。例えば、`ShippingLabelBatch` オブジェクトに追加した出荷ラベルは、`labels` フィールドから参照されているため回収されません。一方、どこにも保持せずに捨てた出荷ラベルは、どこからも参照されていないため回収の対象になります。<br>
+Java では、どこからも参照されなくなったオブジェクトを JVM が自動で回収し、メモリを空けます。この仕組みをガベージコレクション（GC）と呼びます。例えば、`labels` リストに追加した出荷ラベルは、`labels` リストから参照されているため回収されません。一方、どこにも保持せずに捨てた出荷ラベルは、どこからも参照されていないため回収の対象になります。<br>
 GC は通常、JVM が必要と判断したタイミングで実行されます。`runtime.gc()` は GC の実行を JVM に依頼するメソッドで、呼び出したからといって、使われていないオブジェクトがすべて回収されるとは限りません。それでも、計測の前に呼び出しておくことで、もう使われていないオブジェクトが計測値に含まれにくくなります。<br>
 `runtime.totalMemory()` は JVM が確保しているメモリの量を、`runtime.freeMemory()` はそのうちまだ使われていないメモリの量を返します。その差を、使用メモリとして MB 単位で出力しています。
 
@@ -473,19 +564,20 @@ GC は通常、JVM が必要と判断したタイミングで実行されます�
 ※使用メモリの値は、実行環境によって異なります。
 
 好ましくない実装の約 101MB のうち、約 100MB は 1 万個の `CarrierLogo` オブジェクトが持つロゴ画像のデータで、計算どおりの結果になっています。<br>
-正しい実装では、ロゴ画像のデータは 3 社分（約 30KB）しかありません。約 2MB の使用メモリのほとんどは、1 万個の `ShippingLabel` オブジェクトが保持している届け先の氏名・住所などのデータや、JVM 自体が使用しているメモリです。
+正しい実装では、ロゴ画像のデータは 3 社分（約 30KB）しかありません。約 2MB の使用メモリのほとんどは、1 万個の `ShippingLabel` オブジェクトが保持している届け先の住所・氏名などのデータや、JVM 自体が使用しているメモリです。
 
 <a id="深堀り3"></a>
 
 ## 【深堀り③】作ってすぐ捨てれば、メモリは少なくて済むのでは？
 
-`MemoryCheck` クラスでは、1 万枚の出荷ラベルを `ShippingLabelBatch` オブジェクトに保持したまま、使用メモリを計測しました。<br>
+`MemoryCheck` クラスでは、1 万枚の出荷ラベルを `labels` リストに保持したまま、使用メモリを計測しました。<br>
 では、出荷ラベルを保持せずに、作ってすぐ捨てた場合はどうなるでしょうか？ `MemoryCheck` クラスの `for` 文を、次のように書き換えて計測してみます。
 
 ```java
 for (int i = 0; i < 10000; i++) {
+    int areaCode = i % 10 + 1;
     // 作成した出荷ラベルを、どこにも保持せずに捨てている
-    new ShippingLabel("届け先" + i, "住所" + i, i % 10, carrierNames[i % 3]);
+    new ShippingLabel(new Shipment("住所" + i, "氏名" + i, areaCode, carrierNames[areaCode % 3]));
 }
 ```
 
@@ -507,8 +599,8 @@ for (int i = 0; i < 10000; i++) {
 作成した `ShippingLabel` オブジェクトをどこからも参照していないため、`runtime.gc()` を呼び出した時点で、もう使われていないオブジェクトとして、`ShippingLabel` オブジェクトも、それが持つ `CarrierLogo` オブジェクトも、すべて回収されたからです。
 
 この結果を見ると、「それなら、Flyweight パターンを使わなくても、出荷ラベルを作ってすぐ捨てればメモリは少なくて済むのでは？」と思うかもしれません。<br>
-しかし、捨てた出荷ラベルはもう使えません。例えば、計測した後に出荷ラベルを印刷しようとしても、どの `ShippingLabel` オブジェクトも参照が残っていないため、`print` メソッドを呼び出すことができません。今回のシナリオでは、出荷ラベルを配送エリアの順に並べ替えるために、その日の出荷ラベルをすべて同時に保持しておく必要があります。つまり、作ってすぐ捨てる実装は、そもそも追加要件を満たしていません。<br>
-既存コードのように 1 枚ずつ作って印刷し、すぐに使い終わる場合は、メモリに載るロゴ画像は常に 1 枚分程度なので、Flyweight パターンを使わなくてもメモリが問題になることはありません。
+しかし、捨てた出荷ラベルはもう使えません。例えば、計測した後に出荷ラベルを印刷しようとしても、どの `ShippingLabel` オブジェクトも参照が残っていないため、`print` メソッドを呼び出すことができません。今回のシナリオでは、並べ替えた出荷ラベルを 1 回でまとめて送信するために、前日分の出荷ラベルをすべて同時に保持しておく必要があります。つまり、作ってすぐ捨てる実装は、そもそも追加要件を満たしていません。<br>
+既存コードのように 1 枚ずつ作って印刷しては捨てる場合は、メモリに載るロゴ画像は常に 1 枚分程度なので、Flyweight パターンを使わなくてもメモリが問題になることはありません。
 
 このように、Flyweight パターンの効果を比べるときは、大量のオブジェクトを「使っている最中」の使用メモリを比べる必要があります。計測した時点で、どのオブジェクトがまだ参照されているかによって、GC で回収されるオブジェクトが変わり、計測結果も変わります。使用メモリを計測するときは、計測する時点で、実際に使っている状態のオブジェクトが参照されたままになっているかを確認しましょう。
 
@@ -517,7 +609,7 @@ for (int i = 0; i < 10000; i++) {
 ## 【深堀り④】共有したオブジェクトは GC で回収されない
 
 正しい実装の `CarrierLogoFactory` クラスでは、`pool` フィールドが作成済みの `CarrierLogo` オブジェクトを保持し続けています。<br>
-そのため、出荷ラベルをすべて印刷し終えて、`ShippingLabelBatch` オブジェクトや `ShippingLabel` オブジェクトが使われなくなっても、`CarrierLogo` オブジェクトは `pool` フィールドから参照されたままなので、GC で回収されません。例えば、サンプルC運輸との契約が終了し、そのロゴ画像が二度と使われなくなっても、プログラムが終了するまでメモリに残り続けます。
+そのため、出荷ラベルをすべて印刷し終えて、`labels` リストや `ShippingLabel` オブジェクトが使われなくなっても、`CarrierLogo` オブジェクトは `pool` フィールドから参照されたままなので、GC で回収されません。例えば、サンプルC運輸との契約が終了し、そのロゴ画像が二度と使われなくなっても、プログラムが終了するまでメモリに残り続けます。
 
 今回のシナリオでは、共有するロゴ画像は配送会社の数（3 社分、合計約 30KB）しかないため、メモリに残り続けても問題になりません。<br>
 しかし、商品ごとの商品画像のように、共有するものの種類が数万にのぼる場合は、一度でも使われた種類がすべて `pool` フィールドに残り続けるため、使用メモリが増える一方になるリスクがあります。
@@ -543,9 +635,9 @@ for (int i = 0; i < 10000; i++) {
 ## 【深堀り⑥】複数のスレッドから使う場合
 
 正しい実装の `CarrierLogoFactory` クラスの `getLogo` メソッドでは、`pool` フィールドに配送会社のロゴ画像があるかを確認し、なければ新しく作成して登録しています。<br>
-本記事の `Main` クラスは 1 つのスレッドで順番に実行されるため、この実装で問題ありません。しかし、実際の倉庫システムでは、通販サイトから同時に入った複数の受注を、それぞれ別のスレッドで並行して処理することがよくあります。`CarrierLogoFactory` オブジェクトはアプリケーション全体で 1 つだけなので、どのスレッドも同じ `pool` フィールドを使います。
+本記事の `Main` クラスは 1 つのスレッドで順番に実行されるため、この実装で問題ありません。しかし、実際の倉庫システムでは、1 万件の出荷ラベルの作成を複数のスレッドに分けて並行して行い、処理時間を短くすることがあります。`CarrierLogoFactory` オブジェクトはアプリケーション全体で 1 つだけなので、どのスレッドも同じ `pool` フィールドを使います。
 
-例えば、サンプルA運輸の受注が 2 件同時に入り、2 つのスレッドがほぼ同時に `getLogo` メソッドを呼び出したとします。
+例えば、2 つのスレッドが、それぞれサンプルA運輸の出荷ラベルをほぼ同時に作成し、`getLogo` メソッドを呼び出したとします。
 
 1. スレッド 1 が `pool.get(carrierName)` を実行し、サンプルA運輸のロゴ画像はまだ登録されていないため `null` を受け取る
 2. スレッド 1 が `CarrierLogo` オブジェクトを作成して登録する前に、スレッド 2 も `pool.get(carrierName)` を実行し、同じく `null` を受け取る
