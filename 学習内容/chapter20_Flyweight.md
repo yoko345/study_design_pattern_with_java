@@ -527,19 +527,136 @@ public class Main {
 
 ## 【深堀り①】共有したオブジェクトを書き換えてはいけない
 
-正しい実装では、サンプルA運輸の出荷ラベルは、すべて同じ `CarrierLogo` オブジェクトを共有しています。<br>
-そのため、例えば「1 枚の出荷ラベルだけ、キャンペーン用のロゴ画像に差し替えたい」という要望に対して、`CarrierLogo` クラスにロゴ画像を差し替えるメソッドを追加し、次のように書き換えたとします。
+正しい実装を振り返ると、サンプルA運輸の出荷ラベルは、すべて同じ `CarrierLogo` オブジェクトを共有しています。
+
+ではここで、次のような要望があったとします。
+
+> サンプルA運輸のキャンペーンに当選した山田 太郎様の出荷ラベルだけ、キャンペーン用のロゴ画像で印刷したい
+
+※キャンペーン用のロゴ画像は、「サンプルA運輸キャンペーン」という名前で読み込めるものとします。
+
+このような要望に対しては、`CarrierLogo` クラスにロゴ画像を差し替えるメソッドを追加すればよいと思うかもしれません。<br>
+実際にコードを修正してみましょう。
+
+**`CarrierLogo.java`**
 
 ```java
-// 1 枚の出荷ラベルだけ、キャンペーン用のロゴ画像に差し替えたつもりで書き換えている
-label.getLogo().setImageData(campaignImageData);
+package example;
+
+public class CarrierLogo {
+    private String carrierName;
+    private byte[] imageData;
+
+    public CarrierLogo(String carrierName) {
+        this.carrierName = carrierName;
+        this.imageData = new byte[10 * 1024];
+    }
+
+    public void print() {
+        System.out.println("[" + carrierName + "のロゴ]");
+    }
+
+    /* ここを追加（ここから） */
+    public void changeImage(String carrierName) {
+        this.carrierName = carrierName;
+        this.imageData = new byte[10 * 1024];
+    }
+    /* ここを追加（ここまで） */
+}
 ```
 
-書き換えた `CarrierLogo` オブジェクトは、サンプルA運輸のすべての出荷ラベルが共有しているため、1 枚だけのつもりが、1 日分のサンプルA運輸の出荷ラベルがすべてキャンペーン用のロゴ画像で印刷されてしまいます。<br>
-しかも、書き換えたコードと、ロゴ画像が変わってしまった出荷ラベルを作成・印刷するコードは離れた場所にあるため、原因を突き止めるのにも手間がかかります。
+`CarrierLogo` クラスを振り返ると、`changeImage` メソッドを追加することにより、コンストラクターと同じく、引数で渡された名前に対応するロゴ画像のデータを読み込み直せるようにしています。
 
-このように、共有するオブジェクトの中身を書き換えると、そのオブジェクトを共有しているすべての使う側に影響が及びます。そのため、Flyweight パターンで共有するオブジェクトには、作成した後に中身を変更するメソッドを用意しないようにします。今回の `CarrierLogo` クラスも、コンストラクターで配送会社名とロゴ画像のデータを設定した後は、それらを変更するメソッドを持っていません。<br>
-1 枚の出荷ラベルだけ別のロゴ画像にしたい場合は、共有している `CarrierLogo` オブジェクトを書き換えるのではなく、キャンペーン用のロゴ画像を別の `CarrierLogo` オブジェクトとして `CarrierLogoFactory` オブジェクトから取得し、その出荷ラベルに持たせるようにしましょう。
+**`ShippingLabel.java`**
+
+```java
+package example;
+
+public class ShippingLabel {
+    private String address;
+    private String recipientName;
+    private int areaCode;
+    private CarrierLogo logo;
+
+    public ShippingLabel(Shipment shipment) {
+        this.address = shipment.getAddress();
+        this.recipientName = shipment.getRecipientName();
+        this.areaCode = shipment.getAreaCode();
+        this.logo = CarrierLogoFactory.getInstance().getLogo(shipment.getCarrierName());
+    }
+
+    public void print() {
+        logo.print();
+        System.out.println("エリア" + areaCode + "：" + address + " " + recipientName + " 様");
+    }
+
+    /* ここを追加（ここから） */
+    public CarrierLogo getLogo() {
+        return logo;
+    }
+    /* ここを追加（ここまで） */
+}
+```
+
+`ShippingLabel` クラスを振り返ると、`getLogo` メソッドを追加することにより、出荷ラベルが保持している `CarrierLogo` オブジェクトを取得できるようにしています。
+
+**`Main.java`**
+
+```java
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        ShipmentRepository repository = new ShipmentRepository();
+        // 受注が入ったときは、出荷データを DB に保存するだけにしておく
+        repository.save(new Shipment("東京都千代田区", "山田 太郎", 2, "サンプルA運輸"));
+        repository.save(new Shipment("神奈川県横浜市", "鈴木 花子", 1, "サンプルB運輸"));
+        repository.save(new Shipment("埼玉県さいたま市", "佐藤 次郎", 3, "サンプルC運輸"));
+        repository.save(new Shipment("東京都新宿区", "田中 美咲", 2, "サンプルA運輸"));
+        repository.save(new Shipment("千葉県千葉市", "高橋 健一", 4, "サンプルA運輸"));
+        repository.save(new Shipment("神奈川県川崎市", "伊藤 由美", 1, "サンプルB運輸"));
+
+        // 梱包を始める前に、配送エリアの順に並べた前日分の出荷データから出荷ラベルを作成し、まとめて送信するまで保持しておく
+        List<ShippingLabel> labels = new ArrayList<>();
+        for (Shipment shipment: repository.findAllSortedByAreaCode()) {
+            labels.add(new ShippingLabel(shipment));
+        }
+
+        /* ここを追加（ここから） */
+        // 山田 太郎様の出荷ラベル（配送エリアの順に並べた後の 3 枚目）だけ、キャンペーン用のロゴ画像に差し替えたつもりで書き換えている
+        labels.get(2).getLogo().changeImage("サンプルA運輸キャンペーン");
+        /* ここを追加（ここまで） */
+
+        // まとめて印刷する
+        for (ShippingLabel label: labels) {
+            label.print();
+        }
+    }
+}
+```
+
+**実行結果**
+
+```
+[サンプルB運輸のロゴ]
+エリア1：神奈川県横浜市 鈴木 花子 様
+[サンプルB運輸のロゴ]
+エリア1：神奈川県川崎市 伊藤 由美 様
+[サンプルA運輸キャンペーンのロゴ]
+エリア2：東京都千代田区 山田 太郎 様
+[サンプルA運輸キャンペーンのロゴ]
+エリア2：東京都新宿区 田中 美咲 様
+[サンプルC運輸のロゴ]
+エリア3：埼玉県さいたま市 佐藤 次郎 様
+[サンプルA運輸キャンペーンのロゴ]
+エリア4：千葉県千葉市 高橋 健一 様
+```
+
+実行結果を振り返ると、山田 太郎様の出荷ラベルだけを差し替えたつもりが、同じ配送会社を利用している田中 美咲様・高橋 健一様の出荷ラベルまでキャンペーン用のロゴ画像で印刷されています。これは、サンプルA運輸の出荷ラベルのすべてが、書き換えた `CarrierLogo` オブジェクトを共有しているためです。<br>
+しかも、田中 美咲様・高橋 健一様の出荷ラベルを作成・印刷するコードには何も手を加えていないため、原因を突き止めるのにも手間がかかります。
+
+このように、共有するオブジェクトの中身を書き換えると、そのオブジェクトを使う側すべてに影響が出ます。そのため、Flyweight パターンで共有するオブジェクトには、作成した後に中身を変更するメソッドを用意しないようにします。本記事の `CarrierLogo` クラスの既存コードを振り返ると、コンストラクターで配送会社名とロゴ画像のデータを設定した後は、それらを変更するメソッドを持っていません。<br>
+1 枚の出荷ラベルだけ別のロゴ画像にしたい場合は、共有している `CarrierLogo` オブジェクトを書き換えるのではなく、キャンペーン用のロゴ画像を別の `CarrierLogo` オブジェクトとして `CarrierLogoFactory` オブジェクトから取得し、その出荷ラベルを表す `ShippingLabel` オブジェクトの `logo` フィールドだけを差し替えるようにしましょう。`ShippingLabel` オブジェクトは出荷ラベルごとに作られ、共有されていないため、`logo` フィールドを差し替えても、他の出荷ラベルには影響しません。
 
 <a id="深堀り2"></a>
 
@@ -686,7 +803,7 @@ public synchronized CarrierLogo getLogo(String carrierName) { // ←ここを修
 }
 ```
 
-`synchronized` は直訳すると「同期」ですが、「同期処理・非同期処理」の同期とは意味が異なります。`synchronized` を付けたメソッドには、同時に 1 つのスレッドしか入れません。あるスレッドがメソッドを実行している間、ほかのスレッドはそのスレッドがメソッドを抜けるまで待たされます（ロック）。<br>
+`synchronized` は直訳すると「同期」ですが、「同期処理・非同期処理」の同期とは意味が異なります。`synchronized` を付けたメソッドには、同時に 1 つのスレッドしか入れません。あるスレッドがメソッドを実行している間、他のスレッドはそのスレッドがメソッドを抜けるまで待たされます（ロック）。<br>
 これにより、スレッド 2 は、スレッド 1 がサンプルA運輸の `CarrierLogo` オブジェクトを `pool` フィールドに登録し終えてから `pool.get(carrierName)` を実行するため、登録済みの `CarrierLogo` オブジェクトを受け取れます。
 
 なお、本記事の `Main` クラスのように 1 つのスレッドで実行する場合は、`synchronized` を付けても付けなくても結果は変わりません。`CarrierLogoFactory` クラスのように、共有するオブジェクトを管理するクラスを複数のスレッドから使う可能性がある場合は、`pool` フィールドの確認と登録が同時に行われないようにしておきましょう。
