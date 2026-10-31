@@ -805,36 +805,54 @@ Singleton パターンでは、1 つのクラスにつき、オブジェクト�
 
 ## 【深堀り⑥】複数のスレッドから使う場合
 
-正しい実装の `CarrierLogoFactory` クラスの `getLogo` メソッドでは、`pool` フィールドに配送会社のロゴ画像があるかを確認し、なければ新しく作成して登録しています。<br>
-本記事の `Main` クラスは 1 つのスレッドで順番に実行されるため、この実装で問題ありません。しかし、実際の倉庫システムでは、1 万件の出荷ラベルの作成を複数のスレッドに分けて並行して行い、処理時間を短くすることがあります。`CarrierLogoFactory` オブジェクトはアプリケーション全体で 1 つだけなので、どのスレッドも同じ `pool` フィールドを使います。
+正しい実装の `CarrierLogoFactory` クラスの `getLogo` メソッドを振り返ると、`pool` フィールドに配送会社のロゴ画像があるかを確認し、なければ新しく作成して登録しています。<br>
+実務では、本記事のように出荷ラベルが 1 万件にもなると作成に時間がかかるため、作成を複数の処理に分けて同時に進め、処理時間を短くすることがあります。
 
-例えば、2 つのスレッドが、それぞれサンプルA運輸の出荷ラベルをほぼ同時に作成し、`getLogo` メソッドを呼び出したとします。
+このように同時に進める処理の流れの 1 つ 1 つを「スレッド」と呼びます。`CarrierLogoFactory` オブジェクトはアプリケーション全体で 1 つだけなので、どのスレッドも同じ `pool` フィールドを使います。<br>
+例えば、2 つのスレッドが、それぞれサンプルA運輸の出荷ラベルをほぼ同時に作成し、`getLogo` メソッドを呼び出した場合を考えてみましょう。
 
-1. スレッド 1 が `pool.get(carrierName)` を実行し、サンプルA運輸のロゴ画像はまだ登録されていないため `null` を受け取る
-2. スレッド 1 が `CarrierLogo` オブジェクトを作成して登録する前に、スレッド 2 も `pool.get(carrierName)` を実行し、同じく `null` を受け取る
-3. 2 つのスレッドが、それぞれサンプルA運輸の `CarrierLogo` オブジェクトを作成し、`pool` フィールドに登録する
+1. スレッド 1 が `pool.get(carrierName)` を実行する
+2. サンプルA運輸のロゴ画像を取得するのは初めてで、`pool` フィールドにはまだ登録されていないため、スレッド 1 は `null` を受け取る
+3. スレッド 1 が条件分岐の中で `CarrierLogo` オブジェクトを作成して登録する前に、スレッド 2 が `pool.get(carrierName)` を実行する
+4. `pool` フィールドにはまだ登録されていないため、スレッド 2 も `null` を受け取る
+5. 2 つのスレッドが、条件分岐の中でそれぞれサンプルA運輸の `CarrierLogo` オブジェクトを作成し、`pool` フィールドに登録する
 
-その結果、サンプルA運輸の `CarrierLogo` オブジェクトが 2 つ作られ、共有されるはずのロゴ画像が重複してしまいます。さらに、`HashMap` クラスは複数のスレッドから同時に書き込まれることを想定していないため、`put` メソッドが同時に実行されると、`pool` フィールドの中身が壊れるリスクもあります。
+このように、あるスレッドが `pool` フィールドを確認してから登録するまでの間に他のスレッドが割り込むと、共有されるはずのロゴ画像が重複して作られてしまいます。また、`HashMap` クラスは複数のスレッドから同時に書き込まれることを想定していないため、`put` メソッドが同時に実行されると、`pool` フィールドの中身が壊れてしまうリスクもあります。
 
-これを防ぐには、`getLogo` メソッドに `synchronized` を付けます。
+これを防ぐ案として、`getLogo` メソッドに `synchronized` を付ける方法があります。
+
+**`CarrierLogoFactory.java`（一部抜粋）**
 
 ```java
-public synchronized CarrierLogo getLogo(String carrierName) { // ←ここを修正
-    CarrierLogo logo = pool.get(carrierName);
-    if (logo == null) {
-        logo = new CarrierLogo(carrierName);
-        pool.put(carrierName, logo);
+package example;
+
+public class CarrierLogoFactory {
+    public synchronized CarrierLogo getLogo(String carrierName) { // ←ここを修正
+        CarrierLogo logo = pool.get(carrierName);
+
+        if (logo == null) {
+            logo = new CarrierLogo(carrierName);
+            pool.put(carrierName, logo);
+        }
+
+        return logo;
     }
-    return logo;
 }
 ```
 
-`synchronized` は直訳すると「同期」ですが、「同期処理・非同期処理」の同期とは意味が異なります。`synchronized` を付けたメソッドには、同時に 1 つのスレッドしか入れません。あるスレッドがメソッドを実行している間、他のスレッドはそのスレッドがメソッドを抜けるまで待たされます（ロック）。<br>
-これにより、スレッド 2 は、スレッド 1 がサンプルA運輸の `CarrierLogo` オブジェクトを `pool` フィールドに登録し終えてから `pool.get(carrierName)` を実行するため、登録済みの `CarrierLogo` オブジェクトを受け取れます。
+※フィールド・コンストラクター・`getInstance` メソッドは変更がないため省略しています。
 
-なお、本記事の `Main` クラスのように 1 つのスレッドで実行する場合は、`synchronized` を付けても付けなくても結果は変わりません。`CarrierLogoFactory` クラスのように、共有するオブジェクトを管理するクラスを複数のスレッドから使う可能性がある場合は、`pool` フィールドの確認と登録が同時に行われないようにしておきましょう。
+`synchronized` を付けたメソッドには、同時に 1 つのスレッドしか入れません。つまり、スレッド 1 が `getLogo` メソッドを実行している間は、他のスレッドが入れないよう鍵がかかった状態（ロック）になり、スレッド 2 はスレッド 1 が `getLogo` メソッドを抜けるまで待たされます。<br>
+これにより、スレッド 2 は、スレッド 1 がサンプルA運輸の `CarrierLogo` オブジェクトを `pool` フィールドに登録し終えてから `pool.get(carrierName)` を実行するため、登録済みの `CarrierLogo` オブジェクトを受け取れます。また、`put` メソッドが同時に実行されることもなくなるため、`pool` フィールドの中身が壊れることもありません。
 
-※`HashMap` クラスの代わりに `ConcurrentHashMap` クラスを使い、`computeIfAbsent` メソッドで確認と登録をまとめて行う方法もあります。
+> ※`synchronized` は直訳すると「同期」ですが、「同期処理・非同期処理」の同期とは意味が異なります。
+
+他の方法として、`HashMap` クラスの代わりに `ConcurrentHashMap` クラスを使い、`computeIfAbsent` メソッドで確認と登録をまとめて行う方法もあります。
+
+なお、本記事の `Main` クラスのように 1 つのスレッドで実行する場合は、他のスレッドが割り込むことがないため、`synchronized` を付けても付けなくても結果は変わりません。
+
+正しい実装の `CarrierLogoFactory` クラスのように、共有するオブジェクトを管理するクラスを複数のスレッドから使う可能性がある場合は、`pool` フィールドを確認してから登録するまでの間に、他のスレッドが割り込めない設計にしましょう。<br>
+詳しくは「Java スレッドセーフ」などで検索してみてください。
 
 <a id="深堀り7"></a>
 
