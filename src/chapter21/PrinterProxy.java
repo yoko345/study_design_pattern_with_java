@@ -2,7 +2,10 @@ package chapter21;
 
 public class PrinterProxy implements Printable {
     private String name;
-    private Printer realPrinter;
+    // 練習問題21-1
+    // private Printer realPrinter;
+    private Printable realPrinter;
+    private String className;
 
     public PrinterProxy() {
         this.name = "No name";
@@ -12,6 +15,13 @@ public class PrinterProxy implements Printable {
     public PrinterProxy(String name) {
         this.name = name;
         this.realPrinter = null;
+    }
+
+    // 練習問題21-1
+    public PrinterProxy(String name, String className) {
+        this.name = name;
+        this.realPrinter = null;
+        this.className = className;
     }
 
     // 名前の設定
@@ -41,7 +51,16 @@ public class PrinterProxy implements Printable {
     // 「本人」を生成
     private synchronized void realize() {
         if (realPrinter == null) {
-            realPrinter = new Printer(name);
+            // 練習問題21-1
+            // realPrinter = new Printer(name);
+            try {
+                realPrinter = (Printable) Class.forName(className).getDeclaredConstructor().newInstance();
+                realPrinter.setPrinterName(name);
+            } catch (ClassNotFoundException e) {
+                System.out.println("クラス " + className + " が見つかりません。");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 }
