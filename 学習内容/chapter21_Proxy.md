@@ -152,10 +152,10 @@ public class Message {
 | `sharedBy`   | `String`            | ファイルを共有した人の名前 |
 | `attachment` | `StorageAttachment` | 添付ファイル               |
 
-| メソッド | 引数 | 戻り値の型 | 説明                                                           |
-| -------- | ---- | ---------- | -------------------------------------------------------------- |
-| `show`   | なし | `void`     | 添付ファイルのファイル名・サイズと、共有した人の名前を出力する |
-| `open`   | なし | `void`     | 添付ファイルを開く                                             |
+| メソッド         | 引数 | 戻り値の型 | 説明                                                           |
+| ---------------- | ---- | ---------- | -------------------------------------------------------------- |
+| `show`           | なし | `void`     | 添付ファイルのファイル名・サイズと、共有した人の名前を出力する |
+| `openAttachment` | なし | `void`     | 添付ファイルを開く                                             |
 
 **`FileListItem.java`**
 
@@ -175,7 +175,7 @@ public class FileListItem {
         System.out.println(attachment.getFileName() + "（" + attachment.getSize() + "KB） 共有者：" + sharedBy);
     }
 
-    public void open() {
+    public void openAttachment() {
         attachment.open();
     }
 }
@@ -222,7 +222,7 @@ public class Main {
         }
 
         // 山田さんが共有したファイルを開く
-        fileListItems.get(0).open();
+        fileListItems.get(0).openAttachment();
     }
 }
 ```
@@ -324,7 +324,7 @@ public class FileListItem {
         System.out.println(fileName + "（" + size + "KB） 共有者：" + sharedBy); // ←ここを修正
     }
 
-    public void open() {
+    public void openAttachment() {
         /* ここを追加（ここから） */
         if (attachment == null) {
             attachment = new StorageAttachment(fileName, size);
@@ -377,7 +377,7 @@ public class Main {
         }
 
         // 山田さんが共有したファイルを開く
-        fileListItems.get(0).open();
+        fileListItems.get(0).openAttachment();
     }
 }
 ```
@@ -399,20 +399,22 @@ public class Main {
 「見積書.pdf」を開きました
 ```
 
-一覧を表示するときには中身を読み込まず、開かれた添付ファイルだけを、開かれたときに読み込むようになりました。
+一覧を表示するときには中身を読み込まず、開かれた添付ファイルだけを、開かれたときに読み込むようになっています。
 
 コンパイルエラーがなく結果が出力されていることから、一見すると実装・動作確認ともに問題ないように見えます。
 
 しかし、この実装には以下の問題点があります。
 
-- 「まだ作成していなければ `StorageAttachment` オブジェクトを作成する」という同じ処理を、`Message` クラスの `openAttachment` メソッドと `FileListItem` クラスの `open` メソッドの両方に書いている。そのため、添付ファイルを開ける画面を追加するたびに同じ処理を書き写す必要があるうえ、中身の読み込み方を変えるときも、書き写したすべての箇所を修正する必要がある。
-    - その結果、書き写すときに `null` かどうかの確認を書き忘れたり、一部の箇所だけ修正し忘れたりすると、画面によって添付ファイルを開いたときの動きが異なったり、`NullPointerException` が発生したりするリスクがある。
+- 「`StorageAttachment` オブジェクトが未作成の場合は作成する」という処理を、`Message`・`FileListItem` クラスの `openAttachment` メソッドの両方に書いている。そのため、添付ファイルを開ける社内チャットの画面を追加するたびに、同じ処理を書き写す必要がある。
+    - その結果、この処理を書き写し忘れた画面で添付ファイルを開くと、必ず `NullPointerException` が発生する。
+- ファイルの中身の読み込み方を変更したい場合、同じ処理を書いているすべてのクラス（本記事では `Message`・`FileListItem` クラス）を修正する必要がある。
+    - その結果、一部のクラスだけ修正し忘れると、画面によって添付ファイルを開いたときの挙動が異なるリスクがある。
 
 ## 正しい実装
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-この問題を解決するのが **Proxy パターン**です。<br>
+これらの問題を解決するのが **Proxy パターン**です。<br>
 Proxy パターンは、元のオブジェクトと同じインターフェースを持つ代理オブジェクト（Proxy）を用意し、使う側には元のオブジェクトの代わりに代理オブジェクトを渡すパターンです。本記事では、添付ファイルの中身を読み込む `StorageAttachment` オブジェクトを元のオブジェクトとし、`Message`・`FileListItem` クラスには、その代理オブジェクトを渡します。
 
 まず、元のオブジェクトと代理オブジェクトに共通のインターフェースから見ていきましょう。
@@ -568,14 +570,14 @@ public class FileListItem {
         System.out.println(attachment.getFileName() + "（" + attachment.getSize() + "KB） 共有者：" + sharedBy);
     }
 
-    public void open() {
+    public void openAttachment() {
         attachment.open();
     }
 }
 ```
 
 `Message`・`FileListItem` クラスは、`attachment` フィールドとコンストラクターの引数の型を、`StorageAttachment` から `Attachment` に修正しただけです。<br>
-`show` メソッドや、添付ファイルを開く `openAttachment`・`open` メソッドは既存コードから変更しておらず、相手が代理オブジェクトか元のオブジェクトかを気にせずに `Attachment` 型のメソッドを呼び出しています。
+`show` メソッドや、添付ファイルを開く `openAttachment` メソッドは既存コードから変更しておらず、相手が代理オブジェクトか元のオブジェクトかを気にせずに `Attachment` 型のメソッドを呼び出しています。
 
 最後に、実行クラスを見ていきましょう。
 
@@ -620,7 +622,7 @@ public class Main {
         }
 
         // 山田さんが共有したファイルを開く
-        fileListItems.get(0).open();
+        fileListItems.get(0).openAttachment();
     }
 }
 ```
@@ -647,8 +649,10 @@ public class Main {
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 「まだ作成していなければ `StorageAttachment` オブジェクトを作成する」処理を `AttachmentProxy` クラスの `realize` メソッドの 1 か所にまとめたため、使う側の `Message`・`FileListItem` クラスは、相手が代理オブジェクトか元のオブジェクトかを気にせず、`Attachment` 型のメソッドを呼び出すだけで済む。そのため、添付ファイルを開ける画面を追加しても同じ処理を書き写す必要はなく、中身の読み込み方を変えるときも `AttachmentProxy` クラスだけを修正すればよい。
-    - その結果、`null` かどうかの確認の書き忘れや修正漏れにより、画面によって添付ファイルを開いたときの動きが異なったり、`NullPointerException` が発生したりするリスクを減らせる。
+- 「`StorageAttachment` オブジェクトが未作成の場合は作成する」という処理を `AttachmentProxy` クラスの `realize` メソッドの 1 か所にまとめたため、使う側の `Message`・`FileListItem` クラスは、相手が代理オブジェクトか元のオブジェクトかを気にせず、`Attachment` 型のメソッドを呼び出すだけで済む。そのため、添付ファイルを開ける画面を追加しても、同じ処理を書き写す必要がない。
+    - その結果、この処理を書き写し忘れて `NullPointerException` が発生することがなくなる。
+- 同じ処理を `realize` メソッドの 1 か所にまとめたため、中身の読み込み方を変えるときも、`AttachmentProxy` クラスだけを修正すればよい。
+    - その結果、修正漏れにより、画面によって添付ファイルを開いたときの挙動が異なるリスクがなくなる。
 
 ## まとめ
 
