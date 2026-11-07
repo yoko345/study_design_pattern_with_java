@@ -862,16 +862,16 @@ public class AttachmentProxy implements Attachment {
 
 ## 【深堀り⑤】代理オブジェクトが作成するクラスを固定しない方法
 
-正しい実装の `AttachmentProxy` クラスを振り返ると、`realize` メソッドで `new StorageAttachment(fileName, size)` と書いており、作成するクラスが `StorageAttachment` クラスに固定されていました。
+正しい実装の `AttachmentProxy` クラスを振り返ると、`realize` メソッドで `new StorageAttachment(fileName, size)` と書いてあり、作成するクラスが `StorageAttachment` クラスに固定されていました。
 
-例えば、ストレージを社外のクラウドサービスに移行することになり、その中身を読み込む `CloudAttachment` クラスを新しく作った場合を考えてみましょう。移行期間中は、古い添付ファイルは `StorageAttachment` オブジェクトで、新しい添付ファイルは `CloudAttachment` オブジェクトで読み込む必要があります。<br>
-ところが、`AttachmentProxy` クラスは `StorageAttachment` オブジェクトを直接作成しているため、このままでは `CloudAttachment` オブジェクトを作成できません。元のオブジェクトのクラスごとに代理オブジェクトのクラスを作ると、`realize` メソッド以外はまったく同じクラスが増えていきます。
+実務では、代理オブジェクトが作成するクラスを、添付ファイルごとに変えたい場面もあると思います。<br>
+例えば、ストレージを社外のクラウドサービスに移行することになり、ファイルの中身を読み込むクラスとして `CloudAttachment` クラスを新たに追加した場合を考えてみましょう。ただし、`CloudAttachment` クラスは、`StorageAttachment` クラスと同じく `Attachment` インターフェースを実装し、コンストラクターでファイル名とサイズを受け取るものとします。このとき、移行期間中は、古い添付ファイルは `StorageAttachment` オブジェクトで、新しい添付ファイルは `CloudAttachment` オブジェクトで読み込む必要があります。
 
-そこで、`AttachmentProxy` クラスが作成するクラスを固定せずに済む方法を 2 つ紹介します。
+このようなときの対応として、`AttachmentProxy` クラスが作成するクラスを動的にする方法を 2 つ紹介します。
 
 ### リフレクションでクラス名から作成する
 
-1 つ目は、作成するクラスの名前を文字列で受け取り、リフレクション（実行時にクラスの情報を調べて操作する仕組み）で元のオブジェクトを作成する方法です。
+作成するクラスの名前を文字列で受け取り、リフレクション（実行時にクラスの情報を調べて操作する仕組み）で元のオブジェクトを作成する方法です。
 
 **`AttachmentProxy.java`（一部抜粋）**
 
@@ -899,10 +899,8 @@ public class AttachmentProxy implements Attachment {
                 realAttachment = (Attachment) Class.forName(className)
                         .getDeclaredConstructor(String.class, int.class)
                         .newInstance(fileName, size);
-            } catch (ClassNotFoundException e) {
-                System.out.println("クラス " + className + " が見つかりません");
             } catch (ReflectiveOperationException e) {
-                e.printStackTrace();
+                throw new IllegalStateException("クラス " + className + " のオブジェクトを作成できません", e);
             }
             /* ここを修正（ここまで） */
         }
@@ -912,27 +910,57 @@ public class AttachmentProxy implements Attachment {
 
 ※`getFileName`・`getSize`・`open` メソッドは変更がないため省略しています。
 
-`Class.forName` メソッドで文字列のクラス名からクラスを探して、`getDeclaredConstructor` メソッドで引数の型が `String`・`int` のコンストラクターを取り出し、`newInstance` メソッドでそのコンストラクターを実行しています。<br>
-`realAttachment` フィールドの型も `Attachment` に変えたため、`AttachmentProxy` クラスのコードからは `StorageAttachment` クラスの名前が消えています。使う側は、次のように作成するクラスの名前を渡します。
+`AttachmentProxy` クラスを振り返ると、正しい実装から `realAttachment` フィールドの型を `Attachment` に変え、クラスの名前を `className` フィールドで保持できるようにしています。また、コンストラクターでクラスの名前を受け取れるように引数を追加しています。<br>
+`realize` メソッドでは、`Class.forName` メソッドで `className` フィールドに保持されたクラス名からクラスを探して、`getDeclaredConstructor` メソッドで引数の型が `String`・`int` のコンストラクターを取り出し、`newInstance` メソッドでそのコンストラクターを実行しています。元のオブジェクトの作成に失敗した場合は、発生した例外を `IllegalStateException` に包んで投げ直し、`open` メソッドの処理を中断させています。
+
+なお、`getDeclaredConstructor()` のように引数の型を指定せずに呼び出すと、引数のないコンストラクターを取り出せます。ただし、引数のないコンストラクターで作成すると、`fileName`・`size` フィールドに値が入りません。そのため、ここでは引数の型を指定して、ファイル名とサイズを受け取るコンストラクターを取り出しています。
+
+これにより、`AttachmentProxy` クラスのコードから `StorageAttachment` クラスの名前がなくなり、使う側が渡すクラス名によって、作成するクラスを切り替えられるようになります。<br>
+ちなみに、使う側のコードは次のようになります。
+
+**`Main.java`（一部抜粋）**
 
 ```java
-new AttachmentProxy("見積書.pdf", 2048, "example.StorageAttachment")
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        // メッセージ一覧を開く
+        System.out.println("=== メッセージ一覧 ===");
+        // DB から読み込んだメッセージ一覧
+        List<Message> messages = new ArrayList<>();
+        /* ここを修正（ここから） */
+        messages.add(new Message("山田", "見積書を送ります", new AttachmentProxy("見積書.pdf", 2048, "example.CloudAttachment")));
+        messages.add(new Message("鈴木", "昨日の議事録です", new AttachmentProxy("議事録.docx", 512, "example.StorageAttachment")));
+        messages.add(new Message("高橋", "懇親会の写真です", new AttachmentProxy("集合写真.jpg", 4096, "example.CloudAttachment")));
+        /* ここを修正（ここまで） */
+    }
+}
 ```
 
-ここで注意が必要なのは、クラス名はパッケージ名を含めた名前（完全修飾名）で渡す必要があることです。例えば、`"StorageAttachment"` とクラス名だけを渡して添付ファイルを開くと、次のようになります。
+※メッセージ一覧の作成以外は省略しています。なお、ファイル一覧の `AttachmentProxy` オブジェクトの作成も同じように修正します。
+
+ここで注意が必要なのは、クラス名はパッケージ名を含めた名前（完全修飾名）で渡す必要があることです。<br>
+例えば、議事録.docx に `"StorageAttachment"` とクラス名だけを渡すと、議事録.docx を開いて `realize` メソッドが実行された際、次のように例外が発生します。
 
 ```
-クラス StorageAttachment が見つかりません
-Exception in thread "main" java.lang.NullPointerException: Cannot invoke "example.Attachment.open()" because "this.realAttachment" is null
+=== メッセージ一覧 ===
+山田：見積書を送ります [見積書.pdf（2048KB）]
+鈴木：昨日の議事録です [議事録.docx（512KB）]
+高橋：懇親会の写真です [集合写真.jpg（4096KB）]
+Exception in thread "main" java.lang.IllegalStateException: クラス StorageAttachment のオブジェクトを作成できません
+Caused by: java.lang.ClassNotFoundException: StorageAttachment
 ```
 
-クラスが見つからなくても、`catch` ブロックで文字列を出力した後に処理が続くため、`realAttachment` フィールドは `null` のままです。その状態で `open` メソッドが `realAttachment` フィールドの `open` メソッドを呼び出すため、`NullPointerException` が発生します。<br>
-このように、エラーの原因（クラス名の誤り）とエラーが発生した場所（`open` メソッド）が離れているため、原因を突き止めにくくなります。また、クラス名は文字列なので、綴りを誤ってもコンパイルエラーにならず、実行して初めて誤りに気づきます。IDE でクラス名を変更しても、文字列のクラス名は書き換わりません。
+※スタックトレースは省略しています。
+
+クラス名は文字列なので、綴りを誤ってもコンパイルエラーにならず、実行して初めて誤りに気づきます。しかも、元のオブジェクトの作成を遅らせているため、誤りに気づくのはアプリケーションを起動したときではなく、その添付ファイルが初めて開かれたときです。また、IDE でクラス名を変更した場合も、文字列のクラス名は書き換わらないため、同じことが起きます。
+
+この「クラス名の誤りに実行するまで気づけない」という問題を解消するのが、次に紹介する `Supplier` で作り方を渡す方法です。
 
 ### `Supplier` で作り方を渡す
 
-2 つ目は、元のオブジェクトの作り方そのものを `Supplier` で受け取る方法です。`Supplier` は Java 標準ライブラリのインターフェースで、「引数を受け取らず、値を 1 つ返す処理」を表します。<br>
-正しい実装の `AttachmentProxy` クラスを、次のように修正します。
+元のオブジェクトの作り方そのものを `Supplier`（Java 標準ライブラリのインターフェースで、「引数を受け取らず、値を 1 つ返す処理」を表す）で受け取る方法です。
 
 **`AttachmentProxy.java`（一部抜粋）**
 
@@ -963,17 +991,42 @@ public class AttachmentProxy implements Attachment {
 
 ※`getFileName`・`getSize`・`open` メソッドは変更がないため省略しています。
 
-使う側は、次のようにラムダ式で元のオブジェクトの作り方を渡します。
+`AttachmentProxy` クラスを振り返ると、正しい実装から `realAttachment` フィールドの型を `Attachment` に変え、元のオブジェクトの作り方を `factory` フィールドで保持できるようにしています。また、コンストラクターで作り方を受け取れるように引数を追加しています。<br>
+`realize` メソッドでは、`factory` フィールドの `get` メソッドを呼び出すことにより、受け取った作り方で元のオブジェクトを作成しています。
+
+リフレクションと同じく、`AttachmentProxy` クラスのコードから `StorageAttachment` クラスの名前がなくなり、使う側が渡す作り方によって、作成するクラスを切り替えられるようになります。さらに、`AttachmentProxy` クラスは `factory` フィールドの `get` メソッドを呼び出すだけでコンストラクターの引数を知らずに済むため、作成するクラスが `String`・`int` を引数に取るコンストラクターを持っている必要もありません。<br>
+ちなみに、使う側のコードは次のようになります。
+
+**`Main.java`（一部抜粋）**
 
 ```java
-new AttachmentProxy("見積書.pdf", 2048, () -> new StorageAttachment("見積書.pdf", 2048))
+package example;
+
+public class Main {
+    public static void main(String[] args) {
+        // メッセージ一覧を開く
+        System.out.println("=== メッセージ一覧 ===");
+        // DB から読み込んだメッセージ一覧
+        List<Message> messages = new ArrayList<>();
+        /* ここを修正（ここから） */
+        messages.add(new Message("山田", "見積書を送ります", new AttachmentProxy("見積書.pdf", 2048, () -> new CloudAttachment("見積書.pdf", 2048))));
+        messages.add(new Message("鈴木", "昨日の議事録です", new AttachmentProxy("議事録.docx", 512, () -> new StorageAttachment("議事録.docx", 512))));
+        messages.add(new Message("高橋", "懇親会の写真です", new AttachmentProxy("集合写真.jpg", 4096, () -> new CloudAttachment("集合写真.jpg", 4096))));
+        /* ここを修正（ここまで） */
+    }
+}
 ```
 
-ラムダ式で渡した処理は、渡した時点では実行されず、`realize` メソッドで `factory.get()` を呼び出したときに初めて実行されます。そのため、元のオブジェクトの作成は、これまでどおり最初に開かれたときまで遅らせられます。<br>
-`AttachmentProxy` クラスは `Supplier<Attachment>` 型の `factory` フィールドを呼び出すだけなので、作成するクラスを知らずに済みます。`CloudAttachment` オブジェクトを作成させたい場合は、使う側が `() -> new CloudAttachment(...)` を渡すだけで済みます。<br>
-また、リフレクションと違い、クラス名の綴りやコンストラクターの引数を誤るとコンパイルエラーになるため、実行する前に誤りに気づけます。
+※メッセージ一覧の作成以外は省略しています。なお、ファイル一覧の `AttachmentProxy` オブジェクトの作成も同じように修正します。
 
-代理オブジェクトが作成するクラスを固定したくない場合は、まず `Supplier` で作り方を渡す方法を検討しましょう。リフレクションは、設定ファイルから読み込んだクラス名で作成するクラスを切り替えたい場合のように、コンパイルする時点では作成するクラスが決まらない場面に限って使うのがよいでしょう。<br>
+使う側は、`() -> new CloudAttachment("見積書.pdf", 2048)` のように、元のオブジェクトを作成する処理をラムダ式で渡しています。ラムダ式で渡した処理は、渡した時点では実行されず、`realize` メソッドで `factory.get()` を呼び出したときに初めて実行されます。
+
+`Supplier` で作り方を渡す実装では、クラス名を文字列で渡さないため、クラス名の綴りやコンストラクターの引数を誤るとコンパイルエラーになり、実行する前に誤りに気づけます。また、IDE でクラス名を変更した場合も、ラムダ式の中のクラス名が一緒に書き換わります。
+
+### まとめ
+
+作成するクラスをコードを書く時点で決められる場合は、コンパイル時に誤りに気づける `Supplier` で作り方を渡す方法を使うのがよいでしょう。<br>
+一方、設定ファイルから読み込んだクラス名で作成するクラスを切り替えたい場合のように、コードを書く時点では作成するクラスが決まらない場合は、リフレクションを使うのがよいでしょう。その場合は、アプリケーションの起動時に `Class.forName` メソッドでクラスが見つかるかを確かめておくと、添付ファイルが開かれるまで誤りに気づけないという問題を未然に防げます。<br>
 詳しくは「Java Supplier ラムダ式」や「Java リフレクション」で検索してみてください。
 
 <a id="深堀り6"></a>
