@@ -29,7 +29,11 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
 
     // 練習問題22-1
     // 描画色変更ボタン
-    private JButton changeColorButton = new JButton("changeColor");
+    // 練習問題22-1（模範解答）
+    // private JButton changeColorButton = new JButton("changeColor");
+    private JButton redButton = new JButton("red");
+    private JButton blueButton = new JButton("blue");
+    private JButton greenButton = new JButton("green");
 
     public MainChapter22(String title) {
         super(title);
@@ -38,20 +42,41 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
         canvas.addMouseMotionListener(this);
         clearButton.addActionListener(e -> {
             history.clear();
+            // 練習問題22-1（模範解答）
+            canvas.init();
             canvas.repaint();
         });
         // 練習問題22-1
-        changeColorButton.addActionListener(e -> {
-            System.out.println("test");
+        // 練習問題22-1（模範解答）
+        // changeColorButton.addActionListener(e -> {
+        // Command command = new ColorCommand(canvas, Color.BLUE);
+        // history.append(command);
+        // history.execute();
+        // });
+        redButton.addActionListener(e -> {
+            Command command = new ColorCommand(canvas, Color.RED);
+            history.append(command);
+            command.execute();
+        });
+        blueButton.addActionListener(e -> {
             Command command = new ColorCommand(canvas, Color.BLUE);
             history.append(command);
-            history.execute();
+            command.execute();
+        });
+        greenButton.addActionListener(e -> {
+            Command command = new ColorCommand(canvas, Color.GREEN);
+            history.append(command);
+            command.execute();
         });
 
         Box buttonBox = new Box(BoxLayout.X_AXIS);
         buttonBox.add(clearButton);
         // 練習問題22-1
-        buttonBox.add(changeColorButton);
+        // 練習問題22-1（模範解答）
+        // buttonBox.add(changeColorButton);
+        buttonBox.add(redButton);
+        buttonBox.add(blueButton);
+        buttonBox.add(greenButton);
 
         Box mainBox = new Box(BoxLayout.Y_AXIS);
         mainBox.add(buttonBox);

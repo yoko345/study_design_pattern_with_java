@@ -21,13 +21,13 @@ public class MacroCommand implements Command {
             throw new IllegalArgumentException("infinite loop caused by append.");
         }
 
-        commands.push(command);
+        commands.addLast(command);
     }
 
     // 元に戻す
     public void undo() {
         if (!commands.isEmpty()) {
-            commands.pop();
+            commands.removeLast();
         }
     }
 

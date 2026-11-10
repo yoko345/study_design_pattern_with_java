@@ -8,7 +8,9 @@ import chapter22.command.MacroCommand;
 
 public class DrawCanvas extends Canvas implements Drawable {
     // 描画色
-    private Color color = Color.red;
+    // 練習問題22-1（模範解答）
+    // private Color color = Color.red;
+    private Color color;
 
     // 描画する点の半径
     private int radius = 6;
@@ -20,12 +22,22 @@ public class DrawCanvas extends Canvas implements Drawable {
         setSize(width, height);
         setBackground(Color.white);
         this.history = history;
+        // 練習問題22-1（模範解答）
+        init();
     }
 
     // 履歴にある命令全てを再描画
     @Override
     public void paint(Graphics graphics) {
         history.execute();
+    }
+
+    // 練習問題22-1（模範解答）
+    // 初期化
+    @Override
+    public void init() {
+        color = Color.red;
+        history.append(new ColorCommand(this, color));
     }
 
     // 描画
