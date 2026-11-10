@@ -35,6 +35,10 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
     private JButton blueButton = new JButton("blue");
     private JButton greenButton = new JButton("green");
 
+    // 練習問題22-2
+    // 元に戻すボタン
+    private JButton undoButton = new JButton("undo");
+
     public MainChapter22(String title) {
         super(title);
 
@@ -68,6 +72,11 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
             history.append(command);
             command.execute();
         });
+        // 練習問題22-2
+        undoButton.addActionListener(e -> {
+            history.undo();
+            canvas.repaint();
+        });
 
         Box buttonBox = new Box(BoxLayout.X_AXIS);
         buttonBox.add(clearButton);
@@ -77,6 +86,8 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
         buttonBox.add(redButton);
         buttonBox.add(blueButton);
         buttonBox.add(greenButton);
+        // 練習問題22-2
+        buttonBox.add(undoButton);
 
         Box mainBox = new Box(BoxLayout.Y_AXIS);
         mainBox.add(buttonBox);
