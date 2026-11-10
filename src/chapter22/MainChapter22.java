@@ -2,9 +2,9 @@ package chapter22;
 
 import java.awt.Color;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -17,7 +17,9 @@ import chapter22.drawer.ColorCommand;
 import chapter22.drawer.DrawCanvas;
 import chapter22.drawer.DrawCommand;
 
-public class MainChapter22 extends JFrame implements MouseMotionListener, WindowListener {
+// 練習問題22-3
+// public class MainChapter22 extends JFrame implements MouseMotionListener, WindowListener {
+public class MainChapter22 extends JFrame {
     // 描画履歴
     private MacroCommand history = new MacroCommand();
 
@@ -42,8 +44,23 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
     public MainChapter22(String title) {
         super(title);
 
-        this.addWindowListener(this);
-        canvas.addMouseMotionListener(this);
+        // 練習問題22-3
+        // this.addWindowListener(this);
+        // canvas.addMouseMotionListener(this);
+        this.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                System.exit(0);
+            }
+        });
+        canvas.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                Command command = new DrawCommand(canvas, e.getPoint());
+                history.append(command);
+                command.execute();
+            }
+        });
         clearButton.addActionListener(e -> {
             history.clear();
             // 練習問題22-1（模範解答）
@@ -104,44 +121,46 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
     }
 
     // MouseMotionListener周り
-    @Override
-    public void mouseDragged(MouseEvent e) {
-        Command command = new DrawCommand(canvas, e.getPoint());
-        history.append(command);
-        command.execute();
-    }
+    // 練習問題22-3
+    // @Override
+    // public void mouseDragged(MouseEvent e) {
+        // Command command = new DrawCommand(canvas, e.getPoint());
+        // history.append(command);
+        // command.execute();
+    // }
 
-    @Override
-    public void mouseMoved(MouseEvent e) {
-    }
+    // @Override
+    // public void mouseMoved(MouseEvent e) {
+    // }
 
     // WindowListener周り
-    @Override
-    public void windowActivated(WindowEvent e) {
-    }
+    // 練習問題22-3
+    // @Override
+    // public void windowActivated(WindowEvent e) {
+    // }
 
-    @Override
-    public void windowClosed(WindowEvent e) {
-    }
+    // @Override
+    // public void windowClosed(WindowEvent e) {
+    // }
 
-    @Override
-    public void windowClosing(WindowEvent e) {
-        System.exit(0);
-    }
+    // @Override
+    // public void windowClosing(WindowEvent e) {
+        // System.exit(0);
+    // }
 
-    @Override
-    public void windowDeactivated(WindowEvent e) {
-    }
+    // @Override
+    // public void windowDeactivated(WindowEvent e) {
+    // }
 
-    @Override
-    public void windowDeiconified(WindowEvent e) {
-    }
+    // @Override
+    // public void windowDeiconified(WindowEvent e) {
+    // }
 
-    @Override
-    public void windowIconified(WindowEvent e) {
-    }
+    // @Override
+    // public void windowIconified(WindowEvent e) {
+    // }
 
-    @Override
-    public void windowOpened(WindowEvent e) {
-    }
+    // @Override
+    // public void windowOpened(WindowEvent e) {
+    // }
 }
