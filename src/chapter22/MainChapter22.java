@@ -70,9 +70,9 @@ public class MainChapter22 extends JFrame {
         // 練習問題22-1
         // 練習問題22-1（模範解答）
         // changeColorButton.addActionListener(e -> {
-        // Command command = new ColorCommand(canvas, Color.BLUE);
-        // history.append(command);
-        // history.execute();
+            // Command command = new ColorCommand(canvas, Color.BLUE);
+            // history.append(command);
+            // history.execute();
         // });
         redButton.addActionListener(e -> {
             Command command = new ColorCommand(canvas, Color.RED);
