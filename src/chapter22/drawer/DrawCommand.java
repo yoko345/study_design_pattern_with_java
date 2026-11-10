@@ -4,7 +4,6 @@ import java.awt.Point;
 
 import chapter22.command.Command;
 
-
 public class DrawCommand implements Command {
     // 描画対象
     protected Drawable drawable;

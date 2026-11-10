@@ -1,5 +1,6 @@
 package chapter22;
 
+import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowEvent;
@@ -12,6 +13,7 @@ import javax.swing.JFrame;
 
 import chapter22.command.Command;
 import chapter22.command.MacroCommand;
+import chapter22.drawer.ColorCommand;
 import chapter22.drawer.DrawCanvas;
 import chapter22.drawer.DrawCommand;
 
@@ -25,6 +27,10 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
     // 消去ボタン
     private JButton clearButton = new JButton("clear");
 
+    // 練習問題22-1
+    // 描画色変更ボタン
+    private JButton changeColorButton = new JButton("changeColor");
+
     public MainChapter22(String title) {
         super(title);
 
@@ -34,9 +40,18 @@ public class MainChapter22 extends JFrame implements MouseMotionListener, Window
             history.clear();
             canvas.repaint();
         });
+        // 練習問題22-1
+        changeColorButton.addActionListener(e -> {
+            System.out.println("test");
+            Command command = new ColorCommand(canvas, Color.BLUE);
+            history.append(command);
+            history.execute();
+        });
 
         Box buttonBox = new Box(BoxLayout.X_AXIS);
         buttonBox.add(clearButton);
+        // 練習問題22-1
+        buttonBox.add(changeColorButton);
 
         Box mainBox = new Box(BoxLayout.Y_AXIS);
         mainBox.add(buttonBox);
