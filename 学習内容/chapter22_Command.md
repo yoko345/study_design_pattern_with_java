@@ -30,11 +30,10 @@
 > あなたは社内ポータルの開発チームに所属しています。<br>
 > 社内ポータルのお知らせ記事は、メールの宛先のように公開先の部署を 1 つずつ追加して、公開する範囲を決めます。<br>
 > 現在、お知らせ記事の編集画面では、本文の編集や公開先の部署の追加・削除ができます。しかし、操作を元に戻す機能は実装されていないため、誤って本文や公開先の部署を書き換えてしまうと、記事の担当者が記憶を頼りに手動で直すしかない状態です。<br>
-> 先日、人事部向けの記事の公開先を変更している途中で、誤って別の部署を追加してしまいました。記憶を頼りに手動で直したものの削除し忘れがあり、他の部署にも公開されかける、というヒヤリハットがありました。<br>
-> これを受けて、あなたは編集画面に「1 つ前に戻す」機能を追加することになりました。直前の操作を取り消し、続けて使うと、さらに前の操作も順に取り消せるようにします。<br>
-> また、どの操作を取り消したのかを担当者が確かめられるように、操作後の記事の内容と一緒に、取り消した操作の内容（「公開先に経理部を追加」など）を表示します。
+> 先日、人事部向けの記事の公開先を変更している途中で、別の部署を追加してしまいました。記憶を頼りに手動で直したものの、誤って追加した部署を元からの公開先と勘違いして残してしまい、他の部署にも公開されかける、というヒヤリハットがありました。<br>
+> これを受けて、あなたは編集画面に「1 つ前に戻す」機能を追加することになりました。直前の操作を取り消し、続けて使うと、さらに前の操作も順に取り消せるようにします。また、どの操作を取り消したのかを担当者が確かめられるように、操作後の記事の内容と一緒に、取り消した操作の内容（「経理部の追加」など）を表示します。
 
-※実際のお知らせ記事の編集画面では、画面への表示や、記事をデータベース（DB）へ保存する処理を行う実装が必要ですが、本記事では Command パターンの解説に集中するため、コンソールへの文字列出力のみとします。
+※実際のお知らせ記事の編集画面では、編集後の記事の内容を画面に表示する実装が必要ですが、本記事では Command パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
 ### 既存コードの仕様
 
@@ -51,13 +50,14 @@
 | `body`              | `String`       | 本文         |
 | `targetDepartments` | `List<String>` | 公開先の部署 |
 
-| メソッド                 | 引数                | 戻り値の型 | 説明                                                                                           |
-| ------------------------ | ------------------- | ---------- | ---------------------------------------------------------------------------------------------- |
-| `changeBody`             | `String body`       | `void`     | 本文を変更する                                                                                 |
-| `addTargetDepartment`    | `String department` | `void`     | 公開先に部署を追加する<br>すでに追加されている部署の場合は `IllegalArgumentException` を投げる |
-| `removeTargetDepartment` | `String department` | `void`     | 公開先から部署を削除する                                                                       |
-| `getBody`                | なし                | `String`   | 本文を取得する                                                                                 |
-| `getSummary`             | なし                | `String`   | 本文と公開先をまとめた表示用の文字列を返す                                                     |
+| メソッド                 | 引数                | 戻り値の型     | 説明                                                                                           |
+| ------------------------ | ------------------- | -------------- | ---------------------------------------------------------------------------------------------- |
+| `changeBody`             | `String body`       | `void`         | 本文を変更する                                                                                 |
+| `addTargetDepartment`    | `String department` | `void`         | 公開先に部署を追加する<br>すでに追加されている部署の場合は `IllegalArgumentException` を投げる |
+| `removeTargetDepartment` | `String department` | `void`         | 公開先から部署を削除する                                                                       |
+| `getBody`                | なし                | `String`       | 本文を取得する                                                                                 |
+| `getTargetDepartments`   | なし                | `List<String>` | 公開先の部署の一覧を取得する                                                                   |
+| `getSummary`             | なし                | `String`       | 本文と公開先をまとめた表示用の文字列を返す                                                     |
 
 **`Article.java`**
 
@@ -86,6 +86,10 @@ public class Article {
 
     public String getBody() {
         return body;
+    }
+
+    public List<String> getTargetDepartments() {
+        return targetDepartments;
     }
 
     public String getSummary() {
@@ -176,8 +180,6 @@ public class Main {
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 ```
 
-経理部を誤って追加した場合、担当者は、何を追加したかを思い出して、自分で削除し直すしかありません。
-
 ※ここで一旦読むのを止めて、ご自身でコーディングを行なってみてください。その後で、続きを読んでください。
 
 ## 好ましくない実装
@@ -194,8 +196,11 @@ public class Main {
 package example;
 
 public class EditRecord {
+    // 操作の種類を表す文字列（"CHANGE_BODY"・"ADD_DEPARTMENT"・"REMOVE_DEPARTMENT"）が入る
     private String type;
+    // 公開先の部署の追加・削除時に、追加・削除した部署が入る
     private String department;
+    // 本文の変更時に、変更前の本文が入る
     private String oldBody;
 
     public EditRecord(String type, String department, String oldBody) {
@@ -268,14 +273,14 @@ public class ArticleEditor {
             case "REMOVE_DEPARTMENT" -> article.addTargetDepartment(record.getDepartment());
         }
 
-        System.out.println("[1つ前に戻す：" + describe(record) + "] " + article.getSummary());
+        System.out.println("[" + describe(record) + "を1つ前に戻す] " + article.getSummary());
     }
 
     private String describe(EditRecord record) {
         return switch (record.getType()) {
-            case "CHANGE_BODY" -> "本文を変更";
-            case "ADD_DEPARTMENT" -> "公開先に" + record.getDepartment() + "を追加";
-            case "REMOVE_DEPARTMENT" -> "公開先から" + record.getDepartment() + "を削除";
+            case "CHANGE_BODY" -> "本文の変更";
+            case "ADD_DEPARTMENT" -> record.getDepartment() + "の追加";
+            case "REMOVE_DEPARTMENT" -> record.getDepartment() + "の削除";
             default -> throw new IllegalArgumentException("記録されていない操作です：" + record.getType());
         };
     }
@@ -283,10 +288,7 @@ public class ArticleEditor {
 }
 ```
 
-※追加した処理について、次の 2 点を補足します。
-
-> - `EditRecord` クラスの `type` フィールドには、操作の種類を表す文字列（`"CHANGE_BODY"`・`"ADD_DEPARTMENT"`・`"REMOVE_DEPARTMENT"`）が入ります。操作によって使うフィールドが異なり、本文の変更では `oldBody` フィールドを、公開先の部署の追加・削除では `department` フィールドを使います。
-> - `history` フィールドは、`Deque` インターフェースをスタック（後から入れたものを先に取り出す入れ物）として使っており、`push` メソッドで積んだ記録を、`pop` メソッドで新しいものから順に取り出します。
+> `history` フィールドは、`Deque` インターフェースをスタック（後から入れたものを先に取り出す入れ物）として使っており、`push` メソッドで積んだ記録を、`pop` メソッドで新しいものから順に取り出します。
 
 **`Main.java`**
 
@@ -320,10 +322,10 @@ public class Main {
 [本文を変更] 本文：新しい評価制度の説明会を開催します。／公開先：[]
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部]
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 経理部]
-[1つ前に戻す：公開先に経理部を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部]
+[経理部の追加を1つ前に戻す] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部]
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 [本文を変更] 本文：新しい評価制度の説明会を4月に開催します。／公開先：[人事部, 総務部]
-[1つ前に戻す：本文を変更] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
+[本文の変更を1つ前に戻す] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 ```
 
 1 つ前に戻すときに、操作後の記事の内容と一緒に、取り消した操作の内容が表示されるようになっています。
@@ -332,10 +334,8 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- 1 つの操作に関する処理が、操作を行うメソッド（`changeBody` メソッドなど）と、取り消す `undo` メソッド、操作の内容を表示する `describe` メソッドに分かれて書かれている。そのため、操作を 1 つ追加する（例えば「公開先の部署をすべて削除」）たびに、操作を行うメソッドとは別に、`undo`・`describe` メソッドの switch 文にも分岐を書き足す必要がある。
-    - その結果、`undo` メソッドへの書き足しを忘れると、コンパイルエラーも例外も発生しないまま、「1 つ前に戻す」と表示されるのに、公開先の部署が元に戻らない不具合が生まれてしまう。
-- 操作ごとに必要な情報が異なるにもかかわらず、すべての操作の情報を `EditRecord` クラス 1 つで保持している。そのため、操作を追加するたびに、`EditRecord` クラスにフィールド（例えば「公開先の部署をすべて削除」であれば、削除した部署のリスト）を追加する必要がある。コンストラクターの引数も増えるため、既存の操作を記録している箇所もすべて修正しなければならず、各操作で使わないフィールドには `null` を渡すことになる。
-    - その結果、コンストラクターに渡す引数の位置を間違えても（部署名を `oldBody` の位置に渡す、など）、どちらも `String` 型のためコンパイルエラーにならず、取り消したときに正しく元に戻らないリスクがある。
+- 取り消す処理と、操作の内容を表示する処理を、`undo`・`describe` メソッドの switch 文で、操作の種類ごとに分岐させて書いている。そのため、操作を 1 つ追加する（例えば「公開先の部署をすべて削除」）たびに、`EditRecord` クラスにその操作に必要な情報（削除した部署のリストなど）のフィールドを追加したうえで、`undo`・`describe` メソッドの両方の switch 文に分岐を書き足す必要がある。
+    - その結果、`undo` メソッドへの書き足しを忘れると、コンパイルエラーも例外も発生しないまま、取り消した操作の内容は表示されるのに、記事の内容が元に戻らない不具合が生まれてしまう。
 
 ## 正しい実装
 
@@ -392,7 +392,7 @@ public class ChangeBodyCommand implements EditCommand {
 
     @Override
     public String getDescription() {
-        return "本文を変更";
+        return "本文の変更";
     }
 }
 ```
@@ -423,7 +423,7 @@ public class AddTargetDepartmentCommand implements EditCommand {
 
     @Override
     public String getDescription() {
-        return "公開先に" + department + "を追加";
+        return department + "の追加";
     }
 }
 ```
@@ -454,7 +454,7 @@ public class RemoveTargetDepartmentCommand implements EditCommand {
 
     @Override
     public String getDescription() {
-        return "公開先から" + department + "を削除";
+        return department + "の削除";
     }
 }
 ```
@@ -507,7 +507,7 @@ public class ArticleEditor {
         EditCommand command = history.pop();
         command.undo();
 
-        System.out.println("[1つ前に戻す：" + command.getDescription() + "] " + article.getSummary());
+        System.out.println("[" + command.getDescription() + "を1つ前に戻す] " + article.getSummary());
     }
 
     private void execute(EditCommand command) {
@@ -559,10 +559,10 @@ public class Main {
 [本文を変更] 本文：新しい評価制度の説明会を開催します。／公開先：[]
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部]
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 経理部]
-[1つ前に戻す：公開先に経理部を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部]
+[経理部の追加を1つ前に戻す] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部]
 [公開先を追加] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 [本文を変更] 本文：新しい評価制度の説明会を4月に開催します。／公開先：[人事部, 総務部]
-[1つ前に戻す：本文を変更] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
+[本文の変更を1つ前に戻す] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 ```
 
 `Main` クラスは、好ましくない実装と同じです。
@@ -572,9 +572,7 @@ public class Main {
 以上のような実装を行うと、以下のメリットがあります。
 
 - 1 つの操作に関する処理（実行・取り消し・操作の内容の表示）が、その操作を表すクラスにまとまっており、`ArticleEditor` クラスの `undo` メソッドは、操作の種類に関係なく `EditCommand` インターフェースのメソッドを呼び出すだけになっている。そのため、操作を追加しても、`EditCommand` インターフェースを実装したクラスを 1 つ追加すればよく、`undo` メソッドには手を加える必要がない。
-    - その結果、追加したクラスに取り消す処理を書き忘れるとコンパイルエラーになるため、「1 つ前に戻す」と表示されるのに元に戻らない不具合に気づかないまま動いてしまう、ということがなくなる。
-- 各操作に必要な情報を、その操作を表すクラスだけがフィールドとして持っているため、操作を追加しても、既存のクラスにフィールドを追加したり、既存の操作を作っている箇所を修正したりする必要がない。また、使わないフィールドに `null` を渡すこともない。
-    - その結果、引数の位置を間違えて、取り消したときに正しく元に戻らない、ということが起きにくい。
+    - その結果、追加したクラスに取り消す処理を書き忘れるとコンパイルエラーになるため、取り消した操作の内容は表示されるのに記事の内容が元に戻らない不具合に気づかないまま動いてしまう、ということがなくなる。
 
 ## まとめ
 
@@ -696,7 +694,7 @@ public class ArticleEditor {
 
     /* ここを追加（ここから） */
     public void addTargetDepartments(String groupName, List<String> departments) {
-        MacroCommand macroCommand = new MacroCommand("公開先に" + groupName + "を追加");
+        MacroCommand macroCommand = new MacroCommand(groupName + "の追加");
         for (String department: departments) {
             macroCommand.add(new AddTargetDepartmentCommand(article, department));
         }
@@ -736,11 +734,11 @@ public class Main {
 ```
 [本文を変更] 本文：人事評価の面談日程をお知らせします。／公開先：[]
 [公開先をまとめて追加] 本文：人事評価の面談日程をお知らせします。／公開先：[人事部, 総務部, 経理部]
-[1つ前に戻す：公開先に管理部門を追加] 本文：人事評価の面談日程をお知らせします。／公開先：[]
+[管理部門の追加を1つ前に戻す] 本文：人事評価の面談日程をお知らせします。／公開先：[]
 [公開先を追加] 本文：人事評価の面談日程をお知らせします。／公開先：[人事部]
 ```
 
-`[1つ前に戻す：公開先に管理部門を追加]` の行では、1 回の「1 つ前に戻す」で、まとめて追加した 3 つの部署がすべて取り消されています。
+`[管理部門の追加を1つ前に戻す]` の行では、1 回の「1 つ前に戻す」で、まとめて追加した 3 つの部署がすべて取り消されています。
 
 `MacroCommand` クラス自身も `EditCommand` インターフェースを実装しているため、`ArticleEditor` クラスの `undo` メソッドは、まとめた操作も 1 つの操作と区別せずに扱えます。実際に、`undo` メソッドには手を加えていません。<br>
 この「1 つのものと、それらをまとめたものを、同じインターフェースで扱う」構造は、Composite パターンそのものです。`MacroCommand` クラスには `MacroCommand` クラスのオブジェクトもまとめられるため、まとめた操作をさらにまとめることもできます。<br>
