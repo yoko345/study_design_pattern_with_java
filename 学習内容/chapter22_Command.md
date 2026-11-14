@@ -645,9 +645,9 @@ Command パターンでは、担当者が行う操作 1 回につき、オブジ
 
 ## 【深堀り③】複数の操作をまとめて取り消す（Composite パターンとの組み合わせ）
 
-正しい実装では、1 回の操作で公開先に追加できる部署は 1 つでした。ここでは、「管理部門」（人事部・総務部・経理部）のように、いくつかの部署をまとめて公開先に追加する操作を足すことを考えます。
+正しい実装の `ArticleEditor` クラスを振り返ると、1 つ前に戻すときは、最後に積んだオブジェクトを 1 つだけ `history` フィールドから取り除いて、その操作を取り消していました。そのため、1 回の「1 つ前に戻す」で取り消せるのは、1 回分の操作だけです。
 
-まとめて追加した部署を 1 つずつ取り消すのでは、「1 つ前に戻す」を部署の数だけ繰り返すことになります。まとめて追加した操作は、1 回の「1 つ前に戻す」でまとめて取り消せるのが自然です。<br>
+ここで、「管理部門（人事部・総務部・経理部）」のように、いくつかの部署をまとめて公開先に追加する操作を足すとします。公開先に管理部門を追加する操作は 1 回で済むようになるため、「1 つ前に戻す」ときも、1 回でまとめて取り消せるのが自然です。しかし、正しい実装のままでは、部署ごとに 1 つの操作として履歴に積むため、「1 つ前に戻す」を部署の数だけ繰り返すことになります。<br>
 そこで、複数の操作をまとめて 1 つの操作として扱う `MacroCommand` クラスを追加します。
 
 **`MacroCommand.java`**
@@ -691,7 +691,7 @@ public class MacroCommand implements EditCommand {
 `MacroCommand` は新たに追加したクラスで、複数の操作をまとめた操作を表します。`description` フィールドに操作の内容を、`commands` フィールドにまとめる操作を保持します。<br>
 `add` メソッドにより、まとめる操作を追加しています。<br>
 `execute` メソッドにより、まとめた操作を追加した順に実行しています。<br>
-`undo` メソッドにより、まとめた操作を、実行したときとは逆の順番で取り消しています。逆の順番にしているのは、後から実行した操作が、先に実行した操作の結果を前提にしているためです。例えば、本文を 2 回変更する操作をまとめた場合、先に実行した操作から取り消すと、1 回目の取り消しで元の本文に戻した後、2 回目の取り消しで 1 回目の変更後の本文に戻してしまい、最終的に元の本文に戻りません。
+`undo` メソッドにより、`ArticleEditor` クラスの `undo` メソッドと同じく、まとめた操作を、実行したときとは逆の順番で取り消しています。
 
 **`ArticleEditor.java`（一部抜粋）**
 
@@ -703,11 +703,12 @@ public class ArticleEditor {
 
     /* ここを追加（ここから） */
     public void addTargetDepartments(String groupName, List<String> departments) {
-        MacroCommand macroCommand = new MacroCommand(groupName + "の追加");
+        MacroCommand command = new MacroCommand(groupName + "の追加");
+
         for (String department: departments) {
-            macroCommand.add(new AddTargetDepartmentCommand(article, department));
+            command.add(new AddTargetDepartmentCommand(article, department));
         }
-        executeAndRecord(macroCommand);
+        executeAndRecord(command);
 
         System.out.println("[公開先をまとめて追加] " + article.getSummary());
     }
@@ -715,10 +716,10 @@ public class ArticleEditor {
 }
 ```
 
-※正しい実装から追加した `addTargetDepartments` メソッドと、それが使う `article` フィールドのみを記載し、他のフィールド・メソッドは省略しています。
+※正しい実装から新たに追加した `addTargetDepartments` メソッドと、それが使う `article` フィールドのみを記載し、他のフィールド・メソッドは修正等がないため省略しています。
 
 `ArticleEditor` クラスを振り返ると、正しい実装から `addTargetDepartments` メソッドを追加しています。<br>
-`addTargetDepartments` メソッドにより、受け取った部署ごとに `AddTargetDepartmentCommand` クラスのオブジェクトを作って `MacroCommand` クラスのオブジェクトにまとめ、他の操作と同じく `executeAndRecord` メソッドに渡しています。
+`addTargetDepartments` メソッドでは、まず、「管理部門の追加」のような操作の内容を持たせて、`MacroCommand` クラスのオブジェクトを作っています。次に、受け取った部署ごとに `AddTargetDepartmentCommand` クラスのオブジェクトを作って、`add` メソッドでまとめています。最後に、まとめたオブジェクトを 1 つの操作として `executeAndRecord` メソッドに渡しています。
 
 **`Main.java`**
 
@@ -749,11 +750,11 @@ public class Main {
 
 `[管理部門の追加を1つ前に戻す]` の行では、1 回の「1 つ前に戻す」で、まとめて追加した 3 つの部署がすべて取り消されています。
 
-`MacroCommand` クラス自身も `EditCommand` インターフェースを実装しているため、`ArticleEditor` クラスの `undo` メソッドは、まとめた操作も 1 つの操作と区別せずに扱えます。実際に、`undo` メソッドには手を加えていません。<br>
-この「1 つのものと、それらをまとめたものを、同じインターフェースで扱う」構造は、Composite パターンそのものです。`MacroCommand` クラスには `MacroCommand` クラスのオブジェクトもまとめられるため、まとめた操作をさらにまとめることもできます。<br>
-詳しくは「Composite パターン」で検索してみてください。
+`ArticleEditor` クラスの `undo` メソッドは、最後に積んだオブジェクトに対して、`EditCommand` インターフェースの `undo`・`getDescription` メソッドを呼び出しているだけです。`Main` クラスのように、管理部門をまとめて追加した直後に 1 つ前に戻すと、`MacroCommand` クラスの `undo`・`getDescription` メソッドが呼び出されます。`MacroCommand` クラス自身も `EditCommand` インターフェースを実装しているため、`ArticleEditor` クラスの `undo` メソッドには手を加える必要がありません。
 
-※`MacroCommand` クラスの `execute` メソッドは、途中の操作で例外が発生すると（例えば、すでに公開先にある部署を含めてまとめて追加しようとした場合）、それまでに実行した操作が取り消されないまま残ります。実務では、例外が発生したら、それまでに実行した操作を逆の順番で取り消してから例外を投げ直す処理を加えます。
+この「1 つのものと、それらをまとめたものを、同じインターフェースで扱う」構造は、Composite パターンと呼ばれます。共通の型が `EditCommand` インターフェース、個別要素が `AddTargetDepartmentCommand` クラスなど、複合要素が `MacroCommand` クラスにそれぞれあたります。また、`MacroCommand` クラスには `MacroCommand` クラスのオブジェクトもまとめられるため、まとめた操作をさらにまとめることもできます。<br>
+このように、Command パターンの操作を表すクラスに Composite パターンを組み合わせることで、複数の操作を 1 回の「1 つ前に戻す」でまとめて取り消せるようになります。<br>
+詳しくは「Composite パターン」で検索してみてください。
 
 <a id="深堀り4"></a>
 
