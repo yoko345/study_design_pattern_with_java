@@ -29,11 +29,11 @@
 
 > あなたは社内ポータルの開発チームに所属しています。<br>
 > 社内ポータルのお知らせ記事は、メールの宛先のように公開先の部署を 1 つずつ追加して、公開する範囲を決めます。<br>
-> 現在、お知らせ記事の編集画面では、本文の編集や公開先の部署の追加・削除ができます。しかし、操作を元に戻す機能は実装されていないため、誤って本文や公開先の部署を書き換えてしまうと、記事の担当者が記憶を頼りに手動で直すしかない状態です。<br>
+> 現在、お知らせ記事の編集画面では、本文の変更や公開先の部署の追加・削除ができます。しかし、操作を元に戻す機能は実装されていないため、誤って本文や公開先の部署を書き換えてしまうと、記事の担当者が記憶を頼りに手動で直すしかない状態です。<br>
 > 先日、人事部向けの記事の公開先を変更している途中で、別の部署を追加してしまいました。記憶を頼りに手動で直したものの、誤って追加した部署を元からの公開先と勘違いして残してしまい、他の部署にも公開されかける、というヒヤリハットがありました。<br>
 > これを受けて、あなたは編集画面に「1 つ前に戻す」機能を追加することになりました。直前の操作を取り消し、続けて使うと、さらに前の操作も順に取り消せるようにします。また、どの操作を取り消したのかを担当者が確かめられるように、操作後の記事の内容と一緒に、取り消した操作の内容（「経理部の追加」など）を表示します。
 
-※実際のお知らせ記事の編集画面では、編集後の記事の内容を画面に表示する実装が必要ですが、本記事では Command パターンの解説に集中するため、コンソールへの文字列出力のみとします。
+※実際のお知らせ記事の編集画面では、操作後の記事の内容を画面に表示する実装が必要ですが、本記事では Command パターンの解説に集中するため、コンソールへの文字列出力のみとします。
 
 ### 既存コードの仕様
 
@@ -186,9 +186,7 @@ public class Main {
 
 では、シナリオに従い追加実装をしていきましょう。
 
-真っ先に思いつくのは、編集画面のクラス（`ArticleEditor`）で、操作のたびに操作の種類と内容（追加・削除した部署や、変更前の本文）を記録しておき、1 つ前に戻すときに、記録した操作の種類に応じて処理を分ける、という実装ではないでしょうか？
-
-※`Article` クラスに変更はありません。
+真っ先に思いつくのは、編集画面のクラス（`ArticleEditor`）で、操作のたびに操作の種類と、取り消すために必要な情報（追加・削除した部署や、変更前の本文）を記録しておき、1 つ前に戻すときに、記録した操作の種類に応じて処理を分ける、という実装ではないでしょうか？
 
 **`EditRecord.java`**
 
@@ -288,7 +286,7 @@ public class ArticleEditor {
 }
 ```
 
-> `history` フィールドは、`Deque` インターフェースをスタック（後から入れたものを先に取り出す入れ物）として使っており、`push` メソッドで積んだ記録を、`pop` メソッドで新しいものから順に取り出します。
+> ※`history` フィールドは、`Deque` インターフェースをスタック（後から入れたものを先に取り出す入れ物）として使っており、`push` メソッドで積んだ記録を、`pop` メソッドで新しいものから順に取り除いて取得します。
 
 **`Main.java`**
 
@@ -334,14 +332,14 @@ public class Main {
 
 しかし、この実装には以下の問題点があります。
 
-- 取り消す処理と、操作の内容を表示する処理を、`undo`・`describe` メソッドの switch 文で、操作の種類ごとに分岐させて書いている。そのため、操作を 1 つ追加する（例えば「公開先の部署をすべて削除」）たびに、`EditRecord` クラスにその操作に必要な情報（削除した部署のリストなど）のフィールドを追加したうえで、`undo`・`describe` メソッドの両方の switch 文に分岐を書き足す必要がある。
+- 取り消す処理と、操作の内容を表示する処理を、`undo`・`describe` メソッドの `switch` 文で、操作の種類ごとに分岐させて書いている。そのため、操作を 1 つ追加する（例えば「公開先の部署をすべて削除」）たびに、`EditRecord` クラスにその操作を取り消すために必要な情報（削除した部署のリストなど）のフィールドを追加したうえで、`undo`・`describe` メソッドの両方の `switch` 文に分岐を書き足す必要がある。
     - その結果、`undo` メソッドへの書き足しを忘れると、コンパイルエラーも例外も発生しないまま、取り消した操作の内容は表示されるのに、記事の内容が元に戻らない不具合が生まれてしまう。
 
 ## 正しい実装
 
 では、好ましくない実装で挙げた問題点を解決するにはどうすればよいのでしょうか？
 
-これらの問題を解決するのが **Command パターン**です。<br>
+この問題を解決するのが **Command パターン**です。<br>
 Command パターンは、操作（命令）そのものを 1 つのオブジェクトとして表すパターンです。本記事では、本文の変更や公開先の部署の追加・削除といった編集操作を、それぞれ 1 つのクラスとして表します。
 
 まず、編集操作を表すクラスで使用する共通のインターフェースから見ていきましょう。
@@ -360,7 +358,7 @@ public interface EditCommand {
 }
 ```
 
-`EditCommand` は新たに追加したインターフェースで、操作を実行する抽象メソッド `execute`、操作を取り消す抽象メソッド `undo`、操作の内容を表す文字列を返す抽象メソッド `getDescription` を持ちます。
+`EditCommand` は新たに追加したインターフェースで、操作を実行する抽象メソッド `execute`、操作を取り消す抽象メソッド `undo`、操作の内容を返す抽象メソッド `getDescription` を持ちます。
 
 次に、共通のインターフェースを実装したクラスを見ていきましょう。
 
@@ -461,7 +459,7 @@ public class RemoveTargetDepartmentCommand implements EditCommand {
 
 `ChangeBodyCommand`・`AddTargetDepartmentCommand`・`RemoveTargetDepartmentCommand` は新たに追加したクラスで、それぞれ本文を変更する操作、公開先に部署を追加する操作、公開先から部署を削除する操作を表します。<br>
 いずれのクラスも、`execute` メソッドにより操作を実行し、`undo` メソッドによりその操作を取り消し、`getDescription` メソッドにより「1 つ前に戻す」で表示する操作の内容を返しています。<br>
-取り消すために必要な情報は、それぞれのクラスがフィールドとして持っています。`ChangeBodyCommand` クラスは、`execute` メソッドで本文を変更する直前に、変更前の本文を `oldBody` フィールドに保持しています。`AddTargetDepartmentCommand`・`RemoveTargetDepartmentCommand` クラスは、追加・削除する部署を `department` フィールドに保持しています（→ [【深堀り②】Strategy パターンとの違い](#深堀り2)）。
+それぞれのクラスは、取り消すために必要な情報をフィールドに保持しています。`ChangeBodyCommand` クラスは、`execute` メソッドで本文を変更する直前に、変更前の本文を `oldBody` フィールドに保持しています。`AddTargetDepartmentCommand`・`RemoveTargetDepartmentCommand` クラスは、追加・削除する部署を `department` フィールドに保持しています（→ [【深堀り②】Strategy パターンとの違い](#深堀り2)）。
 
 次に、操作を表すオブジェクトを使う側のクラスを見ていきましょう。
 
@@ -479,19 +477,19 @@ public class ArticleEditor {
     }
 
     public void changeBody(String body) {
-        execute(new ChangeBodyCommand(article, body)); // ←ここを修正
+        executeAndRecord(new ChangeBodyCommand(article, body)); // ←ここを修正
 
         System.out.println("[本文を変更] " + article.getSummary());
     }
 
     public void addTargetDepartment(String department) {
-        execute(new AddTargetDepartmentCommand(article, department)); // ←ここを修正
+        executeAndRecord(new AddTargetDepartmentCommand(article, department)); // ←ここを修正
 
         System.out.println("[公開先を追加] " + article.getSummary());
     }
 
     public void removeTargetDepartment(String department) {
-        execute(new RemoveTargetDepartmentCommand(article, department)); // ←ここを修正
+        executeAndRecord(new RemoveTargetDepartmentCommand(article, department)); // ←ここを修正
 
         System.out.println("[公開先を削除] " + article.getSummary());
     }
@@ -510,7 +508,7 @@ public class ArticleEditor {
         System.out.println("[" + command.getDescription() + "を1つ前に戻す] " + article.getSummary());
     }
 
-    private void execute(EditCommand command) {
+    private void executeAndRecord(EditCommand command) {
         command.execute();
         history.push(command);
     }
@@ -518,10 +516,10 @@ public class ArticleEditor {
 }
 ```
 
-`ArticleEditor` クラスを振り返ると、既存の仕様から `history` フィールドと `undo`・`execute` メソッドを追加し、`changeBody`・`addTargetDepartment`・`removeTargetDepartment` メソッドでは、`Article` クラスのメソッドを直接呼び出す代わりに、操作を表すオブジェクトを作って `execute` メソッドに渡すように修正しています。<br>
-`history` フィールドにより、実行した操作をオブジェクトのまま積み重ねて保持できるようにしています（→ [【深堀り①】Memento パターンとの違い](#深堀り1)）。<br>
-`execute` メソッドにより、受け取った操作を実行してから `history` フィールドに積んでいます。<br>
-`undo` メソッドにより、`history` フィールドから最後に積んだ操作を取り出し、その操作の `undo` メソッドで取り消しています。表示する操作の内容は、取り出した操作の `getDescription` メソッドから取得しています。
+`ArticleEditor` クラスを振り返ると、既存の仕様から `history` フィールドと `undo`・`executeAndRecord` メソッドを追加しています。また、`changeBody`・`addTargetDepartment`・`removeTargetDepartment` メソッドでは、`Article` クラスのメソッドを直接呼び出す代わりに、操作を表すオブジェクトを作って `executeAndRecord` メソッドに渡すように修正しています。<br>
+`history` フィールドでは、実行した操作をオブジェクトのまま積み重ねて保持できるようにしています（→ [【深堀り①】Memento パターンとの違い](#深堀り1)）。<br>
+`executeAndRecord` メソッドでは、受け取ったオブジェクトの `execute` メソッドを呼び出して記事を編集する処理を委譲してから、そのオブジェクトを `history` フィールドに積んでいます。<br>
+`undo` メソッドでは、最後に積んだオブジェクトを `history` フィールドから取り除いて取得し、そのオブジェクトの `undo` メソッドを呼び出して記事を元に戻す処理を委譲しています。表示する操作の内容は、そのオブジェクトの `getDescription` メソッドから取得しています。
 
 なお、`history` フィールドに積んだ操作は、1 つ前に戻さない限り、操作のたびに増え続けます（→ [【深堀り④】履歴が増え続けたときの上限](#深堀り4)）。
 
@@ -565,18 +563,18 @@ public class Main {
 [本文の変更を1つ前に戻す] 本文：新しい評価制度の説明会を開催します。／公開先：[人事部, 総務部]
 ```
 
-`Main` クラスは、好ましくない実装と同じです。
+`Main` クラスは好ましくない実装と同じです。
 
 実行結果は、好ましくない実装とまったく同じになっています。
 
 以上のような実装を行うと、以下のメリットがあります。
 
-- 1 つの操作に関する処理（実行・取り消し・操作の内容の表示）が、その操作を表すクラスにまとまっており、`ArticleEditor` クラスの `undo` メソッドは、操作の種類に関係なく `EditCommand` インターフェースのメソッドを呼び出すだけになっている。そのため、操作を追加しても、`EditCommand` インターフェースを実装したクラスを 1 つ追加すればよく、`undo` メソッドには手を加える必要がない。
-    - その結果、追加したクラスに取り消す処理を書き忘れるとコンパイルエラーになるため、取り消した操作の内容は表示されるのに記事の内容が元に戻らない不具合に気づかないまま動いてしまう、ということがなくなる。
+- 実行・取り消し・操作の内容の表示の処理と、取り消すために必要な情報が、操作ごとに 1 つのクラスにまとまっている。また、それらのクラスは共通の `EditCommand` インターフェースを実装しているため、`ArticleEditor` クラスの `undo` メソッドでは、操作の種類に関係なく同じメソッドを呼び出すだけで済んでいる。そのため、操作を 1 つ追加する（例えば「公開先の部署をすべて削除」）場合でも、`EditCommand` インターフェースを実装したクラスを 1 つ追加すればよく、既存の編集操作を表すクラスや `undo` メソッドには手を加える必要がない。
+    - その結果、追加したクラスに取り消す処理を書き忘れるとコンパイルエラーが発生するため、取り消した操作の内容は表示されるのに、記事の内容が元に戻らない不具合が生まれることはなくなる。
 
 ## まとめ
 
-正しい実装を振り返ると、本文の変更や公開先の部署の追加・削除といった編集操作を、それぞれ `EditCommand` インターフェースを実装したクラスとして表し、実行・取り消し・操作の内容の表示を、そのクラス自身に持たせています。`ArticleEditor` クラスは、実行した操作のオブジェクトを履歴に積んでおき、1 つ前に戻すときは、操作の種類を気にせず `undo` メソッドを呼び出すだけでよくなっています。<br>
+正しい実装を振り返ると、本文の変更や公開先の部署の追加・削除といった編集操作が、それぞれ `EditCommand` インターフェースを実装した 1 つのクラスになっています。また、実行・取り消し・操作の内容の表示は、それぞれのクラスが担っています。そのため、`ArticleEditor` クラスは、実行した操作を表すオブジェクトを履歴に積んでおき、1 つ前に戻すときは、最後に積んだオブジェクトの `undo` メソッドを呼び出すだけでよくなっています。<br>
 このように Command パターンは、操作そのものをオブジェクトとして表すことで、操作を履歴に残したり取り消したりといった扱いを、操作の種類に関係なく同じ形で行えるようにする設計パターンです。
 
 本記事の内容はここまでとなります。
@@ -698,7 +696,7 @@ public class ArticleEditor {
         for (String department: departments) {
             macroCommand.add(new AddTargetDepartmentCommand(article, department));
         }
-        execute(macroCommand);
+        executeAndRecord(macroCommand);
 
         System.out.println("[公開先をまとめて追加] " + article.getSummary());
     }
@@ -709,7 +707,7 @@ public class ArticleEditor {
 ※正しい実装から追加した `addTargetDepartments` メソッドと、それが使う `article` フィールドのみを記載し、他のフィールド・メソッドは省略しています。
 
 `ArticleEditor` クラスを振り返ると、正しい実装から `addTargetDepartments` メソッドを追加しています。<br>
-`addTargetDepartments` メソッドにより、受け取った部署ごとに `AddTargetDepartmentCommand` クラスのオブジェクトを作って `MacroCommand` クラスのオブジェクトにまとめ、他の操作と同じく `execute` メソッドに渡しています。
+`addTargetDepartments` メソッドにより、受け取った部署ごとに `AddTargetDepartmentCommand` クラスのオブジェクトを作って `MacroCommand` クラスのオブジェクトにまとめ、他の操作と同じく `executeAndRecord` メソッドに渡しています。
 
 **`Main.java`**
 
@@ -764,7 +762,7 @@ public class ArticleEditor {
     private static final int MAX_HISTORY = 50; // ←ここを追加
     private Deque<EditCommand> history = new ArrayDeque<>();
 
-    private void execute(EditCommand command) {
+    private void executeAndRecord(EditCommand command) {
         command.execute();
         history.push(command);
         /* ここを追加（ここから） */
@@ -777,7 +775,7 @@ public class ArticleEditor {
 }
 ```
 
-※正しい実装から追加した `MAX_HISTORY` 定数と、修正した `execute` メソッド、それが使う `history` フィールドのみを記載し、他のフィールド・メソッドは省略しています。また、`MAX_HISTORY` の `50` は説明のための値です。実際には、何回まで戻せれば十分かに応じて決めます。
+※正しい実装から追加した `MAX_HISTORY` 定数と、修正した `executeAndRecord` メソッド、それが使う `history` フィールドのみを記載し、他のフィールド・メソッドは省略しています。また、`MAX_HISTORY` の `50` は説明のための値です。実際には、何回まで戻せれば十分かに応じて決めます。
 
 `Deque` インターフェースの `push` メソッドで積んだ操作は履歴の先頭に入るため、最も古い操作は末尾にあります。そのため、上限（`MAX_HISTORY`）を超えたら `Deque` インターフェースの `removeLast` メソッドで末尾の 1 つを捨てることにより、履歴は常に新しいものから 50 件までに保たれるようになります。<br>
 デメリットとして、上限を超えて捨てた古い操作は、取り消せなくなることが挙げられます。
@@ -873,7 +871,7 @@ public class UndoManager extends CompoundEdit implements UndoableEditListener {
 > 引用元: OpenJDK [UndoManager.java](https://github.com/openjdk/jdk/blob/master/src/java.desktop/share/classes/javax/swing/undo/UndoManager.java)
 
 `UndoManager` クラスは、本記事の `ArticleEditor` クラスの `history` フィールドと `undo` メソッドにあたります。<br>
-`undoTo` メソッドでは、履歴（`edits` フィールド）から操作を取り出し、その操作の `undo` メソッドを呼び出して取り消しています。取り出した操作は `UndoableEdit` 型として扱っており、具体的にどのクラスのオブジェクトなのかを区別していません。本記事の `ArticleEditor` クラスの `undo` メソッドと同じく、操作の種類を気にせず `undo` メソッドを呼び出すだけです。
+`undoTo` メソッドでは、履歴（`edits` フィールド）から操作を取得し、その操作の `undo` メソッドを呼び出して取り消しています。取得した操作は `UndoableEdit` 型として扱っており、具体的にどのクラスのオブジェクトなのかを区別していません。本記事の `ArticleEditor` クラスの `undo` メソッドと同じく、操作の種類を気にせず `undo` メソッドを呼び出すだけです。
 
 Swing のテキスト入力欄（`JTextArea` クラスなど）では、`textArea.getDocument().addUndoableEditListener(undoManager)` のように `UndoManager` オブジェクトを登録するだけで、入力した文字を元に戻せるようになります。文字を入力するたびに、テキスト入力欄が `InsertUndo` オブジェクトを含む `UndoableEdit` オブジェクトを作り、`UndoManager` クラスの履歴に積むためです。<br>
 このように、テキスト入力欄に「元に戻す」機能を付ける開発者は、意識しないうちに Command パターンを使っていることになります。
