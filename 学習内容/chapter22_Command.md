@@ -796,9 +796,9 @@ public class ArticleEditor {
 
 ## 【深堀り⑤】Java 標準ライブラリにおける Command パターンの例
 
-Java の標準ライブラリでは、`javax.swing.undo` パッケージと、それを使う Swing（Java で画面を作るためのライブラリ）のテキスト入力欄が、Command パターンの具体例として挙げられます。
+Command パターンは、Java の標準ライブラリにも使われています。代表的なのが、`javax.swing.undo` パッケージと、それを使う Swing（Java で画面を作るためのライブラリ）のテキスト入力欄です。
 
-まず、取り消せる操作を表すインターフェースを見ていきましょう。
+まず、取り消せる操作を表すインターフェースから見ていきましょう。
 
 **`UndoableEdit.java`（一部抜粋）**
 
@@ -819,9 +819,9 @@ public interface UndoableEdit {
 
 > 引用元: OpenJDK [UndoableEdit.java](https://github.com/openjdk/jdk/blob/master/src/java.desktop/share/classes/javax/swing/undo/UndoableEdit.java)
 
-`UndoableEdit` インターフェースは、本記事の `EditCommand` インターフェースにあたります。抽象メソッド `undo` は本記事の抽象メソッド `undo` に、「元に戻す」で表示する操作の内容を返す抽象メソッド `getUndoPresentationName` は本記事の抽象メソッド `getDescription` にあたります。抽象メソッド `redo`・`getRedoPresentationName` は、本記事では扱っていない「やり直す」のためのものです。
+`UndoableEdit` インターフェースは、本記事の `EditCommand` インターフェースにあたり、操作を取り消すための抽象メソッド `undo` を持っています。その他の抽象メソッドは、画面に表示する操作の名前を返すものや、本記事では扱っていない「やり直す」のためのものです。
 
-次に、このインターフェースを実装したクラスを見ていきましょう。テキスト入力欄の文字を管理する `GapContent` クラスの中に、文字を挿入する操作を表す `InsertUndo` クラスがあります。
+次に、このインターフェースを実装したクラスを見ていきましょう。
 
 **`GapContent.java`（一部抜粋）**
 
@@ -857,8 +857,8 @@ public class GapContent extends GapVector implements AbstractDocument.Content, S
 
 > 引用元: OpenJDK [GapContent.java](https://github.com/openjdk/jdk/blob/master/src/java.desktop/share/classes/javax/swing/text/GapContent.java)
 
-`InsertUndo` クラスは、`UndoableEdit` インターフェースを実装した `AbstractUndoableEdit` クラスを継承しており、本記事の `AddTargetDepartmentCommand` クラスにあたります。<br>
-テキスト入力欄に文字を挿入するたびに、挿入した位置（`offset`）と長さ（`length`）を持たせた `InsertUndo` オブジェクトが作られます。そして、`undo` メソッドでは、保持している位置と長さの範囲の文字を `remove` メソッドで削除して、挿入を取り消しています。「追加した部署を保持し、`undo` メソッドでその部署を削除する」`AddTargetDepartmentCommand` クラスと同じく、取り消すために必要な情報を、操作を表すオブジェクト自身が持っています。
+テキスト入力欄の文字を管理する `GapContent` クラスの中にある `InsertUndo` クラスは、「文字を挿入する」操作を表すクラスです。本記事の `AddTargetDepartmentCommand` クラスにあたり、`UndoableEdit` インターフェースを実装した `AbstractUndoableEdit` クラスを継承しています。<br>
+テキスト入力欄に文字を挿入するたびに、挿入した位置（`offset`）と長さ（`length`）を持たせた `InsertUndo` オブジェクトが作られます。そして、`undo` メソッドでは、保持している位置と長さの範囲の文字を `remove` メソッドで削除して、挿入を取り消しています。これは、`AddTargetDepartmentCommand` クラスが追加した部署を保持し、`undo` メソッドでその部署を削除するのと同じ流れです。どちらも、取り消すために必要な情報を、操作を表すオブジェクト自身が持っています。
 
 最後に、操作を表すオブジェクトを履歴に積んで取り消すクラスを見ていきましょう。
 
@@ -882,11 +882,14 @@ public class UndoManager extends CompoundEdit implements UndoableEditListener {
 
 > 引用元: OpenJDK [UndoManager.java](https://github.com/openjdk/jdk/blob/master/src/java.desktop/share/classes/javax/swing/undo/UndoManager.java)
 
-`UndoManager` クラスは、本記事の `ArticleEditor` クラスの `history` フィールドと `undo` メソッドにあたります。<br>
-`undoTo` メソッドでは、履歴（`edits` フィールド）から操作を取得し、その操作の `undo` メソッドを呼び出して取り消しています。取得した操作は `UndoableEdit` 型として扱っており、具体的にどのクラスのオブジェクトなのかを区別していません。本記事の `ArticleEditor` クラスの `undo` メソッドと同じく、操作の種類を気にせず `undo` メソッドを呼び出すだけです。
+`UndoManager` クラスは、本記事の `ArticleEditor` クラスにあたり、操作を表すオブジェクトを履歴（`edits` フィールド）に保持しています。<br>
+`undoTo` メソッドでは、履歴から取得した操作を `UndoableEdit` 型として扱っているため、`ArticleEditor` クラスの `undo` メソッドと同じく、操作の種類を気にせず `undo` メソッドを呼び出して、取り消しを委譲しています。
 
-Swing のテキスト入力欄（`JTextArea` クラスなど）では、`textArea.getDocument().addUndoableEditListener(undoManager)` のように `UndoManager` オブジェクトを登録するだけで、入力した文字を元に戻せるようになります。文字を入力するたびに、テキスト入力欄が `InsertUndo` オブジェクトを含む `UndoableEdit` オブジェクトを作り、`UndoManager` クラスの履歴に積むためです。<br>
-このように、テキスト入力欄に「元に戻す」機能を付ける開発者は、意識しないうちに Command パターンを使っていることになります。
+なお、`while` ループは、取り消しの単位として数えない細かな操作（`isSignificant` メソッドが `false` を返す操作）があった場合に、それもまとめて取り消すためのものです。Command パターンの理解には関係しない部分なので、読み飛ばして構いません。
+
+Swing のテキスト入力欄（`JTextArea` クラスなど）を使ってアプリを作る場合は、`textArea.getDocument().addUndoableEditListener(undoManager)` のように `UndoManager` オブジェクトを登録し、「元に戻す」ボタンなどから `undoManager.undo()` を呼び出すだけで、入力した文字を元に戻せるようになります。これは、文字を入力するたびに、テキスト入力欄が `InsertUndo` オブジェクトを含む `UndoableEdit` オブジェクトを作り、`UndoManager` クラスの履歴に積むためです。
+
+このように、Command パターンは Java の標準ライブラリで使われているため、テキスト入力欄に「元に戻す」機能を付ける開発者は、意識しないうちにこのパターンを使っていることになります。
 
 <a id="深堀り6"></a>
 
